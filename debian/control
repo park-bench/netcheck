@@ -1,0 +1,11 @@
+Source: netcheck
+Section: parkbench
+Priority: required
+Maintainer: eviljoel, Andrew Klapp
+#Build-Depends:
+Standards-Version: 3.9.6.1
+
+Package: netcheck
+Architecture: any
+Depends: timber,network-manager
+Description: Finds the best path out to the Internet.

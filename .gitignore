@@ -1,0 +1,5 @@
+debian/tmp
+debian/debhelper.log
+debian/files
+src/etc/opt/netcheck/netcheck.conf
+src/var/opt/log/netcheck.log
