@@ -7,5 +7,5 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: any
-Depends: timber,network-manager
+Depends: timber,network-manager,python-dnspython
 Description: Finds the best path out to the Internet.

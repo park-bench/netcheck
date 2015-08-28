@@ -1,14 +1,14 @@
 #!/usr/bin/env python2
 
-import checkers
+import netcheck
 import os
 import signal
 import sys
 import timber
 import traceback
 
-LOG_FILE = '/var/opt/log/checkers.log'
-PID_FILE = '/var/opt/run/checkers.pid'
+LOG_FILE = '/var/opt/log/netcheck.log'
+PID_FILE = '/var/opt/run/netcheck.pid'
 LOG_LEVEL = 'trace'
 
 logger = timber.get_instance_with_filename(LOG_FILE, LOG_LEVEL)
@@ -62,10 +62,10 @@ signal.signal(signal.SIGTERM, sig_term_handler)
 
 try:
     wired_network_name = 'The Wired'
-    wifi_network_names = [ 'xfinitywifi', 'CivicLab' ]
+    wifi_network_names = [ 'xfinitywifi', 'CivicLab', 'SPACE' ]
     nameservers = [ '8.8.8.8', '31.220.5.106', '213.73.91.35' ]
     queries = [ 'google.com', 'facebook.com', 'wikipedia.org']
-    the_checker = checkers.checker(wired_network_name, wifi_network_names, nameservers, queries)
+    the_checker = netcheck.checker(wired_network_name, wifi_network_names, nameservers, queries)
     the_checker.check_loop()
 
 except Exception as e:
