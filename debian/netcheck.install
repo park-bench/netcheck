@@ -1,2 +1,3 @@
 src/opt/* opt
 src/var/* var
+src/etc/* etc
