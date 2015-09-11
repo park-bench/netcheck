@@ -1,3 +1,9 @@
+netcheck (0.2) stable; urgency=low
+
+  * Version bumping because I forgot to sign my commit.
+
+ -- eviljoel <eviljoel@rebel>  Thu, 10 Sep 2015 21:17:27 -0500
+
 netcheck (0.1) stable; urgency=low
 
   * Adding debuild support.
