@@ -11,6 +11,8 @@
 
 # Author: Joel Luellwitz <eviljoel@linux.com>, Andrew Klapp <andklapp@null.net>
 
+# TODO: Update description above. I think it is obvious that this is an init script.
+
 # Do NOT "set -e"
 
 PATH=/sbin:/usr/sbin:/bin:/usr/bin

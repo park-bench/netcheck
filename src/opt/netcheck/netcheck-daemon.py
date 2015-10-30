@@ -7,12 +7,15 @@ import sys
 import timber
 import traceback
 
+# TODO: Follow Python variable conventions (lowercase)
+# TODO: Add configuration file support.
 LOG_FILE = '/var/opt/log/netcheck.log'
 PID_FILE = '/var/opt/run/netcheck.pid'
 LOG_LEVEL = 'trace'
 
 logger = timber.get_instance_with_filename(LOG_FILE, LOG_LEVEL)
 
+# TODO: Break out into common library.
 def daemonize():
     # Fork the first time to make init our parent.
     try:
@@ -22,7 +25,8 @@ def daemonize():
     except OSError, e:
         logger.fatal("Failed to make parent process init: %d (%s)" % (e.errno, e.strerror))
         sys.exit(1)
-  
+ 
+    # TODO: Consider locking this down. 
     os.chdir("/")  # Change the working directory
     os.setsid()  # Create a new process session.
     os.umask(0)
@@ -55,7 +59,7 @@ daemonize()
 
 # Quit when SIGTERM is received
 def sig_term_handler(signal, stack_frame):
-    logger.fatal("Recieved SIGTERM, quitting.")
+    logger.info("Recieved SIGTERM, quitting.")
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, sig_term_handler)
@@ -70,5 +74,5 @@ try:
 
 except Exception as e:
     logger.fatal("%s: %s\n" % (type(e).__name__, e.message))
-    logger.fatal(traceback.format_exc())
+    logger.debug(traceback.format_exc())
     sys.exit(1)
