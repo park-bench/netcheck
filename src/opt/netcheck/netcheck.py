@@ -14,15 +14,14 @@ import timber
 # TODO: Add some documentation.
 class checker:
     # TODO: We should probably pass in a dict instead of having a million parameters.
-    # TODO: I'm thinking we shouldn't have default values. They should only be specified in the configuration.
-    def __init__(self, wired_network_name, wifi_network_names, nameservers, queries, dig_timeout=10, nmcli_timeout=20):
+    def __init__(self, config):
         #TODO: value checking?
-        self.wired_network_name = wired_network_name
-        self.wifi_network_names = wifi_network_names
-        self.nameservers = nameservers
-        self.queries = queries
-        self.nmcli_timeout = nmcli_timeout
-        self.dig_timeout = dig_timeout
+        self.wired_network_name = config['wired_network_name']
+        self.wifi_network_names = config['wifi_network_names']
+        self.nameservers = config['nameservers']
+        self.queries = config['dns_queries']
+        self.nmcli_timeout = config['nmcli_timeout']
+        self.dig_timeout = config['dig_timeout']
 
 
         self.logger = timber.get_instance()
