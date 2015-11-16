@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+import confighelper
+import ConfigParser
 import netcheck
 import os
 import signal
@@ -8,12 +10,7 @@ import timber
 import traceback
 
 # TODO: Follow Python variable conventions (lowercase)
-# TODO: Add configuration file support.
-LOG_FILE = '/var/opt/log/netcheck.log'
 PID_FILE = '/var/opt/run/netcheck.pid'
-LOG_LEVEL = 'info'
-
-logger = timber.get_instance_with_filename(LOG_FILE, LOG_LEVEL)
 
 # TODO: Break out into common library.
 def daemonize():
@@ -54,7 +51,30 @@ def daemonize():
     pidFile = file(PID_FILE,'w')
     pidFile.write("%s\n" % pid)
     pidFile.close()
-    
+
+# Verify config file here.
+
+config_file = ConfigParser.SafeConfigParser()
+config_file.read('/etc/opt/netcheck/netcheck.conf')
+
+# Get logging options first.
+config_helper = confighelper.ConfigHelper()
+log_file = config_helper.verify_string_exists_prelogging(config_file, 'log_file')
+log_level = config_helper.verify_string_exists_prelogging(config_file, 'log_level')
+
+# Start the logger.
+logger = timber.get_instance_with_filename(log_file, log_level)
+
+# Now read the rest of them.
+config = {}
+config['dig_timeout'] = config_helper.verify_number_exists(config_file, 'dig_timeout')
+config['nmcli_timeout'] = config_helper.verify_number_exists(config_file, 'nmcli_timeout')
+
+config['wired_network_name'] = config_helper.verify_string_exists(config_file, 'wired_network_name')
+config['wifi_network_names'] = config_helper.verify_string_exists(config_file, 'wifi_network_names').split(',')
+config['nameservers'] = config_helper.verify_string_exists(config_file, 'nameservers').split(',')
+config['dns_queries'] = config_helper.verify_string_exists(config_file, 'dns_queries').split(',')
+
 daemonize()
 
 # Quit when SIGTERM is received
@@ -65,11 +85,7 @@ def sig_term_handler(signal, stack_frame):
 signal.signal(signal.SIGTERM, sig_term_handler)
 
 try:
-    wired_network_name = 'The Wired'
-    wifi_network_names = [ 'xfinitywifi', 'CivicLab', 'SPACE' ]
-    nameservers = [ '8.8.8.8', '31.220.5.106', '213.73.91.35' ]  # TODO: Do we want to keep using Google? There are many that are not logged.
-    queries = [ 'google.com', 'facebook.com', 'wikipedia.org']
-    the_checker = netcheck.checker(wired_network_name, wifi_network_names, nameservers, queries)
+    the_checker = netcheck.checker(config)
     the_checker.check_loop()
 
 except Exception as e:
