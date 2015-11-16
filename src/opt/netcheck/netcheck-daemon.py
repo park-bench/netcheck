@@ -11,7 +11,7 @@ import traceback
 # TODO: Add configuration file support.
 LOG_FILE = '/var/opt/log/netcheck.log'
 PID_FILE = '/var/opt/run/netcheck.pid'
-LOG_LEVEL = 'trace'
+LOG_LEVEL = 'info'
 
 logger = timber.get_instance_with_filename(LOG_FILE, LOG_LEVEL)
 
@@ -67,12 +67,12 @@ signal.signal(signal.SIGTERM, sig_term_handler)
 try:
     wired_network_name = 'The Wired'
     wifi_network_names = [ 'xfinitywifi', 'CivicLab', 'SPACE' ]
-    nameservers = [ '8.8.8.8', '31.220.5.106', '213.73.91.35' ]
+    nameservers = [ '8.8.8.8', '31.220.5.106', '213.73.91.35' ]  # TODO: Do we want to keep using Google? There are many that are not logged.
     queries = [ 'google.com', 'facebook.com', 'wikipedia.org']
     the_checker = netcheck.checker(wired_network_name, wifi_network_names, nameservers, queries)
     the_checker.check_loop()
 
 except Exception as e:
     logger.fatal("%s: %s\n" % (type(e).__name__, e.message))
-    logger.debug(traceback.format_exc())
+    logger.error(traceback.format_exc())
     sys.exit(1)
