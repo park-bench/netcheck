@@ -17,11 +17,14 @@ class NetworkMetaManager:
         # Run command with subprocess.call, redirecting output to /dev/null.
         # Return True upon success, False otherwise.
         # command_list is a command split into a list, not a list of separate commands.
-        devnull = open(os.devnull, 'w')
-
-        # Don't redirect to /dev/null for debug.
-        exit_code = subprocess.call(command_list)
-        #exit_code = subprocess.call(command_list, stdin=devnull, stdout=devnull, stderr=devnull)
+        exit_code = None
+        try:
+            devnull = open(os.devnull, 'w')
+            exit_code = subprocess.call(command_list, stdin=devnull, stdout=devnull, stderr=devnull)
+            devnull.close()
+        except:
+            # Eat exceptions because it will properly return False this way.
+            pass
 
         if(exit_code == 0):
             return True
