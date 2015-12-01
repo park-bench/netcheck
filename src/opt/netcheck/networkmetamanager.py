@@ -1,7 +1,10 @@
 import os
 import subprocess
 
-# TODO: Add a class level description.
+# NetworkMetaManager provides an easy to work with interface for some of
+# NetworkManager's basic functions.  It uses nmcli and handles both the current
+# 1.x and the older 0.x output.
+
 class NetworkMetaManager:
 
     def __init__(self, nmcli_timeout):
@@ -14,6 +17,9 @@ class NetworkMetaManager:
         raw_version = subprocess.check_output([ 'nmcli', '--version' ])
         version_string = raw_version.split()[3]
         self.major_version = int(version_string.split('.')[0])
+
+        # Easy /dev/null access
+        self.devnull = open(os.devnull, 'w')
  
     # TODO: Method documentation
     # Return True upon success, False otherwise.
@@ -22,13 +28,9 @@ class NetworkMetaManager:
 
         exit_code = None
         try:
-            # TODO: Move devnull back into self. Opening file handles probably isn't cheap.
-            devnull = open(os.devnull, 'w')
             # Run command with subprocess.call, redirecting output to /dev/null.
-            exit_code = subprocess.call(command_list, stdin=devnull, stdout=devnull, stderr=devnull)
-            devnull.close()
+            exit_code = subprocess.call(command_list, stdin=self.devnull, stdout=self.devnull, stderr=self.devnull)
         except:
-            # TODO: Probably?
             # Eat exceptions because it will properly return False this way.
             pass
 
@@ -69,47 +71,46 @@ class NetworkMetaManager:
     # Get the current IP address for network_name's interface
     def get_interface_ip(self, network_name):
 
-        if (self.is_connected(network_name)):
-            # yucky text parsing
-            if (self.major_version < 1):
-                nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
-                # TODO: Explain in a larger comment what the returned format looks like.
-                #   Do this in similar places too.
-                ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
-                ip_raw = ip_line.split()[2]
-                return ip_raw.split('/')[0]
+        interface_ip = None
+        # yucky text parsing
+        if (self.major_version < 1):
+            # We are only interested in the first line of this output.
+            # It should look something like this:
+            # IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
+            nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
+            ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
+            ip_raw = ip_line.split()[2]
+            interface_ip = ip_raw.split('/')[0]
 
-            elif (self.major_version >= 1):
-                # I can't test this on this system.  It should work though.
-                # TODO: Test this if we care enough to.
-                nmcli_command = ['nmcli', '-t', '-f', 'ip4.address', 'connection', 'show', network_name]
-                ip_raw = subprocess.check_output(nmcli_command).split(':')[1]
-                return ip_raw.split('/')[0]
-        else:
-            # TODO: Handle this case, throw in a log message.
-            # TODO: Instead of passing, explicitly return the value you want to return.
-            #   Actually, I would probably get rid of the multiple returns as I think multiple
-            #   returns tends to lead to hard to read code. Same for the next method.
-            pass
+        elif (self.major_version >= 1):
+            # I can't test this on this system.  It should work though.
+            # TODO: Test this if we care enough to.
+            nmcli_command = ['nmcli', '-t', '-f', 'ip4.address', 'connection', 'show', network_name]
+            ip_raw = subprocess.check_output(nmcli_command).split(':')[1]
+            return ip_raw.split('/')[0]
+
+        return interface_ip
  
 
     # Get the current gateway address for network_name
     def get_gateway_ip(self, network_name):
 
-        if (self.is_connected(network_name)):
-            # more yucky text parsing
-            if (self.major_version < 1):
-                nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
-                ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
-                return ip_line.split()[5]
+        gateway_ip = None
+        # more yucky text parsing
+        if (self.major_version < 1):
+            nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
+            # We are only interested in the first line of this output.
+            # It should look something like this:
+            # IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
+            ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
+            gateway_ip = ip_line.split()[5]
 
-            elif (self.major_version >= 1):
-                # I can't test this on this system either.
-                # TODO: Test this if we care enough to.
-                nmcli_command = ['nmcli', '-t', '-f', 'ip4.gateway', 'connection', 'show', network_name]
-                ip_raw = subprocess.check_output(nmcli_command).split(':')[1]
-                return ip_raw.replace('\n', '')
-        else:
-            # TODO: Handle this case, throw in a log message.
-            pass
+        elif (self.major_version >= 1):
+            # I can't test this on this system either.
+            # TODO: Test this if we care enough to.
+            nmcli_command = ['nmcli', '-t', '-f', 'ip4.gateway', 'connection', 'show', network_name]
+            ip_raw = subprocess.check_output(nmcli_command).split(':')[1]
+            gateway_ip = ip_raw.replace('\n', '')
+
+        return gateway_ip
 

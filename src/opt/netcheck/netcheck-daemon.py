@@ -85,7 +85,7 @@ def sig_term_handler(signal, stack_frame):
 signal.signal(signal.SIGTERM, sig_term_handler)
 
 try:
-    the_checker = netcheck.checker(config)
+    the_checker = netcheck.NetCheck(config)
     the_checker.check_loop()
 
 except Exception as e:
