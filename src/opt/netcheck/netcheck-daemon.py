@@ -9,8 +9,7 @@ import sys
 import timber
 import traceback
 
-# TODO: Follow Python variable conventions (lowercase)
-PID_FILE = '/var/opt/run/netcheck.pid'
+pid_file = '/var/opt/run/netcheck.pid'
 
 # TODO: Break out into common library.
 def daemonize():
@@ -48,7 +47,7 @@ def daemonize():
     os.close(devnull)
 
     pid = str(os.getpid())
-    pidFile = file(PID_FILE,'w')
+    pidFile = file(pid_file,'w')
     pidFile.write("%s\n" % pid)
     pidFile.close()
 

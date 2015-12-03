@@ -2,9 +2,8 @@ import os
 import subprocess
 
 # NetworkMetaManager provides an easy to work with interface for some of
-# NetworkManager's basic functions.  It uses nmcli and handles both the current
-# 1.x and the older 0.x output.
-
+#   NetworkManager's basic functions. It uses the 'nmcli' command and supports NetworkManager
+#   versions 0.x and 1.x.
 class NetworkMetaManager:
 
     def __init__(self, nmcli_timeout):
@@ -21,9 +20,9 @@ class NetworkMetaManager:
         # Easy /dev/null access
         self.devnull = open(os.devnull, 'w')
  
-    # TODO: Method documentation
-    # Return True upon success, False otherwise.
+    # Invokes a program on the system.
     #   Param command_list is a command split into a list, not a list of separate commands.
+    #   Returns True upon success, False otherwise.
     def _subprocess_call(self, command_list):
 
         exit_code = None
@@ -32,11 +31,12 @@ class NetworkMetaManager:
             exit_code = subprocess.call(command_list, stdin=self.devnull, stdout=self.devnull, stderr=self.devnull)
         except:
             # Eat exceptions because it will properly return False this way.
+            # TODO: Log the exception. While you are at it, log the command and the return status.
             pass
 
         return exit_code == 0
 
-    # Try to connect to a network, return true on success, false on failure
+    # Try to connect to a network, return true on success, false on failure.
     def connect(self, network_name):
 
         # Different versions have different parameters
@@ -59,24 +59,26 @@ class NetworkMetaManager:
 
         return self._subprocess_call(nmcli_command)
 
-    # Check for network connectivity, not including DNS
+    # Check for network connectivity, not including DNS.
     def is_connected(self, network_name):
 
         nmcli_command = ['nmcli', 'c', 's']
+        # TODO: You might be able to simply: 
+        #   return network_name in subprocess.check_output(nmcli_command)
         if (network_name in subprocess.check_output(nmcli_command)):
             return True
         else:
             return False
 
-    # Get the current IP address for network_name's interface
+    # Get the current IP address for network_name's interface.
     def get_interface_ip(self, network_name):
 
         interface_ip = None
         # yucky text parsing
         if (self.major_version < 1):
             # We are only interested in the first line of this output.
-            # It should look something like this:
-            # IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
+            #   It should look something like this:
+            #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
             nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
             ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
             ip_raw = ip_line.split()[2]
@@ -92,7 +94,7 @@ class NetworkMetaManager:
         return interface_ip
  
 
-    # Get the current gateway address for network_name
+    # Get the current gateway address for network_name.
     def get_gateway_ip(self, network_name):
 
         gateway_ip = None
@@ -100,8 +102,8 @@ class NetworkMetaManager:
         if (self.major_version < 1):
             nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
             # We are only interested in the first line of this output.
-            # It should look something like this:
-            # IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
+            #   It should look something like this:
+            #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
             ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
             gateway_ip = ip_line.split()[5]
 
