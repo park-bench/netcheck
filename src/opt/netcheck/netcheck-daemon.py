@@ -68,11 +68,14 @@ logger = timber.get_instance_with_filename(log_file, log_level)
 config = {}
 config['dig_timeout'] = config_helper.verify_number_exists(config_file, 'dig_timeout')
 config['nmcli_timeout'] = config_helper.verify_number_exists(config_file, 'nmcli_timeout')
+config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_range')
+config['backup_network_max_usage_delay'] = config_helper.verify_number_exists(config_file, 'backup_network_max_usage_delay')
 
 config['wired_network_name'] = config_helper.verify_string_exists(config_file, 'wired_network_name')
 config['wifi_network_names'] = config_helper.verify_string_exists(config_file, 'wifi_network_names').split(',')
 config['nameservers'] = config_helper.verify_string_exists(config_file, 'nameservers').split(',')
 config['dns_queries'] = config_helper.verify_string_exists(config_file, 'dns_queries').split(',')
+config['backup_network_name'] = config_helper.verify_string_exists(config_file, 'backup_network_name')
 
 daemonize()
 

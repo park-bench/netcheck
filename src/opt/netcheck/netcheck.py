@@ -1,3 +1,4 @@
+import datetime
 import dns.resolver
 import networkmetamanager
 import random
@@ -13,8 +14,7 @@ class NetCheck:
     def __init__(self, config):
 
         self.config = config
-        # TODO: Add sleep interval range config option, set it manually for now
-        self.sleep_range = 150
+        self.backup_network_check_time = datetime.date.today()
 
         # Get logger
         self.logger = timber.get_instance()
@@ -38,8 +38,6 @@ class NetCheck:
         interface_ip = self.network_meta.get_interface_ip(network)
         self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
         success = False
-        # TODO: We try to connect to up to 2 times, but the route will be the same. This leads
-        #   me to believe this is the wrong place to add the route.
         # Add a route for this query, otherwise it will not use the specified network.
         route_command = ['ip', 'route', 'replace', '%s/32' % nameserver, 'via', gateway_ip]
         if(self.network_meta._subprocess_call(route_command)):
@@ -59,10 +57,12 @@ class NetCheck:
         if(self.network_meta._subprocess_call(['ip', 'route', 'del', nameserver])):
             self.logger.debug('Removed route.')
         else:
-            # TODO: Is this program going to behave right if this fails? This should probably
-            #   be an error level log. Makes me also wonder if we should eventually rewrite this
-            #   program in a way that encourages self recovery.
-            self.logger.warn('Removing route failed.')
+            # TODO: Find a better way to deal with DNS over a specific interface than using route
+            # TODO: This is not a problem if removing the route failed because 
+            #   it isn't there in the first place, which is usually why it fails.
+            #   It is a problem if somehow the old route is still there.  Figure
+            #   out how to recover from that gracefully.
+            self.logger.error('Removing route failed.')
         return success
 
     # TODO: Document
@@ -75,23 +75,20 @@ class NetCheck:
         dns_works = False
         
         self.logger.info('Trying DNS on %s.' % network)
-        # TODO: is_connected is sometimes already called in the case of both wired and
-        #   wireless networks.
-        if(self.network_meta.is_connected(network)):
-            # TODO: Do the route stuff here instead.
-            self.logger.debug('First DNS query on %s.' % network)
-            if(self._DNS_query(network, nameservers[0], query_names[0])):
+        self.logger.debug('First DNS query on %s.' % network)
+        if(self._DNS_query(network, nameservers[0], query_names[0])):
+            dns_works = True
+        else:
+            self.logger.debug('Second DNS query on %s.' % network)
+            if(self._DNS_query(network, nameservers[1], query_names[1])):
                 dns_works = True
             else:
-                self.logger.debug('Second DNS query on %s.' % network)
-                if(self._DNS_query(network, nameservers[1], query_names[1])):
-                    dns_works = True
-                else:
-                    self.logger.warn('Two failed DNS queries on %s, assume it is down.' % network)
-        else:
-            self.logger.warn('Attempted to check DNS on disconnected network %s.' % network)
+                self.logger.warn('Two failed DNS queries on %s, assume it is down.' % network)
 
         return dns_works
+
+    def _connect_and_check_DNS(self, network):
+        pass
 
     # TODO: Document
     def _try_wifi_networks(self, index):
@@ -146,6 +143,25 @@ class NetCheck:
     def check_loop(self):
         # Check wired network and call _try_wifi_networks if it's down
         self.logger.info('Check loop starting.')
+        # TODO: Check a specific wifi network on a random range of 27 days.
+        # TODO: Recalculate that interval every time the network is checked.
+
+        if(datetime.date.today() >= self.backup_network_check_time):
+            if(self.network_meta.connect(self.config['backup_network_name'])):
+                if(self._DNS_works(self.config['backup_network_name'])):
+                    # TODO: Download a small file here?
+                    self.logger.info('Backup network still active.')
+                else:
+                    self.logger.warn('Backup network does not have DNS.')
+            else:
+                self.logger.warn('Cannot connect to backup network.')
+
+            self.backup_network_check_time = datetime.date.today() + \
+                datetime.timedelta(days=random.randrange(self.config['backup_network_max_usage_delay']))
+            self.logger.info('Checking again in %s.' % self.backup_network_check_time)
+        else:
+            self.logger.debug('Skipping backup network check.')
+
         while True:
             # TODO: Add a try about here to make this loop fault tolerant.
 
@@ -155,11 +171,14 @@ class NetCheck:
                     self.logger.info('Wired network has DNS. Sleeping')
                     # TODO: Consider putting the sleep at the bottom of the loop instead of 
                     #   everywhere. This seems error prone.
-                    time.sleep(random.randrange(self.sleep_range))
+                    time.sleep(random.randrange(self.config['sleep_range']))
                 elif(self._try_wifi_networks(0)):
-                    # TODO: Shouldn't there be an else with a sleep here?
                     self.logger.info('Wifi network working, sleeping.')
-                    time.sleep(random.randrange(self.sleep_range))
+                    time.sleep(random.randrange(self.config['sleep_range']))
+                else:
+                    self.logger.warn('Wifi and wired networks are down.  Sleeping.')
+                    time.sleep(random.randrange(self.config['sleep_range']))
+                    
 
             elif(self.network_meta.connect(self.config['wired_network_name'])):
                 self.logger.info('Wired network connected.')
@@ -167,7 +186,7 @@ class NetCheck:
             elif(self.connected_wifi_index):
                 if(self._DNS_works(self.wifi_networks[self.connected_wifi_index]['name'])):
                     self.logger.warn('Wired network down, but current wifi network is up. Sleeping.')
-                    time.sleep(random.randrange(self.sleep_range))
+                    time.sleep(random.randrange(self.config['sleep_range']))
                 else:
                     self.logger.info('Current wifi network is down.')
                     self.connected_wifi_index = None
@@ -176,5 +195,5 @@ class NetCheck:
                 # TODO: Ideally this should be only called once in this method. I should
                 #   take a stab a rewriting this method.
                 self._try_wifi_networks(0)
-                # TODO: Shouldn't there be a sleep here?
+                time.sleep(random.randrange(self.config['sleep_range']))
             
