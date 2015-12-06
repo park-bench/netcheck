@@ -93,6 +93,8 @@ class NetCheck:
         pass
 
     # TODO: Document
+    # TODO: If we were just disconnected from a wireless network, do we want to try it again during
+    #   this iteration?
     def _try_wifi_networks(self, index):
         # TODO: Test this more thoroughly.
         success = False
@@ -100,7 +102,11 @@ class NetCheck:
         try:
             # TODO: We actually aren't using attempted anywhere.
             self.wifi_networks[index]['attempted'] = True
+            # TODO: Missed this before. What if a higher priority network has become available
+            #   again? Also, this might try the same network several times before trying a new one.
             if (index <= self.connected_wifi_index):
+                # TODO: I think the following comment is associated with the above command. It is
+                #   standard practice to put comments above the command they are associated with.
                 # No sense in going down to a lower priority network without
                 #   checking the current one's availability.
                 if (self.network_meta.is_connected(network_name)):
@@ -176,22 +182,28 @@ class NetCheck:
 
             if (self.network_meta.is_connected(self.config['wired_network_name'])):
                 self.logger.info('Wired network connected.')
+                
+                # TODO: If the wired connection DNS fails it will cycle through all wifi
+                #   networks even if a connection has been established.
                 if (self._DNS_works(self.config['wired_network_name'])):
                     self.logger.info('Wired network has DNS. Sleeping')
                     # TODO: Consider putting the sleep at the bottom of the loop instead of 
                     #   everywhere. This seems error prone.
                     time.sleep(random.randrange(self.config['sleep_range']))
+                # TODO: We should test to make sure the existing wireless connection is not
+                #   working before trying to connect to the first network again.
                 elif (self._try_wifi_networks(0)):
                     self.logger.info('Wifi network working, sleeping.')
                     time.sleep(random.randrange(self.config['sleep_range']))
                 else:
                     self.logger.warn('Wifi and wired networks are down.  Sleeping.')
                     time.sleep(random.randrange(self.config['sleep_range']))
-                    
 
             elif (self.network_meta.connect(self.config['wired_network_name'])):
                 self.logger.info('Wired network connected.')
 
+            # TODO: Should we check if the Wifi network is connected before checking
+            #   the wifi DNS connection?
             elif (self.connected_wifi_index):
                 if (self._DNS_works(self.wifi_networks[self.connected_wifi_index]['name'])):
                     self.logger.warn('Wired network down, but current wifi network is up. Sleeping.')
@@ -200,9 +212,12 @@ class NetCheck:
                     self.logger.info('Current wifi network is down.')
                     self.connected_wifi_index = None
             else:
+                # TODO: Probably need to set self.connected_wifi_index to None here.
                 self.logger.info('Wired network is down, trying wifi networks.')
                 # TODO: Ideally this should be only called once in this method. I should
                 #   take a stab a rewriting this method.
+                # TODO: We should test to make sure the existing wireless connection is not
+                #   working before trying to connect to the first network again.
                 self._try_wifi_networks(0)
                 # TODO: This line is pretty complex and is used a lot. Probably best to
                 #   put it behind a helper method.

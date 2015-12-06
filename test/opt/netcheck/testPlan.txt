@@ -1,0 +1,12 @@
+TODO: How do we determine which network is being used? Maybe setup a fake DNS on a fake network?
+
+* Test backup network. Connection down. 
+* Test backup network. DNS down.
+* Wired network down.
+* Wired network 1st dns fails.
+* Wired network 2st dns fails.
+* Wired network down and first wireless network down.
+* Wired network down and first wireless network both dns fails.
+* Wired network connects if wireless network goes down.
+* First wireless network connects if 2nd wireless goes down.
+* Wireless network list is exceeded.
