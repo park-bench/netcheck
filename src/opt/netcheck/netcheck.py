@@ -14,7 +14,6 @@ class NetCheck:
     def __init__(self, config):
 
         self.config = config
-        self.backup_network_check_time = datetime.date.today()
 
         # Get logger
         self.logger = timber.get_instance()
@@ -27,6 +26,7 @@ class NetCheck:
         for network_name in self.config['wifi_network_names']:
             self.wifi_networks.append({'name': network_name, 'attempted': False})
 
+        self.backup_network_check_time = datetime.date.today()
         self.connected_wifi_index = None
 
     # Attempts a DNS query for query_name on 'nameserver' via 'network'.
@@ -40,7 +40,7 @@ class NetCheck:
         success = False
         # Add a route for this query, otherwise it will not use the specified network.
         route_command = ['ip', 'route', 'replace', '%s/32' % nameserver, 'via', gateway_ip]
-        if(self.network_meta._subprocess_call(route_command)):
+        if (self.network_meta._subprocess_call(route_command)):
             self.logger.debug('Route added.')
             dig_command_list = ['dig', '@%s' % nameserver, '-b', interface_ip, query_name, \
                     '+time=%d' % self.config['dig_timeout']]
@@ -54,7 +54,7 @@ class NetCheck:
             self.logger.warn('Failed to set route for DNS lookup.')
  
         # Try to remove the route whether it failed or not
-        if(self.network_meta._subprocess_call(['ip', 'route', 'del', nameserver])):
+        if (self.network_meta._subprocess_call(['ip', 'route', 'del', nameserver])):
             self.logger.debug('Removed route.')
         else:
             # TODO: Find a better way to deal with DNS over a specific interface than using route
@@ -76,17 +76,19 @@ class NetCheck:
         
         self.logger.info('Trying DNS on %s.' % network)
         self.logger.debug('First DNS query on %s.' % network)
-        if(self._DNS_query(network, nameservers[0], query_names[0])):
+        if (self._DNS_query(network, nameservers[0], query_names[0])):
             dns_works = True
         else:
+            # TODO: Should probably have a warn or error log indicating the first try failed.
             self.logger.debug('Second DNS query on %s.' % network)
-            if(self._DNS_query(network, nameservers[1], query_names[1])):
+            if (self._DNS_query(network, nameservers[1], query_names[1])):
                 dns_works = True
             else:
                 self.logger.warn('Two failed DNS queries on %s, assume it is down.' % network)
 
         return dns_works
 
+    # TODO: Why is this here?
     def _connect_and_check_DNS(self, network):
         pass
 
@@ -143,36 +145,43 @@ class NetCheck:
     def check_loop(self):
         # Check wired network and call _try_wifi_networks if it's down
         self.logger.info('Check loop starting.')
+       
+        # TODO: Are these next two TODOs still needed?
         # TODO: Check a specific wifi network on a random range of 27 days.
         # TODO: Recalculate that interval every time the network is checked.
-
-        if(datetime.date.today() >= self.backup_network_check_time):
-            if(self.network_meta.connect(self.config['backup_network_name'])):
-                if(self._DNS_works(self.config['backup_network_name'])):
+        # TODO: You are going to kick yourself for this one. This code will never
+        #   run because it is not in the main loop. Actually, this code should
+        #   probably be put into a helper method.
+        if (datetime.date.today() >= self.backup_network_check_time):
+            if (self.network_meta.connect(self.config['backup_network_name'])):
+                if (self._DNS_works(self.config['backup_network_name'])):
                     # TODO: Download a small file here?
                     self.logger.info('Backup network still active.')
                 else:
-                    self.logger.warn('Backup network does not have DNS.')
+                    self.logger.error('Backup network does not have DNS.')
             else:
-                self.logger.warn('Cannot connect to backup network.')
+                self.logger.error('Cannot connect to backup network.')
 
+            # TODO: I was thinking, we should probably split this into two values. One 
+            #   for successful connect, one for failure. On failure, we should probably
+            #   check every hour until success.
             self.backup_network_check_time = datetime.date.today() + \
                 datetime.timedelta(days=random.randrange(self.config['backup_network_max_usage_delay']))
             self.logger.info('Checking again in %s.' % self.backup_network_check_time)
         else:
-            self.logger.debug('Skipping backup network check.')
+            self.logger.trace('Skipping backup network check.')
 
         while True:
             # TODO: Add a try about here to make this loop fault tolerant.
 
-            if(self.network_meta.is_connected(self.config['wired_network_name'])):
+            if (self.network_meta.is_connected(self.config['wired_network_name'])):
                 self.logger.info('Wired network connected.')
-                if(self._DNS_works(self.config['wired_network_name'])):
+                if (self._DNS_works(self.config['wired_network_name'])):
                     self.logger.info('Wired network has DNS. Sleeping')
                     # TODO: Consider putting the sleep at the bottom of the loop instead of 
                     #   everywhere. This seems error prone.
                     time.sleep(random.randrange(self.config['sleep_range']))
-                elif(self._try_wifi_networks(0)):
+                elif (self._try_wifi_networks(0)):
                     self.logger.info('Wifi network working, sleeping.')
                     time.sleep(random.randrange(self.config['sleep_range']))
                 else:
@@ -180,11 +189,11 @@ class NetCheck:
                     time.sleep(random.randrange(self.config['sleep_range']))
                     
 
-            elif(self.network_meta.connect(self.config['wired_network_name'])):
+            elif (self.network_meta.connect(self.config['wired_network_name'])):
                 self.logger.info('Wired network connected.')
 
-            elif(self.connected_wifi_index):
-                if(self._DNS_works(self.wifi_networks[self.connected_wifi_index]['name'])):
+            elif (self.connected_wifi_index):
+                if (self._DNS_works(self.wifi_networks[self.connected_wifi_index]['name'])):
                     self.logger.warn('Wired network down, but current wifi network is up. Sleeping.')
                     time.sleep(random.randrange(self.config['sleep_range']))
                 else:
@@ -195,5 +204,6 @@ class NetCheck:
                 # TODO: Ideally this should be only called once in this method. I should
                 #   take a stab a rewriting this method.
                 self._try_wifi_networks(0)
+                # TODO: This line is pretty complex and is used a lot. Probably best to
+                #   put it behind a helper method.
                 time.sleep(random.randrange(self.config['sleep_range']))
-            
