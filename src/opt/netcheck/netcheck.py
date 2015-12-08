@@ -9,6 +9,7 @@ import timber
 # NetCheck monitors the wired network connection. If it is down, it attempts
 #   to connect to a prioritized list of wireless networks.  If nothing works, it
 #   will cycle through both the wired and wireless networks until one is available.
+# TODO: Test this more thoroughly.
 class NetCheck:
 
     def __init__(self, config):
@@ -21,13 +22,16 @@ class NetCheck:
         # Instantiate NetworkManagerManager
         self.network_meta = networkmetamanager.NetworkMetaManager(self.config['nmcli_timeout'])
 
-        # Initialize wifi network list by putting them into our list of dicts.
-        self.wifi_networks = []
-        for network_name in self.config['wifi_network_names']:
-            self.wifi_networks.append({'name': network_name, 'attempted': False})
-
         self.backup_network_check_time = datetime.date.today()
         self.connected_wifi_index = None
+
+        wifi_connection_successful = self._try_wifi_networks(0)
+
+        if (wifi_connection_successful):
+            self.logger.info('Connected to wifi network %s during initialization.' % \
+                    self.config['wifi_network_names'][self.connected_wifi_index])
+        else:
+            self.logger.warn('All wifi networks failed to connect during initialization.')
 
     # Attempts a DNS query for query_name on 'nameserver' via 'network'.
     #   Returns True if successful, None otherwise.
@@ -88,137 +92,158 @@ class NetCheck:
 
         return dns_works
 
-    # TODO: Why is this here?
-    def _connect_and_check_DNS(self, network):
-        pass
+    # Connects to a network and checks DNS availability if connection was successful.
+    #   Returns true on success, false on failure.
+    def _connect_and_check_DNS(self, network_name):
+        
+        overall_success = False
+        connection_successful = self.network_meta.connect(network_name)
+        if (not(connection_successful)):
+            self.logger.warn('Could not connect to network %s' % network_name)
+        else:
+            dns_successful = self._DNS_works(network_name)
+            if (not(dns_successful)):
+                self.logger.trace('_connect_and_check_DNS: DNS on network %s failed.' % network_name)
+            else:
+                overall_success = True
+
+        return overall_success
+
+
+
+    # Checks the connection to a network and checks DNS availability if connection was successful.
+    #   Returns true on success, false on failure.
+    def _check_connection_and_check_DNS(self, network_name):
+        
+        overall_success = False
+        connection_active = self.network_meta.is_connected(network_name)
+        if (not(connection_active)):
+            self.logger.warn('Not connected to network %s' % network_name)
+        else:
+            dns_successful = self._DNS_works(network_name)
+            if (not(dns_successful)):
+                self.logger.trace('_check_connection_and_check_DNS: DNS on network %s failed.' % network_name)
+            else:
+                overall_success = True
+
+        return overall_success
+
 
     # TODO: Document
-    # TODO: If we were just disconnected from a wireless network, do we want to try it again during
-    #   this iteration?
     def _try_wifi_networks(self, index):
-        # TODO: Test this more thoroughly.
-        success = False
-        network_name = self.wifi_networks[index]['name']
-        try:
-            # TODO: We actually aren't using attempted anywhere.
-            self.wifi_networks[index]['attempted'] = True
-            # TODO: Missed this before. What if a higher priority network has become available
-            #   again? Also, this might try the same network several times before trying a new one.
-            if (index <= self.connected_wifi_index):
-                # TODO: I think the following comment is associated with the above command. It is
-                #   standard practice to put comments above the command they are associated with.
-                # No sense in going down to a lower priority network without
-                #   checking the current one's availability.
-                if (self.network_meta.is_connected(network_name)):
-                    if (self._DNS_works(network_name)):
-                        self.logger.info('Network %s still has DNS.' % network_name)
-                        success = True
-                    else:
-                        self.logger.info('Network %s no longer has DNS.' % network_name)
-                        self.connected_wifi_index = None
-                        self._try_wifi_networks(index + 1)
+        success = None
 
-            else:
-                # check index
-                # TODO: Combine the connect and DNS query into one method. That way if it fails,
-                #   you just try the next network. (Talk to me before implementing this.)
-                if (self.network_meta.connect(network_name)):
-                    # try DNS
-                    self.logger.info('%s connected.' % network_name)
-                    if(self._DNS_works(network_name)):
-                        self.logger.info('%s has working DNS.' % network_name)
-                        self.connected_wifi_index = index
-                        success = True
-                    else:
-                        self.logger.warn('%s does not have working DNS.' % network_name)
-                        self._try_wifi_networks(index + 1)
-                else:
-                    self.logger.warn('Could not connect to %s.' % network_name)
-                    self._try_wifi_networks(index + 1)
-
-        # TODO: Typically relying on exceptions for legitmate program flow is frowned upon.
-        except IndexError:
+        if (index >= len(self.config['wifi_network_names'])):
             # Out of bounds means that we're out of networks.
-            # Clear attempted list
-            self.logger.warn('Reached end of wifi network list.')
-            for network in self.wifi_networks:
-                network['attempted'] = False
+            self.logger.warn('Reached end of wifi network list. ' + \
+                    'Setting first network as the currently connected wifi network.')
+            self.connected_wifi_index = 0
             success = False
 
+        else:
+            network_name = self.config['wifi_network_names'][index]
+
+            wifi_connection_successful = self._connect_and_check_dns(network_name)
+
+            if (wifi_connection_successful):
+                self.logger.info('Wifi network %s connected with successful DNS check.' % network_name)
+                self.connected_wifi_index = index
+                success = True
+
+            else:
+                self.logger.warn('Wifi network %s failed to connect or failed DNS check.' % network_name)
+                success = self._try_wifi_networks(index + 1)
+
         return success
+
+
+    # Check the highest-priority network randomly between zero and a user-specified number of days.
+    #   Recalculate that interval every time the network is checked and then call _try_wifi_networks.
+    #   FreedomPop requires monthly usage and is assumed to be the highest-priority network.
+    # TODO: Download a small file upon successful connection so we are sure FreedomPop considers
+    #   this network used.
+    def _check_backup_network(self):
+        if (datetime.date.today() >= self.backup_network_check_time):
+
+            self.logger.info('Trying to use backup wifi network.')
+
+            overall_success = False
+
+            backup_network_is_connected = self._check_connection_and_check_DNS( \
+                    self.config['wifi_network_names'][0])
+
+            if (backup_network_is_connected):
+                self.logger.info('Successfully used existing backup wifi connection.')
+                overall_success = True
+
+            else:
+                self.logger.info('Trying to connect and use backup wifi network.')
+                wifi_connection_successful = self._try_wifi_networks(0)
+
+                if (not(wifi_connection_successful) or (self.connected_network_index != 0)):
+                    self.backup_network_check_time = datetime.date.today() + \
+                            datetime.timedelta(seconds=random.randrange( \
+                            self.config['backup_network_failed_max_usage_delay']))
+                    self.logger.warn('Failed to use backup network. Will try again on %s.' % \
+                            self.backup_network_check_time)
+                
+                else:
+                    self.backup_network_check_time = datetime.date.today() + \
+                        datetime.timedelta(days=random.randrange(self.config['backup_network_max_usage_delay']))
+                    self.logger.info('Successfully connected to backup network. Will try again on %s.' % \
+                        self.backup_network_check_time)
+
+        else:
+            self.logger.trace('Skipping backup network check because it is not time yet.')
+
 
     # TODO: Document
     def check_loop(self):
         # Check wired network and call _try_wifi_networks if it's down
         self.logger.info('Check loop starting.')
-       
-        # TODO: Are these next two TODOs still needed?
-        # TODO: Check a specific wifi network on a random range of 27 days.
-        # TODO: Recalculate that interval every time the network is checked.
-        # TODO: You are going to kick yourself for this one. This code will never
-        #   run because it is not in the main loop. Actually, this code should
-        #   probably be put into a helper method.
-        if (datetime.date.today() >= self.backup_network_check_time):
-            if (self.network_meta.connect(self.config['backup_network_name'])):
-                if (self._DNS_works(self.config['backup_network_name'])):
-                    # TODO: Download a small file here?
-                    self.logger.info('Backup network still active.')
-                else:
-                    self.logger.error('Backup network does not have DNS.')
-            else:
-                self.logger.error('Cannot connect to backup network.')
-
-            # TODO: I was thinking, we should probably split this into two values. One 
-            #   for successful connect, one for failure. On failure, we should probably
-            #   check every hour until success.
-            self.backup_network_check_time = datetime.date.today() + \
-                datetime.timedelta(days=random.randrange(self.config['backup_network_max_usage_delay']))
-            self.logger.info('Checking again in %s.' % self.backup_network_check_time)
-        else:
-            self.logger.trace('Skipping backup network check.')
 
         while True:
-            # TODO: Add a try about here to make this loop fault tolerant.
+            # TODO: Lower log levels should be used higher on the stack.
 
-            if (self.network_meta.is_connected(self.config['wired_network_name'])):
-                self.logger.info('Wired network connected.')
+            try:
+                self._check_backup_network()
                 
-                # TODO: If the wired connection DNS fails it will cycle through all wifi
-                #   networks even if a connection has been established.
-                if (self._DNS_works(self.config['wired_network_name'])):
-                    self.logger.info('Wired network has DNS. Sleeping')
-                    # TODO: Consider putting the sleep at the bottom of the loop instead of 
-                    #   everywhere. This seems error prone.
-                    time.sleep(random.randrange(self.config['sleep_range']))
-                # TODO: We should test to make sure the existing wireless connection is not
-                #   working before trying to connect to the first network again.
-                elif (self._try_wifi_networks(0)):
-                    self.logger.info('Wifi network working, sleeping.')
-                    time.sleep(random.randrange(self.config['sleep_range']))
-                else:
-                    self.logger.warn('Wifi and wired networks are down.  Sleeping.')
-                    time.sleep(random.randrange(self.config['sleep_range']))
+                wired_is_connected = self.check_connection_and_check_DNS(self.config['wired_network_name'])
 
-            elif (self.network_meta.connect(self.config['wired_network_name'])):
-                self.logger.info('Wired network connected.')
+                if (not(wired_is_connected)):
+                    self.logger.warn('Wired network is not connected.')
 
-            # TODO: Should we check if the Wifi network is connected before checking
-            #   the wifi DNS connection?
-            elif (self.connected_wifi_index):
-                if (self._DNS_works(self.wifi_networks[self.connected_wifi_index]['name'])):
-                    self.logger.warn('Wired network down, but current wifi network is up. Sleeping.')
-                    time.sleep(random.randrange(self.config['sleep_range']))
+                    wired_connection_success = self._connect_and_check_DNS(self.config['wired_network_name'])
+
+                    if (not(wired_connection_success)):
+                        self.warn('Wired network failed to connect.')
+                    
+                        current_wifi_network_name = self.config['wifi_network_names'][self.connected_wifi_index]
+                        wifi_is_connected = self._check_connection_and_check_DNS(current_wifi_network_name)
+
+                        if (not(wifi_is_connected)):
+                            self.warn('Current wifi network %s is no longer connected.' % \
+                                    current_wifi_network_name)
+
+                            # TODO: Add try wifi networks init code maybe.
+                            wifi_connection_successful = self._try_wifi_networks(0)
+
+                            if (not(wifi_connection_successful)):
+                                self.logger.warn('All wireless networks failed to connect.')
+                            else:
+                                self.logger.info('Connected to wireless network %s.' % \
+                                        self.config['wifi_network_names'][self.connected_wifi_index])
+                        else:
+                            self.logger.debug('Current wifi network %s still active.' % \
+                                    current_wifi_network_name)
+                    else:
+                        self.logger.info('Wired network connected with successful DNS check.')
                 else:
-                    self.logger.info('Current wifi network is down.')
-                    self.connected_wifi_index = None
-            else:
-                # TODO: Probably need to set self.connected_wifi_index to None here.
-                self.logger.info('Wired network is down, trying wifi networks.')
-                # TODO: Ideally this should be only called once in this method. I should
-                #   take a stab a rewriting this method.
-                # TODO: We should test to make sure the existing wireless connection is not
-                #   working before trying to connect to the first network again.
-                self._try_wifi_networks(0)
-                # TODO: This line is pretty complex and is used a lot. Probably best to
-                #   put it behind a helper method.
+                    self.logger.debug('Wired network still connected with successful DNS check.')
+
                 time.sleep(random.randrange(self.config['sleep_range']))
+
+            except Exception as e:
+                logger.error('Unexpected error %s: %s\n' % (type(e).__name__, e.message))
+                logger.error(traceback.format_exc())
+

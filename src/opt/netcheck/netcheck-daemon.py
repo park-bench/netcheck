@@ -76,7 +76,10 @@ config['nameservers'] = config_helper.verify_string_exists(config_file, 'nameser
 config['dns_queries'] = config_helper.verify_string_exists(config_file, 'dns_queries').split(',')
 
 config['backup_network_name'] = config_helper.verify_string_exists(config_file, 'backup_network_name')
-config['backup_network_max_usage_delay'] = config_helper.verify_number_exists(config_file, 'backup_network_max_usage_delay')
+config['backup_network_max_usage_delay'] = \
+        config_helper.verify_number_exists(config_file, 'backup_network_max_usage_delay')
+config['backup_network_failed_max_usage_delay'] = \
+        config_helper.verify_number_exists(config_file, 'backup_network_failed_max_usage_delay')
 
 daemonize()
 
