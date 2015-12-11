@@ -36,7 +36,6 @@ class NetCheck:
     # Attempts a DNS query for query_name on 'nameserver' via 'network'.
     #   Returns True if successful, None otherwise.
     def _DNS_query(self, network, nameserver, query_name):
-        # TODO: dig timeout seems to be ignored?  Investigate this further.
 
         gateway_ip = self.network_meta.get_gateway_ip(network)
         interface_ip = self.network_meta.get_interface_ip(network)
@@ -47,7 +46,7 @@ class NetCheck:
         if (self.network_meta._subprocess_call(route_command)):
             self.logger.debug('Route added.')
             dig_command_list = ['dig', '@%s' % nameserver, '-b', interface_ip, query_name, \
-                    '+time=%d' % self.config['dig_timeout']]
+                    '+time=%d' % self.config['dig_timeout'], '+tries=1']
             if(self.network_meta._subprocess_call(dig_command_list)):
                 self.logger.debug('DNS query successful.')
                 success = True
