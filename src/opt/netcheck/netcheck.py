@@ -190,7 +190,6 @@ class NetCheck:
 
             else:
                 self.logger.info('Trying to connect and use backup wifi network.')
-                #wifi_connection_successful = self._try_wifi_networks(0)
                 wifi_connection_successful = self._connect_and_check_DNS(\
                     self.config['wifi_network_names'][0])
 
@@ -238,7 +237,7 @@ class NetCheck:
                         wifi_is_connected = self._check_connection_and_check_DNS(current_wifi_network_name)
 
                         if (not(wifi_is_connected)):
-                            self.warn('Current wifi network %s is no longer connected.' % \
+                            self.logger.warn('Current wifi network %s is no longer connected.' % \
                                     current_wifi_network_name)
 
                             wifi_connection_successful = self._try_wifi_networks(0)
