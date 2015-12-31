@@ -1,6 +1,7 @@
 import datetime
 import dns.resolver
 import networkmetamanager
+import os
 import random
 import subprocess
 import time
@@ -10,7 +11,6 @@ import traceback
 # NetCheck monitors the wired network connection. If it is down, it attempts
 #   to connect to a prioritized list of wireless networks.  If nothing works, it
 #   will cycle through both the wired and wireless networks until one is available.
-# TODO: Test this more thoroughly.
 class NetCheck:
 
 
@@ -95,21 +95,21 @@ class NetCheck:
         dns_works = False
         
         self.logger.trace('_dns_works: Attempting first DNS query for %s on interface %s using name server %s.' % \
-                (dns_queries[0], network, nameservers[0]))
+                (query_names[0], network, nameservers[0]))
         if self._dns_query(network, nameservers[0], query_names[0]):
             dns_works = True
             self.logger.trace('_dns_works: First DNS query on %s successful.' % network)
         else:
-            self.logger.debug('_dns_works: First DNS query for %s failed on interface %s using name server %s. ' + \
-                    'Attempting second query.' % (dns_queries[0], network, nameservers[0]))
+            self.logger.debug('_dns_works: First DNS query for %s failed on interface %s using name server %s. ' % \
+                    (query_names[0], network, nameservers[0]) + 'Attempting second query.')
             self.logger.trace('_dns_works: Attempting second DNS query for %s on interface %s using name server %s.' % \
-                    (dns_queries[1], network, nameservers[1]))
+                    (query_names[1], network, nameservers[1]))
             if (self._dns_query(network, nameservers[1], query_names[1])):
                 dns_works = True
                 self.logger.trace('_dns_works: Second DNS query on %s successful.' % network)
             else:
-                self.logger.debug('_dns_works: Second DNS query for %s failed on interface %s using name server %s. ' + \
-                        'Assuming network is down.' % dns_queries[1], network, nameservers[1]))
+                self.logger.debug('_dns_works: Second DNS query for %s failed on interface %s using name server %s. ' % \
+                         (query_names[1], network, nameservers[1]) + 'Assuming network is down.')
 
         return dns_works
 
@@ -242,6 +242,8 @@ class NetCheck:
             try:
                 self.logger.debug('check_loop: Check loop iteration starting.')
 
+                # TODO: Connecting to the backup network on the first iteration invalidates the
+                #   initial wifi attempt in __init__. Make this more efficient.
                 # Periodically connect to the main backup network because the carrier requires this.
                 self._use_backup_network()
                 
@@ -264,6 +266,9 @@ class NetCheck:
                         wifi_is_connected = self._check_connection_and_check_dns(current_wifi_network_name)
 
                         if (wifi_is_connected):
+                            # Set current_network_name because network may already be connected during
+                            #   initialization.
+                            current_network_name = current_wifi_network_name
                             self.logger.debug('check_loop: Current wifi network %s still active.' % \
                                     current_wifi_network_name)
                         else:
@@ -274,7 +279,7 @@ class NetCheck:
 
                             if (wifi_connection_successful):
                                 current_network_name = self.config['wifi_network_names'][self.connected_wifi_index]
-                                self.logger.info('Connected to wireless network %s.' % current_network_name
+                                self.logger.info('Connected to wireless network %s.' % current_network_name)
                             else:
                                 current_network_name = None
                                 self.logger.debug('check_loop: All wireless networks failed to connect.')
@@ -290,7 +295,7 @@ class NetCheck:
 
 
     # Logs changes to the network in use.
-    def _log_connection_change(prior_network_name, current_network_name):
+    def _log_connection_change(self, prior_network_name, current_network_name):
         if prior_network_name <> current_network_name:
             if current_network_name == None:
                 self.logger.error('Connection change: Not connected to any network!')

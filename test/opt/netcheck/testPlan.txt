@@ -1,5 +1,7 @@
 TODO: How do we determine which network is being used? Maybe setup a fake DNS on a fake network?
 
+Test all of these cases before tagging a commit.
+
 * Test backup network. Connection down. (Maybe use wireshark to see what gateway was used?)
 * Test backup network. DNS down. (I'm not sure this needs to be tested separately from the above.)
 * Wired network down. (Unplug wired. Should fall back to first wireless.)
