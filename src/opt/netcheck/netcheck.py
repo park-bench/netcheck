@@ -193,13 +193,16 @@ class NetCheck:
     #   network. (We might have used the backup network since the last check or might even be 
     #   currently connected to it.)
     def _use_backup_network(self):
-        if datetime.date.today() >= self.backup_network_check_time:
+        if datetime.date.today() > self.backup_network_check_time:
 
             self.logger.info('Trying to use backup wifi network.')
 
             overall_success = False
 
             backup_network_is_connected = self._check_connection_and_check_dns( \
+                    # TODO: Make the backup network actually separate from the list.
+                    #   It should use the backup_network_name property from
+                    #   from the config file.
                     self.config['wifi_network_names'][0])
 
             if backup_network_is_connected:
@@ -251,6 +254,7 @@ class NetCheck:
 
                 if (wired_is_connected):
                     self.logger.debug('check_loop: Wired network still connected with successful DNS check.')
+                    current_network_name = self.config['wired_network_name']
                 else:
                     self.logger.debug('check_loop: Wired network is not connected.')
 
