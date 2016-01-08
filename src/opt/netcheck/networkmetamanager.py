@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import timber
 
@@ -29,12 +30,22 @@ class NetworkMetaManager:
         self.logger.info('NetworkMetaManager started with NetworkManager major ' + \
                 'version %s.' % self.major_version)
 
+        # Compile the regexes for grabbing addresses
+        # TODO: Eventually handle Network Manager v1.x output.
+        # Expected output for Network Manager v0.x
+        #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
+        self.interface_ip_v0_regex = re.compile('IP4.ADDRESS\[1\]:ip = (?P<interface_ip>.+)/[0-9]{1,3}, gw = .+')
+        self.gateway_ip_v0_regex = re.compile('IP4.ADDRESS\[1\]:ip = .+ gw = (?P<gateway_ip>.+)')
+
+
+        ip_octet_pattern = '[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]'
+        self.valid_ip_regex = re.compile('^(?P<ip>((%s)\.){3}(%s))$' % (ip_octet_pattern, ip_octet_pattern))
+
  
     # Invokes a program on the system.
     #   Param command_list is a command split into a list, not a list of separate commands.
     #   Returns True upon success, False otherwise.
-    def _subprocess_call(self, command_list):
-
+    def _subprocess_call(self, command_list): 
         exit_code = None
         
         self.logger.trace('_subprocess_call: Calling "%s".' % ' '.join(command_list))
@@ -90,7 +101,15 @@ class NetworkMetaManager:
 
 
     # Check for network connectivity, not including DNS. Returns True if connected, False otherwise.
+    # TODO: Probably take this method out because nmcli behaves weirdly.
     def is_connected(self, network_name):
+
+        # TODO: Make this method check for an interface IP instead of polling
+        #   NetworkManager because NetworkManager will list a network as active
+        #   while it is still connecting. This often breaks NetCheck when NetworkManager
+        #   autoconnects to networks.
+
+        is_connected = False
 
         self.logger.trace('is_connected: Checking connectivity for %s.' % network_name)
 
@@ -98,10 +117,12 @@ class NetworkMetaManager:
 
         # TODO: Does this work right if the network name you are searching for is
         #   a subset of another network name?
-        is_connected = network_name in subprocess.check_output(nmcli_command)
+        is_active = network_name in subprocess.check_output(nmcli_command)
+        has_ip = not(self.get_interface_ip(network_name) == None)
 
-        if is_connected:
+        if is_active & has_ip:
             self.logger.trace('is_connected: Connected to %s.' % network_name)
+            is_connected = True
         else:
             self.logger.trace('is_connected: Not connected to %s.' % network_name)
 
@@ -109,10 +130,6 @@ class NetworkMetaManager:
 
 
     # Get the current IP address for network_name's interface.
-    # TODO: If the output of nmcli is not as expected, this method could throw an unexpected exception.
-    # TODO: Compare IP address to regex to make sure it at least looks like an IP. While I don't think this is exploitable
-    #   right now, we should still check the output for better security. Explicitly throw an exception if the output is
-    #   not as expected.
     def get_interface_ip(self, network_name):
 
         self.logger.trace('get_interface_ip: Getting interface IP for %s.' % network_name)
@@ -123,13 +140,27 @@ class NetworkMetaManager:
             # We are only interested in the first line of this output.
             #   It should look something like this:
             #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-            nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
-            ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
-            ip_raw = ip_line.split()[2]
-            interface_ip = ip_raw.split('/')[0]
+            try:
+                nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
+                nmcli_output = subprocess.check_output(nmcli_command)
+                regex_match = self.interface_ip_v0_regex.search(nmcli_output)
+
+                if regex_match:
+                    raw_ip = regex_match.group('interface_ip')
+                    valid_ip = self.valid_ip_regex.search(raw_ip)
+                    if valid_ip:
+                        interface_ip = valid_ip.group('ip')
+                    else:
+                        self.logger.debug('get_interface_ip: IP address was found, but is invalid.')
+                else:
+                    self.logger.debug('get_interface_ip: IP address not found.')
+            except subprocess.CalledProcessError as process_error:
+                # This usually fails because ncmli is slow, but I suppose it should be logged anyway.
+                self.logger.trace('Status check on network %s failed.' % network_name)
 
         else:
             # TODO: Test this if we care enough to. I can't test this on this system. It should work though.
+            # TODO: Update this with regex business.
             nmcli_command = ['nmcli', '-t', '-f', 'ip4.address', 'connection', 'show', network_name]
             ip_raw = subprocess.check_output(nmcli_command).split(':')[1]
             interface_ip = ip_raw.split('/')[0]
@@ -140,10 +171,6 @@ class NetworkMetaManager:
  
 
     # Get the current gateway address for network_name.
-    # TODO: If the output of nmcli is not as expected, this method could throw an unexpected exception.
-    # TODO: Compare IP address to regex to make sure it at least looks like an IP. While I don't think this is exploitable
-    #   right now, we should still check the output for better security. Explicitly throw an exception if the output is
-    #   not as expected.
     def get_gateway_ip(self, network_name):
 
         self.logger.trace('get_gateway_ip: Getting gateway IP for %s.' % network_name)
@@ -155,8 +182,19 @@ class NetworkMetaManager:
             # We are only interested in the first line of this output.
             #   It should look something like this:
             #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-            ip_line = subprocess.check_output(nmcli_command).split('\n')[0]
-            gateway_ip = ip_line.split()[5]
+            nmcli_output = subprocess.check_output(nmcli_command)
+
+            regex_match = self.gateway_ip_v0_regex.search(nmcli_output)
+
+            if regex_match:
+                raw_ip = regex_match.group('gateway_ip')
+                valid_ip = self.valid_ip_regex.search(raw_ip)
+                if valid_ip:
+                    gateway_ip = valid_ip.group('ip')
+                else:
+                    self.logger.debug('get_interface_ip: IP address was found, but is invalid.')
+            else:
+                self.logger.debug('get_interface_ip: IP address not found.')
 
         else:
             # TODO: Test this if we care enough to. I can't test this on this system either.
