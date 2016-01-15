@@ -1,3 +1,9 @@
+netcheck (0.3) stable; urgency=low
+
+  * Initial release.
+
+ -- eviljoel <eviljoel@rebel>  Thu, 14 Jan 2016 20:33:00 -0600
+
 netcheck (0.2) stable; urgency=low
 
   * Version bumping because I forgot to sign my commit.
