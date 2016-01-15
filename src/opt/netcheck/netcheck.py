@@ -233,7 +233,7 @@ class NetCheck:
                     self._update_successful_backup_check_time()
                 else:
                     self.backup_network_check_time = datetime.datetime.now() + \
-                            datetime.timedelta(seconds=random.randrange( \
+                            datetime.timedelta(seconds=random.uniform(0,  \
                             self.config['backup_network_failed_max_usage_delay']))
                     self.logger.error('Failed to use backup network. Will try again on %s.' % \
                             self.backup_network_check_time)
@@ -247,8 +247,11 @@ class NetCheck:
     def _update_successful_backup_check_time(self):
         self.logger.trace('_update_successful_backup_check_time: Successfully connected to main backup WiFi network.')
 
+        # convert days to seconds
+        delay_range = self.config['backup_network_max_usage_delay'] * 24 * 60 * 60
+
         self.backup_network_check_time = datetime.datetime.now() + \
-            datetime.timedelta(days=random.randrange(self.config['backup_network_max_usage_delay']))
+            datetime.timedelta(seconds=random.uniform(0, self.config['backup_network_max_usage_delay']))
         self.logger.info('Successfully used to backup network. Will try again on %s.' % \
             self.backup_network_check_time)
 
@@ -311,8 +314,9 @@ class NetCheck:
 
                 prior_network_name = self._log_connection_change(prior_network_name, current_network_name)
 
-                self.logger.debug('Sleeping!')
-                time.sleep(random.randrange(self.config['sleep_range']))
+                sleep_time = random.uniform(0, self.config['sleep_range'])
+                self.logger.debug('Sleeping for %f seconds!' % sleep_time)
+                time.sleep(sleep_time)
 
             except Exception as e:
                 self.logger.error('Unexpected error %s: %s\n' % (type(e).__name__, e.message))
