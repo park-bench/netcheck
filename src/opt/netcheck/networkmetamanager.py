@@ -94,14 +94,7 @@ class NetworkMetaManager:
 
 
     # Check for network connectivity, not including DNS. Returns True if connected, False otherwise.
-    # TODO: Probably take this method out because nmcli behaves weirdly.
     def is_connected(self, network_name):
-
-        # TODO: Does this still need to be a TODO?
-        # TODO: Make this method check for an interface IP instead of polling
-        #   NetworkManager because NetworkManager will list a network as active
-        #   while it is still connecting. This often breaks NetCheck when NetworkManager
-        #   autoconnects to networks.
 
         is_connected = False
 
@@ -113,13 +106,16 @@ class NetworkMetaManager:
         # TODO: Does this work right if the network name you are searching for is
         #   a subset of another network name?
         is_active = network_name in subprocess.check_output(nmcli_command)
-        # See if we have an IP to distingusih between connected and connecting.
+        # See if we have an IP to distinguish between connected and connecting.
         # TODO: Since these two commands are not atomic, we have a race condition.
-        has_ip = not(self.get_interface_ip(network_name) == None)
 
-        if is_active and has_ip:
-            self.logger.trace('is_connected: Connected to %s.' % network_name)
-            is_connected = True
+        if is_active:
+            has_ip = not(self.get_interface_ip(network_name) == None)
+            if has_ip:
+                self.logger.trace('is_connected: Connected to %s.' % network_name)
+                is_connected = True
+            else:
+                self.logger.trace('is_connected: %s does not have an IP address.' % network_name)
         else:
             self.logger.trace('is_connected: Not connected to %s.' % network_name)
 
@@ -134,29 +130,29 @@ class NetworkMetaManager:
 
         interface_ip = None
 
-        # TODO: Are we sure it will always be on the first line?
         # We are only interested in the first line of this output.
         #   It should look something like this:
         #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-        # TODO: Why is there a try block here but not one below?
-        try:
-            nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
-            nmcli_output = subprocess.check_output(nmcli_command)
-            regex_match = self.interface_ip_v0_regex.search(nmcli_output)
+        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
 
-            if regex_match:
-                raw_ip = regex_match.group('interface_ip')
-                valid_ip = self.valid_ip_regex.search(raw_ip)
-                if valid_ip:
-                    interface_ip = valid_ip.group('ip')
-                else:
-                    self.logger.debug('get_interface_ip: IP address was found, but is invalid.')
-            else:
-                self.logger.debug('get_interface_ip: IP address not found.')
+        try:
+            nmcli_output = subprocess.check_output(nmcli_command)
         except subprocess.CalledProcessError as process_error:
-            # TODO: Huh?
-            # This usually fails because ncmli is slow, but I suppose it should be logged anyway.
-            self.logger.trace('Status check on network %s failed.' % network_name)
+            # If the nmcli command returns non-zero, it will not return the right
+            #   data anyway.
+            nmcli_output = ''
+
+        regex_match = self.interface_ip_v0_regex.search(nmcli_output)
+
+        if regex_match:
+            raw_ip = regex_match.group('interface_ip')
+            valid_ip = self.valid_ip_regex.search(raw_ip)
+            if valid_ip:
+                interface_ip = valid_ip.group('ip')
+            else:
+                self.logger.debug('get_interface_ip: IP address was found, but is invalid.')
+        else:
+            self.logger.debug('get_interface_ip: IP address not found.')
 
         self.logger.trace('get_interface_ip: Interface IP for %s is %s.' % (network_name, interface_ip))
 
@@ -175,7 +171,12 @@ class NetworkMetaManager:
         # We are only interested in the first line of this output.
         #   It should look something like this:
         #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-        nmcli_output = subprocess.check_output(nmcli_command)
+        try:
+            nmcli_output = subprocess.check_output(nmcli_command)
+        except subprocess.CalledProcessError as process_error:
+            # If the nmcli command returns non-zero, it will not return the right
+            #   data anyway.
+            nmcli_output = ''
 
         regex_match = self.gateway_ip_v0_regex.search(nmcli_output)
 

@@ -256,7 +256,6 @@ class NetCheck:
     # Attempts to connect to the wired network and falls back to wireless networks in a specified priority order.
     #   Also, connects to the main backup wireless network periodically to comply with carrier requirements.
     def check_loop(self):
-        # TODO: Remove network_meta.is_connected and replace with get_interface_ip.
         self.logger.info('Check loop starting.')
 
         current_network_name = None
@@ -269,8 +268,6 @@ class NetCheck:
             try:
                 self.logger.debug('check_loop: Check loop iteration starting.')
 
-                # TODO: Connecting to the backup network on the first iteration invalidates the
-                #   initial wifi attempt in __init__. Make this more efficient.
                 # Periodically connect to the main backup network because the carrier requires this.
                 self._use_backup_network()
                 
