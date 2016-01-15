@@ -247,11 +247,11 @@ class NetCheck:
     def _update_successful_backup_check_time(self):
         self.logger.trace('_update_successful_backup_check_time: Successfully connected to main backup WiFi network.')
 
-        # convert days to seconds
-        delay_range = self.config['backup_network_max_usage_delay'] * 24 * 60 * 60
+        # Convert days to seconds.
+        delay_range_in_seconds = self.config['backup_network_max_usage_delay'] * 24 * 60 * 60
 
         self.backup_network_check_time = datetime.datetime.now() + \
-            datetime.timedelta(seconds=random.uniform(0, self.config['backup_network_max_usage_delay']))
+            datetime.timedelta(seconds=random.uniform(0, delay_range_in_seconds))
         self.logger.info('Successfully used to backup network. Will try again on %s.' % \
             self.backup_network_check_time)
 
