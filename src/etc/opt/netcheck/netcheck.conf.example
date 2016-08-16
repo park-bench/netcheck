@@ -1,0 +1,43 @@
+[General]
+
+log_file=/var/opt/log/netcheck.log
+log_level=info
+
+# The name of the wired network in network manager.
+wired_network_name=
+
+# Comma delimited list of WiFi networks to connect to ordered by preference.
+#   The first WiFi network is considered the 'backup' network which we have to
+#   connect to periodically to maintain an active account. (See below.)
+wifi_network_names=
+
+# Comma delimited list of DNS servers to use. Pick your own servers here to help
+#   prevent fingerprinting of this application.
+nameservers=
+
+# Comma delimited list of domains to query for. Again, pick your own domains here
+#   to help prevent fingerprinting of this application.
+dns_queries=
+
+# This is not currently used.
+# TODO: Use this or remove it.
+backup_network_name=
+
+# Maximum amount of time for a DNS query lookup.
+dig_timeout=2
+
+# Maximum amount of time to connect to a wireless network (or technically any other
+#   Network Manager operation).
+nmcli_timeout=15
+
+# Maximum delay in days before we try to use the backup network to maintain an active
+#   account with the backup ISP. (This is a requirement from the developers' ISP
+#   [FreedomPop].) (Cannot be negative.)
+backup_network_max_usage_delay=14
+
+# Maximum delay in seconds that we try to reuse the backup network if the first (and
+#   subsequent retries) failed. (Cannot be negative.)
+backup_network_failed_max_usage_delay=3600
+
+# Maximum sleep time between each loop iteration. (Cannot be negative.)
+sleep_range=60

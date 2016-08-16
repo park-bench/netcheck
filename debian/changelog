@@ -1,3 +1,9 @@
+netcheck (0.5) UNRELEASED; urgency=low
+
+  * GPLv3 release of netcheck.
+
+ -- eviljoel <eviljoel@rebel>  Tue, 02 Aug 2016 19:46:51 -0500
+
 netcheck (0.4) stable; urgency=low
 
   * Fixed an error with checking the backup network too frequently.

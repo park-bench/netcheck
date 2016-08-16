@@ -1,4 +1,20 @@
 #! /bin/sh
+
+# Copyright 2015-2016 Joel Allen Luellwitz and Andrew Klapp
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 ### BEGIN INIT INFO
 # Provides:          netcheck
 # Required-Start:    $remote_fs $syslog gpgmailer
@@ -6,12 +22,10 @@
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: netcheck
-# Description:       Init script for netcheck.  Monitors network and DNS availability.
+# Description:       Finds the best network with access to the Internet.
 ### END INIT INFO
 
 # Author: Joel Luellwitz <eviljoel@linux.com>, Andrew Klapp <andklapp@null.net>
-
-# TODO: Update description above. I think it is obvious that this is an init script.
 
 # Do NOT "set -e"
 

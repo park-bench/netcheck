@@ -2,10 +2,10 @@ Source: netcheck
 Section: parkbench
 Priority: required
 Maintainer: eviljoel, Andrew Klapp
-#Build-Depends:
+Build-Depends: debhelper
 Standards-Version: 3.9.6.1
 
 Package: netcheck
-Architecture: any
+Architecture: all
 Depends: python-timber,network-manager,python-dnspython,dnsutils
-Description: Finds the best path out to the Internet.
+Description: Finds the best network with access to the Internet.
