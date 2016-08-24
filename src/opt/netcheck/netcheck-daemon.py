@@ -17,11 +17,11 @@
 
 import confighelper
 import ConfigParser
+import logging
 import netcheck
 import os
 import signal
 import sys
-import timber
 import traceback
 
 pid_file = '/var/opt/run/netcheck.pid'
@@ -34,7 +34,7 @@ def daemonize():
         if pid > 0:
             sys.exit(0)
     except OSError, e:
-        logger.fatal("Failed to make parent process init: %d (%s)" % (e.errno, e.strerror))
+        logger.critical("Failed to make parent process init: %d (%s)" % (e.errno, e.strerror))
         sys.exit(1)
  
     # TODO: Consider locking this down. 
@@ -49,7 +49,7 @@ def daemonize():
         if pid > 0:
             sys.exit(0)
     except OSError, e:
-        logger.fatal("Failed to give up session leadership: %d (%s)" % (e.errno, e.strerror))
+        logger.critical("Failed to give up session leadership: %d (%s)" % (e.errno, e.strerror))
         sys.exit(1)
 
     # Redirect standard file descriptors
@@ -76,8 +76,9 @@ config_helper = confighelper.ConfigHelper()
 log_file = config_helper.verify_string_exists_prelogging(config_file, 'log_file')
 log_level = config_helper.verify_string_exists_prelogging(config_file, 'log_level')
 
-# Start the logger.
-logger = timber.get_instance_with_filename(log_file, log_level)
+# Configure the logger.
+config_helper.configure_logger(log_file, log_level)
+logger = logging.getLogger()
 
 # Now read the rest of them.
 config = {}
@@ -110,6 +111,6 @@ try:
     the_checker.check_loop()
 
 except Exception as e:
-    logger.fatal("%s: %s\n" % (type(e).__name__, e.message))
+    logger.critical("%s: %s\n" % (type(e).__name__, e.message))
     logger.error(traceback.format_exc())
     sys.exit(1)
