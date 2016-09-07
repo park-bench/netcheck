@@ -1,1 +1,1 @@
-../../../src/opt/netcheck/netcheck.py
+../../../src/usr/share/netcheck/netcheck.py

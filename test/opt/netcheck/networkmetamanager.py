@@ -1,1 +1,1 @@
-../../../src/opt/netcheck/networkmetamanager.py
+../../../src/usr/share/netcheck/networkmetamanager.py

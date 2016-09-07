@@ -7,5 +7,5 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
-Depends: python-timber,network-manager,python-dnspython,dnsutils
+Depends: python-timber,network-manager,python-dnspython,dnsutils,confighelper
 Description: Finds the best network with access to the Internet.

@@ -1,6 +1,8 @@
 netcheck (0.5) UNRELEASED; urgency=low
 
   * GPLv3 release of netcheck.
+  * Fixed init script so service displays correct status.
+  * Changed install location.
 
  -- eviljoel <eviljoel@rebel>  Tue, 02 Aug 2016 19:46:51 -0500
 
