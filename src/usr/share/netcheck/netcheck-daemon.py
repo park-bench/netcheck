@@ -24,7 +24,7 @@ import sys
 import timber
 import traceback
 
-pid_file = '/var/opt/run/netcheck.pid'
+pid_file = '/run/netcheck.pid'
 
 # TODO: Break out into common library.
 def daemonize():
@@ -69,7 +69,7 @@ def daemonize():
 # Verify config file here.
 
 config_file = ConfigParser.SafeConfigParser()
-config_file.read('/etc/opt/netcheck/netcheck.conf')
+config_file.read('/etc/netcheck/netcheck.conf')
 
 # Get logging options first.
 config_helper = confighelper.ConfigHelper()
@@ -100,7 +100,7 @@ daemonize()
 
 # Quit when SIGTERM is received
 def sig_term_handler(signal, stack_frame):
-    logger.info("Recieved SIGTERM, quitting.")
+    logger.info("Received SIGTERM, quitting.")
     sys.exit(0)
 
 signal.signal(signal.SIGTERM, sig_term_handler)

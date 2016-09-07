@@ -1,6 +1,6 @@
 [General]
 
-log_file=/var/opt/log/netcheck.log
+log_file=/var/log/netcheck.log
 log_level=info
 
 # The name of the wired network in network manager.
