@@ -13,10 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import logging
 import os
 import re
 import subprocess
-import timber
 
 # NetworkMetaManager provides an easy to work with interface for some of
 #   NetworkManager's basic functions. It uses the 'nmcli' command and supports NetworkManager
@@ -27,7 +27,7 @@ class NetworkMetaManager:
 
     def __init__(self, nmcli_timeout):
 
-        self.logger = timber.get_instance()
+        self.logger = logging.getLogger()
 
         # Set timeouts
         self.nmcli_timeout = nmcli_timeout
@@ -42,7 +42,7 @@ class NetworkMetaManager:
         # This version of NetworkMetaManager only works with Network Manager 0.x.
         if major_version > 0:
             error_message = 'Invalid Network Manager version %d.' % major_version
-            self.logger.fatal(error_meessage)
+            self.logger.critical(error_meessage)
             raise Exception(error_message)
 
         # Easy and efficient /dev/null access

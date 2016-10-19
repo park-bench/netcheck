@@ -15,12 +15,12 @@
 
 import datetime
 import dns.resolver
+import logging
 import networkmetamanager
 import os
 import random
 import subprocess
 import time
-import timber
 import traceback
 
 # NetCheck monitors the wired network connection. If it is down, it attempts
@@ -37,7 +37,7 @@ class NetCheck:
         self.config = config
 
         # Get logger
-        self.logger = timber.get_instance()
+        self.logger = logging.getLogger()
 
         # Easy and efficient /dev/null access
         self.devnull = open(os.devnull, 'w')
