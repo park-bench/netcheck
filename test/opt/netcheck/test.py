@@ -1,7 +1,6 @@
 #!/usr/bin/env python2
 import networkmetamanager
 import netcheck
-import timber
 
 network = 'Wired connection 1'
 config = {}
@@ -18,7 +17,7 @@ print('NMM.is_connected returns %s.' % m.is_connected(network))
 print('IP address: %s' % m.get_interface_ip(network))
 print('Gateway address: %s' % m.get_gateway_ip(network))
 
-logger = timber.get_instance_with_filename('test.log', 'trace')
+logger = logging.getLogger()
 n = netcheck.NetCheck(config)
 
 nameserver = '8.8.8.8'
