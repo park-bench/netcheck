@@ -65,6 +65,7 @@ class NetCheck:
     # Attempts a DNS query for query_name on 'nameserver' via 'network'.
     #   Returns True if successful, False otherwise.
     def _dns_query(self, network, nameserver, query_name):
+        # TODO: Switch this to use dnspython's resolver module instead of route.
 
         self.logger.trace('_dns_query: Querying %s for %s on network %s.' % (nameserver, query_name, network))
 
