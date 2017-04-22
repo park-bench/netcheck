@@ -80,7 +80,6 @@ class NetCheck:
         except dns.resolver.NXDOMAIN as e:
             # Could be either a config error or malicious DNS
             self.logger.warn('Query successful, but the provided domain was not found.')
-            pass
 
         except dns.resolver.NoNameservers as e:
             # Probably a config error, but chosen DNS could be down or blocked.
@@ -89,7 +88,6 @@ class NetCheck:
         except Exception as e:
             # Something happened that is outside of Netcheck's scope.
             self.logger.error(e.message)
-            pass
 
         return success
 
