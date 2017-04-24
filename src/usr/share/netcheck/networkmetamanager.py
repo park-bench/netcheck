@@ -172,39 +172,3 @@ class NetworkMetaManager:
         self.logger.trace('get_interface_ip: Interface IP for %s is %s.' % (network_name, interface_ip))
 
         return interface_ip
- 
-
-    # Get the current gateway address for network_name. Returns None if there is no connection.
-    # TODO: This method is almost identical to the above method. There are good ways to combine them.
-    def get_gateway_ip(self, network_name):
-
-        self.logger.trace('get_gateway_ip: Getting gateway IP for %s.' % network_name)
-
-        gateway_ip = None
-
-        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
-        # We are only interested in the first line of this output.
-        #   It should look something like this:
-        #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-        try:
-            nmcli_output = subprocess.check_output(nmcli_command)
-        except subprocess.CalledProcessError as process_error:
-            # If the nmcli command returns non-zero, it will not return the right
-            #   data anyway.
-            nmcli_output = ''
-
-        regex_match = self.gateway_ip_v0_regex.search(nmcli_output)
-
-        if regex_match:
-            raw_ip = regex_match.group('gateway_ip')
-            valid_ip = self.valid_ip_regex.search(raw_ip)
-            if valid_ip:
-                gateway_ip = valid_ip.group('ip')
-            else:
-                self.logger.debug('get_interface_ip: IP address was found, but is invalid.')
-        else:
-            self.logger.debug('get_interface_ip: IP address not found.')
-
-        self.logger.trace('get_gateway_ip: Gateway IP for %s is %s.' % (network_name, gateway_ip))
-
-        return gateway_ip
