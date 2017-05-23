@@ -17,6 +17,7 @@
 
 import confighelper
 import ConfigParser
+import daemon
 import logging
 import netcheck
 import os
@@ -26,45 +27,7 @@ import traceback
 
 pid_file = '/run/netcheck.pid'
 
-# TODO: Break out into common library.
-def daemonize():
-    # Fork the first time to make init our parent.
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError, e:
-        logger.critical("Failed to make parent process init: %d (%s)" % (e.errno, e.strerror))
-        sys.exit(1)
- 
-    # TODO: Consider locking this down. 
-    os.chdir("/")  # Change the working directory
-    os.setsid()  # Create a new process session.
-    os.umask(0)
-
-    # Fork the second time to make sure the process is not a session leader. 
-    #   This apparently prevents us from taking control of a TTY.
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError, e:
-        logger.critical("Failed to give up session leadership: %d (%s)" % (e.errno, e.strerror))
-        sys.exit(1)
-
-    # Redirect standard file descriptors
-    sys.stdout.flush()
-    sys.stderr.flush()
-    devnull = os.open(os.devnull, os.O_RDWR)
-    os.dup2(devnull, sys.stdin.fileno())
-    os.dup2(devnull, sys.stdout.fileno())
-    os.dup2(devnull, sys.stderr.fileno())
-    os.close(devnull)
-
-    pid = str(os.getpid())
-    pidFile = file(pid_file,'w')
-    pidFile.write("%s\n" % pid)
-    pidFile.close()
+# TODO: Consider running in a chroot or jail.
 
 # Verify config file here.
 
@@ -97,20 +60,28 @@ config['backup_network_max_usage_delay'] = \
 config['backup_network_failed_max_usage_delay'] = \
         config_helper.verify_number_exists(config_file, 'backup_network_failed_max_usage_delay')
 
-daemonize()
-
 # Quit when SIGTERM is received
 def sig_term_handler(signal, stack_frame):
     logger.info("Received SIGTERM, quitting.")
     sys.exit(0)
 
-signal.signal(signal.SIGTERM, sig_term_handler)
+# TODO: Work out a permissions setup so that this program doesn't run as root.
+daemon_context = daemon.DaemonContext(
+    working_directory = '/',
+    pidfile = pidlockfile.PIDLockFile(pid_file),
+    umask = 0
+    )
 
-try:
-    the_checker = netcheck.NetCheck(config)
-    the_checker.check_loop()
+daemon_context.signal_map = {
+    signal.SIGTERM : sig_term_handler
+    }
 
-except Exception as e:
-    logger.critical("%s: %s\n" % (type(e).__name__, e.message))
-    logger.error(traceback.format_exc())
-    sys.exit(1)
+with daemon_context:
+    try:
+        the_checker = netcheck.NetCheck(config)
+        the_checker.check_loop()
+
+    except Exception as e:
+        logger.critical("%s: %s\n" % (type(e).__name__, e.message))
+        logger.error(traceback.format_exc())
+        sys.exit(1)
