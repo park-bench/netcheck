@@ -30,8 +30,6 @@ import traceback
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
 #   sending mail.
 class NetCheck:
-
-
     def __init__(self, config):
 
         self.config = config
@@ -47,6 +45,8 @@ class NetCheck:
 
         self.backup_network_check_time = datetime.datetime.now()
         self.connected_wifi_index = 0
+
+        self.resolver = dns.resolver.Resolver()
 
         # This section is commented out because we connect to the backup network
         #   as soon as the program starts anyway. If FreedomPop's monthly usage requirement
@@ -65,42 +65,37 @@ class NetCheck:
     # Attempts a DNS query for query_name on 'nameserver' via 'network'.
     #   Returns True if successful, False otherwise.
     def _dns_query(self, network, nameserver, query_name):
-
-        self.logger.trace('_dns_query: Querying %s for %s on network %s.' % (nameserver, query_name, network))
-
-        # TODO: Add support for when these are not able to obtain the IP.
-        gateway_ip = self.network_meta.get_gateway_ip(network)
-        interface_ip = self.network_meta.get_interface_ip(network)
-
+        self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
         success = False
 
-        # Add a route for this query, otherwise it might not use the specified network.
-        route_command = ['ip', 'route', 'replace', '%s/32' % nameserver, 'via', gateway_ip]
-        if not(self._subprocess_call(route_command)):
-            self.logger.error('Failed to set route for %s nameserver over gateway %s.' % \
-                    (nameserver, gateway_ip))
- 
-        else:
-            self.logger.trace('_dns_query: Route added.')
-            dig_command = ['dig', '@%s' % nameserver, '-b', interface_ip, query_name, \
-                    '+time=%d' % self.config['dig_timeout'], '+tries=1']
+        # TODO: Add support for when this is not able to obtain the IP.
+        interface_ip = self.network_meta.get_interface_ip(network)
 
-            if not(self._subprocess_call(dig_command)):
-                self.logger.debug('_dns_query: DNS query failed.')
-            else:
-                self.logger.trace('_dns_query: DNS query successful.')
-                success = True
- 
-        # Try to remove the route whether it failed or not.
-        if self._subprocess_call(['ip', 'route', 'del', nameserver]):
-            self.logger.trace('_dns_query: Removed route.')
-        else:
-            # TODO: Find a better way to deal with DNS over a specific interface than using 'route'.
-            # TODO: This is not a problem if removing the route failed because 
-            #   it isn't there in the first place, which is usually why it fails.
-            #   It is a problem if somehow the old route is still there. Figure
-            #   out how to recover from that gracefully.
-            self.logger.error('Removing route for %s failed.' % nameserver)
+        self.resolver.nameservers = [nameserver]
+        try:
+            query_result = self.resolver.query(query_name, source=interface_ip)
+            success = True
+
+        except dns.resolver.Timeout as detail:
+            # Network probably disconnected.
+            self.logger.error('DNS query for %s from nameserver %s on network %s timed out. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
+
+        except dns.resolver.NXDOMAIN as detail:
+            # Could be either a config error or malicious DNS
+            self.logger.error('DNS query for %s from nameserver %s on network %s was successful, ' +
+                'but the provided domain was not found. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
+
+        except dns.resolver.NoNameservers as detail:
+            # Probably a config error, but chosen DNS could be down or blocked.
+            self.logger.error('Could not access nameserver %s on network %s. %s: %s' % (nameserver,
+                network, type(detail).__name__, detail.message))
+
+        except Exception as detail:
+            # Something happened that is outside of Netcheck's scope.
+            self.logger.error('Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         return success
 
