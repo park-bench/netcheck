@@ -68,9 +68,12 @@ class NetCheck:
         self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
         success = False
 
+        # TODO: Add support for when this is not able to obtain the IP.
+        interface_ip = self.network_meta.get_interface_ip(network)
+
         self.resolver.nameservers = [nameserver]
         try:
-            query_result = self.resolver.query(query_name, source=network)
+            query_result = self.resolver.query(query_name, source=interface_ip)
             success = True
 
         except dns.resolver.Timeout as detail:
