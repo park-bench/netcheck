@@ -1,3 +1,6 @@
+# netcheck.conf.example
+# Example configuration for netcheck.
+
 [General]
 
 log_file=/var/log/netcheck.log
