@@ -1,14 +1,19 @@
+# netcheck.conf.example
+# Example configuration for netcheck.
+
 [General]
 
-log_file=/var/log/netcheck.log
+# The amount of logging detail. Either of critical, error, warn, info, debug,
+#   or trace.
 log_level=info
 
-# The name of the wired network in network manager.
+# The name of the wired network in Network Manager.
 wired_network_name=
 
-# Comma delimited list of WiFi networks to connect to ordered by preference.
-#   The first WiFi network is considered the 'backup' network which we have to
-#   connect to periodically to maintain an active account. (See below.)
+# Comma delimited list of Network Manager WiFi networks to connect to ordered
+#   by preference. The first WiFi network is considered the 'backup' network
+#   which we have to connect to periodically to maintain an active account.
+#   (See backup_network_max_usage_delay below.)
 wifi_network_names=
 
 # Comma delimited list of DNS servers to use. Pick your own servers here to help
@@ -19,7 +24,8 @@ nameservers=
 #   to help prevent fingerprinting of this application.
 dns_queries=
 
-# This is not currently used.
+# This is not currently used. Ideally we will use this option instead of having
+#   a magic position in the wiki_network_names list.
 # TODO: Use this or remove it.
 backup_network_name=
 
@@ -35,9 +41,10 @@ nmcli_timeout=15
 #   [FreedomPop].) (Cannot be negative.)
 backup_network_max_usage_delay=14
 
-# Maximum delay in seconds that we try to reuse the backup network if the first (and
-#   subsequent retries) failed. (Cannot be negative.)
+# Maximum delay in seconds that we try to reuse the backup network if the first try
+#   (and subsequent retries) failed. (Cannot be negative.)
 backup_network_failed_max_usage_delay=3600
 
-# Maximum sleep time between each loop iteration. (Cannot be negative.)
+# Maximum sleep time between each loop iteration. The average sleep time will be
+#   half of this value. (Cannot be negative.)
 sleep_range=60

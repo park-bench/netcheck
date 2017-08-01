@@ -15,5 +15,36 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+case "$1" in
+    configure)
+
+    # Default Linux user and group information
+    NETCHECK_USER='netcheck'
+    NETCHECK_USER_COMMENT='Netcheck Daemon'
+    NETCHECK_GROUP='netcheck'
+    NETDEV_GROUP='netdev'
+
+    # Add the netcheck group
+    if ! getent group "$NETCHECK_GROUP" >> /dev/null; then
+        echo -n "Adding group $NETCHECK_GROUP..."
+        addgroup --quiet --system "$NETCHECK_GROUP" 2> /dev/null
+        echo "done"
+    fi
+
+    # Add the netcheck user
+    if ! getent passwd "$NETCHECK_USER" >> /dev/null; then
+        echo -n "Adding system user $NETCHECK_USER..."
+        adduser --quiet --system --ingroup "$NETCHECK_GROUP" --no-create-home --disabled-password \
+            "$NETCHECK_USER" 2> /dev/null
+        echo "done"
+    fi
+
+    # Adjust the user regardless of whether this script created the user or not.
+    #   (The user might already exist.)
+    usermod -c "$NETCHECK_USER_COMMENT" -d "/nonexistent" -g "$NETCHECK_GROUP" \
+        -G "$NETDEV_GROUP" "$NETCHECK_USER"
+    ;;
+esac
+
 update-rc.d netcheck defaults || exit 1
 invoke-rc.d netcheck start || exit 1
