@@ -42,7 +42,7 @@ class NetworkMetaManager:
         # This version of NetworkMetaManager only works with Network Manager 0.x.
         if major_version > 0:
             error_message = 'Invalid Network Manager version %d.' % major_version
-            self.logger.critical(error_meessage)
+            self.logger.critical(error_message)
             raise Exception(error_message)
 
         # Easy and efficient /dev/null access
