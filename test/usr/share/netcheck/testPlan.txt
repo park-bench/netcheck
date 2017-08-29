@@ -24,7 +24,7 @@ Test all of these cases before tagging a commit.
 * Test when a connection is made but did not receive an IP address. (This might not be easily testable.)
 * Test when a connection is made but did not receive a gateway IP address. (This might not be easily testable.)
 
-* Optional test: Route cannot be set. (Rename route command.)
+* Optional test: Route cannot be set. (Rename ip command.)
+* Optional test: Route cannot be removed. (Rename ip command.)
 * Optional test: dig cannot be called. (Rename dig command.)
 * Optional test: nmcli cannot be called. (Rename nmcli command.)
-* Optional test: Route cannot be removed. (Rename route command.)

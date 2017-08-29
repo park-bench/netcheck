@@ -330,13 +330,13 @@ class NetCheck:
 
                 prior_network_name = self._log_connection_change(prior_network_name, current_network_name)
 
-                sleep_time = random.uniform(0, self.config['sleep_range'])
-                self.logger.debug('Sleeping for %f seconds!' % sleep_time)
-                time.sleep(sleep_time)
-
             except Exception as e:
                 self.logger.error('Unexpected error %s: %s\n' % (type(e).__name__, e.message))
                 self.logger.error(traceback.format_exc())
+
+            sleep_time = random.uniform(0, self.config['sleep_range'])
+            self.logger.debug('Sleeping for %f seconds!' % sleep_time)
+            time.sleep(sleep_time)
 
 
     # Logs changes to the network in use.
