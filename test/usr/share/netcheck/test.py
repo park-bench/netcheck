@@ -1,6 +1,11 @@
 #!/usr/bin/env python2
+import confighelper
+import logging
 import networkmetamanager
 import netcheck
+
+config_helper = confighelper.ConfigHelper()
+config_helper.configure_logger('/dev/stdout', 'trace')
 
 network = 'Wired connection 1'
 config = {}
@@ -23,10 +28,10 @@ n = netcheck.NetCheck(config)
 nameserver = '8.8.8.8'
 query = 'facebook.com'
 
-print(n._DNS_query(network, nameserver, query))
+print(n._dns_query(network, nameserver, query))
 #print(n._DNS_query(network, '8.8.8.255', query))
 
 # TODO: Test further for negatives.
-print('DNS works for %s: %s.' % (network, n._DNS_works(network)))
+print('DNS works for %s: %s.' % (network, n._dns_works(network)))
 
 # print('NMM.disconnect returns %s.' % m.disconnect(network))
