@@ -1,4 +1,4 @@
-# Copyright 2015-2016 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2017 Joel Allen Luellwitz and Andrew Klapp
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,12 +18,13 @@ import os
 import re
 import subprocess
 
-# NetworkMetaManager provides an easy to work with interface for some of
-#   NetworkManager's basic functions. It uses the 'nmcli' command and supports NetworkManager
-#   version 0.x.
+
 # TODO: Use the network manager API instead.
 class NetworkMetaManager:
-
+    """NetworkMetaManager provides an easy to work with interface for some of
+    NetworkManager's basic functions. It uses the 'nmcli' command and supports NetworkManager
+    version 0.x.
+    """
 
     def __init__(self, nmcli_timeout):
 
@@ -35,7 +36,7 @@ class NetworkMetaManager:
         # Get NetworkManager major version and dump it to self.major_version.
         #   nmcli parameters changed between 0.x and 1.x.
         # TODO: Does the program bail if this command fails?
-        raw_version = subprocess.check_output([ 'nmcli', '--version' ])
+        raw_version = subprocess.check_output(['nmcli', '--version'])
         version_string = raw_version.split()[3]
         major_version = int(version_string.split('.')[0])
 
@@ -52,35 +53,40 @@ class NetworkMetaManager:
         # TODO: Eventually handle Network Manager v1.x output.
         # Expected output for Network Manager v0.x
         #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-        self.interface_ip_v0_regex = re.compile('IP4.ADDRESS\[1\]:ip = (?P<interface_ip>.+)/[0-9]{1,3}, gw = .+')
-        self.gateway_ip_v0_regex = re.compile('IP4.ADDRESS\[1\]:ip = .+ gw = (?P<gateway_ip>.+)')
+        self.interface_ip_v0_regex = re.compile(
+            'IP4.ADDRESS\[1\]:ip = (?P<interface_ip>.+)/[0-9]{1,3}, gw = .+')
+        self.gateway_ip_v0_regex = re.compile(
+            'IP4.ADDRESS\[1\]:ip = .+ gw = (?P<gateway_ip>.+)')
 
         ip_octet_pattern = '[0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5]'
-        self.valid_ip_regex = re.compile('^(?P<ip>((%s)\.){3}(%s))$' % (ip_octet_pattern, ip_octet_pattern))
+        self.valid_ip_regex = re.compile(
+            '^(?P<ip>((%s)\.){3}(%s))$' % (ip_octet_pattern, ip_octet_pattern))
 
- 
-    # Invokes a program on the system.
-    #   Param command_list is a command split into a list, not a list of separate commands.
-    #   Returns True upon success, False otherwise.
     def _subprocess_call(self, command_list):
+        """Invokes a program on the system.
+        Param command_list is a command split into a list, not a list of separate commands.
+        Returns True upon success, False otherwise.
+        """
         exit_code = None
-        
+
         self.logger.trace('_subprocess_call: Calling "%s".' % ' '.join(command_list))
         try:
             # Run command with subprocess.call, redirecting output to /dev/null.
-            exit_code = subprocess.call(command_list, stdin=self.devnull, stdout=self.devnull, stderr=self.devnull)
+            exit_code = subprocess.call(command_list, stdin=self.devnull,
+                                        stdout=self.devnull, stderr=self.devnull)
             self.logger.trace('_subprocess_call: Subprocess returned code %d.' % exit_code)
-        except subprocess.CalledProcessError as process_error:
+        except subprocess.CalledProcessError:
             # Eat exceptions because it will properly return False this way.
+            # TODO: Log full CalledProcessError.
             self.logger.error('Subprocess call failed!')
 
         return exit_code == 0
 
-
-    # Try to connect to a network. Returns True on success, False on failure.
     def connect(self, network_name):
+        """Try to connect to a network. Returns True on success, False on failure."""
 
-        nmcli_command = ['nmcli', 'connection', 'up', 'id', network_name, '--timeout', '%d' % self.nmcli_timeout]
+        nmcli_command = ['nmcli', 'connection', 'up', 'id', network_name, '--timeout',
+                         '%d' % self.nmcli_timeout]
         connect_success = self._subprocess_call(nmcli_command)
 
         if connect_success:
@@ -91,9 +97,8 @@ class NetworkMetaManager:
 
         return connect_success
 
-
-    # Try to disconnect a network. Returns True on success, False on failure.
     def disconnect(self, network_name):
+        """Try to disconnect a network. Returns True on success, False on failure."""
 
         # Disconnecting does not accept a timeout option, apparently.
         #   This is not a problem because none of our code uses this method anyway.
@@ -107,10 +112,10 @@ class NetworkMetaManager:
 
         return disconnect_success
 
-
-    # Check for network connectivity, not including DNS. Returns True if connected, False otherwise.
     def is_connected(self, network_name):
-
+        """Check for network connectivity, not including DNS. Returns True if connected,
+        False otherwise.
+        """
         is_connected = False
 
         self.logger.trace('is_connected: Checking connectivity for %s.' % network_name)
@@ -125,22 +130,22 @@ class NetworkMetaManager:
         # TODO: Since these two commands are not atomic, we have a race condition.
 
         if is_active:
-            has_ip = not(self.get_interface_ip(network_name) == None)
+            has_ip = not(self.get_interface_ip(network_name) is None)
             if has_ip:
                 self.logger.trace('is_connected: Connected to %s.' % network_name)
                 is_connected = True
             else:
-                self.logger.trace('is_connected: %s does not have an IP address.' % network_name)
+                self.logger.trace('is_connected: %s does not have an IP address.' %
+                                  network_name)
         else:
             self.logger.trace('is_connected: Not connected to %s.' % network_name)
 
         return is_connected
 
-
-    # Get the current IP address for network_name's interface. Returns None if there is no
-    #   connection.
     def get_interface_ip(self, network_name):
-
+        """Get the current IP address for network_name's interface. Returns None if there is
+        no connection.
+        """
         self.logger.trace('get_interface_ip: Getting interface IP for %s.' % network_name)
 
         interface_ip = None
@@ -148,13 +153,15 @@ class NetworkMetaManager:
         # We are only interested in the first line of this output.
         #   It should look something like this:
         #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
-        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
+        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id',
+                         network_name]
 
         try:
             nmcli_output = subprocess.check_output(nmcli_command)
-        except subprocess.CalledProcessError as process_error:
+        except subprocess.CalledProcessError:
             # If the nmcli command returns non-zero, it will not return the right
             #   data anyway.
+            # TODO: Log the CalledProcessError as at least debug.
             nmcli_output = ''
 
         regex_match = self.interface_ip_v0_regex.search(nmcli_output)
@@ -169,28 +176,32 @@ class NetworkMetaManager:
         else:
             self.logger.debug('get_interface_ip: IP address not found.')
 
-        self.logger.trace('get_interface_ip: Interface IP for %s is %s.' % (network_name, interface_ip))
+        self.logger.trace('get_interface_ip: Interface IP for %s is %s.' %
+                          (network_name, interface_ip))
 
         return interface_ip
- 
 
-    # Get the current gateway address for network_name. Returns None if there is no connection.
-    # TODO: This method is almost identical to the above method. There are good ways to combine them.
+    # TODO: This method is almost identical to the above method. There are good ways to
+    #   combine them.
     def get_gateway_ip(self, network_name):
-
+        """Get the current gateway address for network_name. Returns None if there is no
+        connection.
+        """
         self.logger.trace('get_gateway_ip: Getting gateway IP for %s.' % network_name)
 
         gateway_ip = None
 
-        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id', network_name]
+        nmcli_command = ['nmcli', '-t', '-f', 'ip', 'connection', 'status', 'id',
+                         network_name]
         # We are only interested in the first line of this output.
         #   It should look something like this:
         #   IP4.ADDRESS[1]:ip = 255.255.255.255/255, gw = 255.255.255.255
         try:
             nmcli_output = subprocess.check_output(nmcli_command)
-        except subprocess.CalledProcessError as process_error:
+        except subprocess.CalledProcessError:
             # If the nmcli command returns non-zero, it will not return the right
             #   data anyway.
+            # TODO: Log the CalledProcessError as at least debug.
             nmcli_output = ''
 
         regex_match = self.gateway_ip_v0_regex.search(nmcli_output)
@@ -205,6 +216,7 @@ class NetworkMetaManager:
         else:
             self.logger.debug('get_interface_ip: IP address not found.')
 
-        self.logger.trace('get_gateway_ip: Gateway IP for %s is %s.' % (network_name, gateway_ip))
+        self.logger.trace('get_gateway_ip: Gateway IP for %s is %s.' %
+                          (network_name, gateway_ip))
 
         return gateway_ip
