@@ -31,9 +31,17 @@ _netcheck_ depends on one other piece of the Parkbench project, which must be in
 2. Use `debuild` from the project root directory to build the package.
 3. Use `dpkg -i` to install the package.
 4. Use `apt-get -f install` to resolve any missing dependencies. The daemon will attempt to start and fail. (This is expected.)
-5. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
-6. Copy or rename this file to `netcheck.conf` in the same directory. Edit this file to add configuration details.
-7.   Restart the daemon with `service netcheck restart`. If the configuration file is valid and named correctly, the service will now start successfully.
+
+## Post-Install configuration
+
+# Configuring NetworkManager
+1. Edit the file `/etc/network/interfaces` and remove any interfaces that you want Netcheck to use.
+2. Add any network interfaces you want Netcheck to use with `nmcli con add`.
+
+# Configuring Netcheck
+1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
+2. Copy or rename this file to `netcheck.conf` in the same directory. Edit this file to add configuration details.
+3. Restart the daemon with `service netcheck restart`. If the configuration file is valid and named correctly, the service will now start successfully.
 
 ## Updates
 
