@@ -66,6 +66,7 @@ class NetCheck:
         """Attempts a DNS query for query_name on 'nameserver' via 'network'.
         Returns True if successful, False otherwise.
         """
+        # TODO: Use something more secure than unauthenticated plaintext DNS requests.
         # TODO: Switch this to use dnspython's resolver module instead of route.
 
         self.logger.trace('_dns_query: Querying %s for %s on network %s.' %
