@@ -15,8 +15,9 @@ This software is currently only supported on Ubuntu 14.04 and may not be ready f
 The only current method of installation for our software is building and installing your own debian package. We make the following assumptions:
 
 *    You are already familiar with using a Linux terminal.
-*    You already know how to use GnuPG.
 *    You are already somewhat familiar with using debuild.
+*    `build-essential` is installed.
+*    `devscripts` is installed.
 
 ## Parkbench Dependencies
 
