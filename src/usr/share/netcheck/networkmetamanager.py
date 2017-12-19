@@ -18,6 +18,8 @@ import os
 import re
 import subprocess
 
+__all__ = ['NetworkMetaManager']
+
 
 # TODO: Use the network manager API instead.
 class NetworkMetaManager:

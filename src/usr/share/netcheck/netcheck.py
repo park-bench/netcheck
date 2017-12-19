@@ -14,6 +14,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import datetime
+import dns
 import logging
 import networkmetamanager
 import os
@@ -21,6 +22,8 @@ import random
 import subprocess
 import time
 import traceback
+
+__all__ = ['NetCheck']
 
 
 # TODO: Eventually make multithreaded.
@@ -70,7 +73,8 @@ class NetCheck:
         """
         # TODO: Use something more secure than unauthenticated plaintext DNS requests.
 
-        self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
+        self.logger.trace('Querying %s for %s on network %s.' %
+                          (nameserver, query_name, network))
         success = False
 
         # TODO: Add support for when this is not able to obtain the IP.
@@ -78,28 +82,32 @@ class NetCheck:
 
         self.resolver.nameservers = [nameserver]
         try:
-            query_result = self.resolver.query(query_name, source=interface_ip)
+            self.resolver.query(query_name, source=interface_ip)
             success = True
 
         except dns.resolver.Timeout as detail:
             # Network probably disconnected.
-            self.logger.error('DNS query for %s from nameserver %s on network %s timed out. %s: %s' %
+            self.logger.error(
+                'DNS query for %s from nameserver %s on network %s timed out. %s: %s' %
                 (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         except dns.resolver.NXDOMAIN as detail:
             # Could be either a config error or malicious DNS
-            self.logger.error('DNS query for %s from nameserver %s on network %s was successful, ' +
+            self.logger.error(
+                'DNS query for %s from nameserver %s on network %s was successful, '
                 'but the provided domain was not found. %s: %s' %
                 (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         except dns.resolver.NoNameservers as detail:
             # Probably a config error, but chosen DNS could be down or blocked.
-            self.logger.error('Could not access nameserver %s on network %s. %s: %s' % (nameserver,
-                network, type(detail).__name__, detail.message))
+            self.logger.error(
+                'Could not access nameserver %s on network %s. %s: %s' %
+                (nameserver, network, type(detail).__name__, detail.message))
 
         except Exception as detail:
             # Something happened that is outside of Netcheck's scope.
-            self.logger.error('Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
+            self.logger.error(
+                'Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
                 (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         return success
@@ -169,9 +177,12 @@ class NetCheck:
 
         return overall_success
 
-    # Checks the connection to a network and checks DNS availability if connection exists.
-    #   Returns true on success, false on failure.
     def _check_connection_and_check_dns(self, network_name):
+        """Checks the connection to a network and checks DNS availability if connection
+        exists.
+
+        Returns true on success, false on failure.
+        """
         self.logger.trace('_check_connection_and_check_dns: Attempting to reach the '
                           'Internet over %s.' % network_name)
 
@@ -206,8 +217,9 @@ class NetCheck:
 
         if index >= len(self.config['wifi_network_names']):
             # Out of bounds means that we're out of networks.
-            self.logger.debug('_try_wifi_networks: Reached end of wifi network list. '
-                    'Setting first network as the currently connected wifi network.')
+            self.logger.debug(
+                '_try_wifi_networks: Reached end of wifi network list. '
+                'Setting first network as the currently connected wifi network.')
             self.connected_wifi_index = 0
             success = False
 
