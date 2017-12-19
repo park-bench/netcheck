@@ -73,26 +73,34 @@ class NetCheck:
         self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
         success = False
 
+        # TODO: Add support for when this is not able to obtain the IP.
+        interface_ip = self.network_meta.get_interface_ip(network)
+
         self.resolver.nameservers = [nameserver]
         try:
-            query_result = self.resolver.query(query_name)
+            query_result = self.resolver.query(query_name, source=interface_ip)
             success = True
 
-        except dns.resolver.Timeout as e:
+        except dns.resolver.Timeout as detail:
             # Network probably disconnected.
-            self.logger.warn('Query timed out.')
+            self.logger.error('DNS query for %s from nameserver %s on network %s timed out. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
 
-        except dns.resolver.NXDOMAIN as e:
+        except dns.resolver.NXDOMAIN as detail:
             # Could be either a config error or malicious DNS
-            self.logger.warn('Query successful, but the provided domain was not found.')
+            self.logger.error('DNS query for %s from nameserver %s on network %s was successful, ' +
+                'but the provided domain was not found. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
 
-        except dns.resolver.NoNameservers as e:
+        except dns.resolver.NoNameservers as detail:
             # Probably a config error, but chosen DNS could be down or blocked.
-            self.logger.error('Nameserver %s does not seem to be working.' % nameserver)
+            self.logger.error('Could not access nameserver %s on network %s. %s: %s' % (nameserver,
+                network, type(detail).__name__, detail.message))
 
-        except Exception as e:
+        except Exception as detail:
             # Something happened that is outside of Netcheck's scope.
-            self.logger.error(e.message)
+            self.logger.error('Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
+                (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         return success
 
