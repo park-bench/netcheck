@@ -13,6 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__all__ = ['NetCheck']
+__author__ = 'Joel Luellwitz and Andrew Klapp'
+__version__ = '0.8'
+
 import datetime
 import dns
 import logging
@@ -22,8 +26,6 @@ import random
 import subprocess
 import time
 import traceback
-
-__all__ = ['NetCheck']
 
 
 # TODO: Eventually make multithreaded.
