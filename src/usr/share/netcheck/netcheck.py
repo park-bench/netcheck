@@ -15,13 +15,19 @@
 
 import datetime
 import logging
-import networkmetamanager
 import os
 import random
 import subprocess
 import time
 import traceback
 
+import dns
+import NetworkManager
+import networkmetamanager
+
+# TODO: Make these configuration options before merging in.
+WIRED_DEVICE = "eth0"
+WIRELESS_DEVICE = "eth1"
 
 # TODO: Eventually make multithreaded.
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
@@ -38,9 +44,6 @@ class NetCheck:
 
         # Get logger
         self.logger = logging.getLogger()
-
-        # Easy and efficient /dev/null access
-        self.devnull = open(os.devnull, 'w')
 
         # Instantiate NetworkMetaManager
         self.network_meta = networkmetamanager.NetworkMetaManager(
@@ -62,7 +65,20 @@ class NetCheck:
         #else:
         #    self.logger.warn('All wifi networks failed to connect during initialization.')
 
+        self.network_id_table = self._build_network_id_table()
+
         self.logger.info('NetCheck initialized.')
+
+    def _build_network_id_table(self):
+        network_id_list = self.config['wifi_network_names'] + [self.config['wired_network_name']]
+        
+        network_id_table = {}
+        for connection in NetworkManager.Settings.ListConnections():
+            connection_id = connection.GetSettings()['connection']['id']
+            if connection_id in network_id_list:
+                network_id_table[connection_id] = connection
+
+        return network_id_table
 
     def _dns_query(self, network, nameserver, query_name):
         """Attempts a DNS query for query_name on 'nameserver' via 'network'.
@@ -99,7 +115,8 @@ class NetCheck:
 
         except Exception as detail:
             # Something happened that is outside of Netcheck's scope.
-            self.logger.error('Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
+            self.logger.error(
+                'Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
                 (query_name, nameserver, network, type(detail).__name__, detail.message))
 
         return success
@@ -383,24 +400,3 @@ class NetCheck:
                 self.logger.info('Connection change: Connected to the wired network.')
 
         return current_network_name
-
-    def _subprocess_call(self, command_list):
-        """Invokes a program on the system.
-        Param command_list is a command split into a list, not a list of separate commands.
-        Returns True upon success, False otherwise.
-        """
-
-        exit_code = None
-
-        self.logger.trace('_subprocess_call: Calling "%s".' % ' '.join(command_list))
-        try:
-            # Run command with subprocess.call, redirecting output to /dev/null.
-            exit_code = subprocess.call(command_list, stdin=self.devnull,
-                                        stdout=self.devnull, stderr=self.devnull)
-            self.logger.trace('_subprocess_call: Subprocess returned code %d.' % exit_code)
-        except subprocess.CalledProcessError:
-            # Eat exceptions because it will properly return False this way.
-            # TODO: Print out the subprocess exception.
-            self.logger.error('Subprocess call failed!')
-
-        return exit_code == 0
