@@ -28,6 +28,7 @@ import networkmetamanager
 # TODO: Make these configuration options before merging in.
 WIRED_DEVICE = "eth0"
 WIRELESS_DEVICE = "eth1"
+NETWORKMANAGER_ACTIVATION_CHECK_INTERVAL = 0.1
 
 # TODO: Eventually make multithreaded.
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
@@ -67,11 +68,14 @@ class NetCheck:
 
         self.network_id_table = self._build_network_id_table()
 
+        # TODO: Make this change in the config file.
+        self.config['network_activation_timeout'] = self.config['nmcli_timeout']
+
         self.logger.info('NetCheck initialized.')
 
     def _build_network_id_table(self):
         network_id_list = self.config['wifi_network_names'] + [self.config['wired_network_name']]
-        
+
         network_id_table = {}
         for connection in NetworkManager.Settings.ListConnections():
             connection_id = connection.GetSettings()['connection']['id']
@@ -400,3 +404,23 @@ class NetCheck:
                 self.logger.info('Connection change: Connected to the wired network.')
 
         return current_network_name
+
+    def _activate_network(self, network_id, network_device):
+        """Attempts to activate a network with the provided network id on the provided network
+        device. Returns true on success, false on failure or timeout."""
+        success = False
+        give_up = False
+        active_connection = NetworkManager.NetworkManager.ActivateConnection(
+            self.connection_id_table[network_id], network_device, '/')
+
+        time_to_give_up = datetime.datetime.now() + self.config['network_activation_timeout']
+
+        while (success is not True and give_up is not False):
+            if active_connection.State == 2:
+                success = True
+            elif (active_connection.State == 3 or active_connection.State == 4 or
+                  datetime.datetime.now() > time_to_give_up):
+                give_up = True
+            time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_INTERVAL)
+
+        return success
