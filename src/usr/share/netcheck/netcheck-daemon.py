@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# Copyright 2015-2017 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2018 Joel Allen Luellwitz and Andrew Klapp
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,9 +38,8 @@ def daemonize():
         if pid > 0:
             sys.exit(0)
     except OSError as e:
-        logger.critical('Failed to make parent process init: %d (%s)' %
-                        (e.errno, e.strerror))
-        sys.exit(1)
+        raise Exception('Failed to make parent process init: %d (%s)' % (
+            e.errno, e.strerror))
 
     # TODO: Lock this down.
     os.chdir('/')  # Change the working directory
@@ -54,9 +53,8 @@ def daemonize():
         if pid > 0:
             sys.exit(0)
     except OSError as e:
-        logger.critical('Failed to give up session leadership: %d (%s)' %
-                        (e.errno, e.strerror))
-        sys.exit(1)
+        raise Exception('Failed to give up session leadership: %d (%s)' % (
+            e.errno, e.strerror))
 
     # Redirect standard file descriptors
     sys.stdout.flush()
@@ -125,4 +123,4 @@ try:
 except Exception as e:
     logger.critical('%s: %s\n' % (type(e).__name__, e.message))
     logger.error(traceback.format_exc())
-    sys.exit(1)
+    raise e
