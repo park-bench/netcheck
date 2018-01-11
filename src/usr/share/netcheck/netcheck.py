@@ -66,8 +66,6 @@ class NetCheck:
         #else:
         #    self.logger.warn('All wifi networks failed to connect during initialization.')
 
-        self.network_id_table = self._build_network_id_table()
-
         # TODO: Make this change in the config file.
         self.config['network_activation_timeout'] = self.config['nmcli_timeout']
 
@@ -76,17 +74,6 @@ class NetCheck:
         self.wireless_device = WIRELESS_DEVICE
 
         self.logger.info('NetCheck initialized.')
-
-    def _build_network_id_table(self):
-        network_id_list = self.config['wifi_network_names'] + [self.config['wired_network_name']]
-
-        network_id_table = {}
-        for connection in NetworkManager.Settings.ListConnections():
-            connection_id = connection.GetSettings()['connection']['id']
-            if connection_id in network_id_list:
-                network_id_table[connection_id] = connection
-
-        return network_id_table
 
     def _dns_query(self, network, nameserver, query_name):
         """Attempts a DNS query for query_name on 'nameserver' via 'network'.
