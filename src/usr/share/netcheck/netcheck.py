@@ -71,6 +71,10 @@ class NetCheck:
         # TODO: Make this change in the config file.
         self.config['network_activation_timeout'] = self.config['nmcli_timeout']
 
+        # TODO: Add these options in the config file before merging in.
+        self.wired_device = WIRED_DEVICE
+        self.wireless_device = WIRELESS_DEVICE
+
         self.logger.info('NetCheck initialized.')
 
     def _build_network_id_table(self):
@@ -405,11 +409,18 @@ class NetCheck:
 
         return current_network_name
 
-    def _activate_network(self, network_id, network_device):
+    def _activate_network(self, network_id):
         """Attempts to activate a network with the provided network id on the provided network
         device. Returns true on success, false on failure or timeout."""
         success = False
         give_up = False
+
+        if network_id == self.config['wired_network_name']:
+            network_device = self.wired_device
+        else
+            network_device = self.wireless_device
+
+
         active_connection = NetworkManager.NetworkManager.ActivateConnection(
             self.connection_id_table[network_id], network_device, '/')
 
