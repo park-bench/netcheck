@@ -98,7 +98,7 @@ class NetCheck:
         success = False
 
         # TODO: Add support for when this is not able to obtain the IP.
-        interface_ip = self.network_meta.get_interface_ip(network)
+        interface_ip = self._get_network_device_from_id(network).Dhcp4Config.Options['ip_address']
 
         self.resolver.nameservers = [nameserver]
         try:
@@ -415,11 +415,7 @@ class NetCheck:
         success = False
         give_up = False
 
-        if network_id == self.config['wired_network_name']:
-            network_device = self.wired_device
-        else
-            network_device = self.wireless_device
-
+        network_device = self._get_network_device_from_id(network_id)
 
         active_connection = NetworkManager.NetworkManager.ActivateConnection(
             self.connection_id_table[network_id], network_device, '/')
@@ -435,3 +431,14 @@ class NetCheck:
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_INTERVAL)
 
         return success
+
+    def _get_network_device_from_id(self, network_id):
+        """Guesses which network device to use based on the wired_network_name config
+        value. Returns a NetworkManager device object."""
+        # This will probably be a little smarter later on.
+        network_device = self.wireless_device
+
+        if network_id == self.config['wired_network_name']:
+            network_device = self.wired_device
+
+        return network_device
