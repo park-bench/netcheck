@@ -2,8 +2,8 @@
 import NetworkManager
 
 # TODO: Move these to the configuration file.
-WIRED_DEVICE = 'eth0'
-WIRELESS_DEVICE = 'eth1'
+WIRED_DEVICE = 'ens3'
+WIRELESS_DEVICE = 'ens8'
 
 # Network type strings according to python-networkmanager
 WIRED_NETWORK_TYPE = '802-3-ethernet'
@@ -40,7 +40,19 @@ class NetworkManagerHelper:
         self._get_device_objects()
 
     def activate_network(self, network_id):
-        pass
+        """Tells NetworkManager to activate a network with the supplied network_id.
+        Returns True if there are no errors, False otherwise.
+        """
+        success = False
+        network_device = self._get_device_for_connection(network_id)
+
+        try:
+            NetworkManager.NetworkManager.ActivateConnection(network_id, network_device, '/')
+            success = True
+        except Exception as detail:
+            self.logger.error(detail.msg
+
+        return success
 
     def get_network_ip(self, network_id):
         pass
@@ -88,3 +100,9 @@ class NetworkManagerHelper:
                 connection['connection']['type'])
 
         return network_type
+
+    def _wait_for_connection(self, network_id, timeout):
+        """Wait timeout number of seconds for an active connection to be ready.
+        return True if it connects within timeout, False otherwise.
+        """
+        pass
