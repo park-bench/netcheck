@@ -1,15 +1,28 @@
 
 import NetworkManager
 
+# TODO: Move these to the configuration file.
 WIRED_DEVICE = 'eth0'
 WIRELESS_DEVICE = 'eth1'
 
+# Network type strings according to python-networkmanager
+WIRED_NETWORK_TYPE = '802-3-ethernet'
+WIRELESS_NETWORK_TYPE = '802-11-wireless'
+
 class DeviceNotFoundException(Exception):
+    """This exception is raised when a configured network device is not found."""
+    pass
+
+class NetworkTypeNotHandledException(Exception):
+    """This exception is raised when a configured network is a type that this library does
+    not handle.
+    """
     pass
 
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
-    Dbus API."""
+    Dbus API.
+    """
 
     def __init__(self, config):
         # Build mac address to device object table
@@ -51,13 +64,27 @@ class NetworkManagerHelper:
                 self.wireless_device = device
 
         if self.wired_device is None or self.wireless_device is None:
-            raise DeviceNotFoundException('Defined wired device was not found.')
+            raise DeviceNotFoundException('Defined wired device %s was not found.' %
+                self.config['wired_interface_name'])
 
         if self.wireless_device is None:
-            raise DeviceNotFoundException('Defined wireless device was not found.')
+            raise DeviceNotFoundException('Defined wireless device %s was not found.' %
+                self.config['wireless_interface_name'])
 
     def _get_device_for_connection(self, connection):
         # The Ubuntu repositories are using an ancient version of python-networkmanager with
         #   a bug concerning the device dbus interface, and pre-defining the devices like
         #   this is a workaround.
-        pass
+        network_type = None
+
+        if connection['connection']['type'] == WIRED_NETWORK_TYPE:
+            network_type = self.wired_device
+
+        elif connection['connection']['type'] == WIRELESS_NETWORK_TYPE:
+            network_type = self.wireless_device
+
+        else:
+            raise NetworkTypeNotHandledException('Network type %s is not supported.' %
+                connection['connection']['type'])
+
+        return network_type

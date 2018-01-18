@@ -7,5 +7,6 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
-Depends: confighelper (>=0.3),network-manager,python-dnspython,python-networkmanager,dnsutils
+# python-dbus is a dependency here because python-networkmanager does not declare it as a dependency
+Depends: confighelper (>=0.3),network-manager,python-dbus,python-dnspython,python-networkmanager,dnsutils
 Description: Finds the best network with access to the Internet.
