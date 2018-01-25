@@ -51,15 +51,13 @@ class NetworkManagerHelper:
         Returns True if there are no errors, False otherwise.
         """
         success = False
-        network_device = self._get_device_for_connection(network_id)
+        connection = self.network_id_table[network_id]
+        network_device = self._get_device_for_connection(connection)
 
         # TODO: Make sure this is actually how NetworkManager handles errors. It will
         #   return a proxy_call object in several cases.
-        try:
-            NetworkManager.NetworkManager.ActivateConnection(network_id, network_device, '/')
-            success = self._wait_for_connection(network_id)
-        except Exception as detail:
-            self.logger.error(detail.msg)
+        NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
+        success = self._wait_for_connection(connection)
 
         return success
 
@@ -102,19 +100,21 @@ class NetworkManagerHelper:
         """Get the device object a connection object needs to connect with. This is
         part of a workaround for python-networkmanager being out of date in Ubuntu.
         """
-        network_type = None
 
-        if connection['connection']['type'] == WIRED_NETWORK_TYPE:
-            network_type = self.wired_device
+        network_type = connection.GetSettings()['connection']['type']
+        network_device = None
 
-        elif connection['connection']['type'] == WIRELESS_NETWORK_TYPE:
-            network_type = self.wireless_device
+        if network_type == WIRED_NETWORK_TYPE:
+            network_device = self.wired_device
+
+        elif network_type is WIRELESS_NETWORK_TYPE:
+            network_device = self.wireless_device
 
         else:
             raise NetworkTypeNotHandledException('Network type %s is not supported.' %
-                connection['connection']['type'])
+                network_type)
 
-        return network_type
+        return network_device
 
     def _wait_for_connection(self, active_connection):
         """Wait timeout number of seconds for an active connection to be ready.
@@ -123,11 +123,13 @@ class NetworkManagerHelper:
         success = False
         give_up = False
 
-        time_to_give_up = datetime.datetime.now() + self.config['network_activation_timeout']
+        time_to_give_up = time.time() + self.config['network_activation_timeout']
 
+        self.logger.debug('Waiting for connection %s...' % active_connection.GetSettings()['connection']['id'])
         while (success is False and give_up is False):
+            self.logger.debug(active_connection.State)
             if (active_connection.State == 3 or active_connection.State == 4 or
-                datetime.datetime.now() > time_to_give_up):
+                time.time() > time_to_give_up):
                 give_up = True
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
 
