@@ -1,4 +1,6 @@
-
+import datetime
+import logging
+import time
 import NetworkManager
 
 # TODO: Move these to the configuration file.
@@ -8,6 +10,8 @@ WIRELESS_DEVICE = 'ens8'
 # Network type strings according to python-networkmanager
 WIRED_NETWORK_TYPE = '802-3-ethernet'
 WIRELESS_NETWORK_TYPE = '802-11-wireless'
+
+NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
 class DeviceNotFoundException(Exception):
     """This exception is raised when a configured network device is not found."""
@@ -28,10 +32,12 @@ class NetworkManagerHelper:
         # Build mac address to device object table
 
         self.config = config
+        self.logger = logging.GetLogger()
 
         # TODO: Remove these and read these values from the config file.
         self.config['wired_interface_name'] = WIRED_DEVICE
         self.config['wireless_interface_name'] = WIRELESS_DEVICE
+        self.config['network_activation_timeout'] = 15 # in seconds
 
         self.network_id_table = self._build_network_id_table()
 
@@ -46,11 +52,13 @@ class NetworkManagerHelper:
         success = False
         network_device = self._get_device_for_connection(network_id)
 
+        # TODO: Make sure this is actually how NetworkManager handles errors. It will
+        #   return a proxy_call object in several cases.
         try:
             NetworkManager.NetworkManager.ActivateConnection(network_id, network_device, '/')
-            success = True
+            success = self._wait_for_connection(network_id)
         except Exception as detail:
-            self.logger.error(detail.msg
+            self.logger.error(detail.msg)
 
         return success
 
@@ -101,8 +109,19 @@ class NetworkManagerHelper:
 
         return network_type
 
-    def _wait_for_connection(self, network_id, timeout):
+    def _wait_for_connection(self, active_connection):
         """Wait timeout number of seconds for an active connection to be ready.
         return True if it connects within timeout, False otherwise.
         """
-        pass
+        success = False
+        give_up = False
+
+        time_to_give_up = datetime.datetime.now() + self.config['network_activation_timeout']
+
+        while (success is False and give_up is False):
+            if (active_connection.State == 3 or active_connection.State == 4 or
+                datetime.datetime.now() > time_to_give_up):
+                give_up = True
+            time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
+
+        return success
