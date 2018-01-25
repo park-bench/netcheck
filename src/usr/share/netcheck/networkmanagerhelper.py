@@ -1,3 +1,7 @@
+"""NetworkManagerHelper provides a readable layer of abstraction for the
+python-networkmanager class.
+"""
+
 import datetime
 import logging
 import time
@@ -15,13 +19,11 @@ NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
 class DeviceNotFoundException(Exception):
     """This exception is raised when a configured network device is not found."""
-    pass
 
 class NetworkTypeNotHandledException(Exception):
     """This exception is raised when a configured network is a type that this library does
     not handle.
     """
-    pass
 
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
@@ -29,10 +31,9 @@ class NetworkManagerHelper:
     """
 
     def __init__(self, config):
-        # Build mac address to device object table
 
         self.config = config
-        self.logger = logging.GetLogger()
+        self.logger = logging.getLogger()
 
         # TODO: Remove these and read these values from the config file.
         self.config['wired_interface_name'] = WIRED_DEVICE
@@ -69,6 +70,9 @@ class NetworkManagerHelper:
         pass
 
     def _build_network_id_table(self):
+        """Assemble a helpful dictionary of network objects, indexed by the connection's
+        id in NetworkManager
+        """
         network_id_table = {}
         for connection in NetworkManager.Settings.ListConnections():
             connection_id = connection.GetSettings()['connection']['id']
@@ -77,6 +81,9 @@ class NetworkManagerHelper:
         return network_id_table
 
     def _get_device_objects(self):
+        """Store the device objects that Netcheck needs to use frequently. This is part of
+        a workaround for python-networkmanager being out of date in Ubuntu.
+        """
         for device in NetworkManager.NetworkManager.GetDevices():
             if device.Interface == self.config['wired_interface_name']:
                 self.wired_device = device
@@ -92,9 +99,9 @@ class NetworkManagerHelper:
                 self.config['wireless_interface_name'])
 
     def _get_device_for_connection(self, connection):
-        # The Ubuntu repositories are using an ancient version of python-networkmanager with
-        #   a bug concerning the device dbus interface, and pre-defining the devices like
-        #   this is a workaround.
+        """Get the device object a connection object needs to connect with. This is
+        part of a workaround for python-networkmanager being out of date in Ubuntu.
+        """
         network_type = None
 
         if connection['connection']['type'] == WIRED_NETWORK_TYPE:
