@@ -7,14 +7,6 @@ import logging
 import time
 import NetworkManager
 
-# TODO: Move these to the configuration file.
-WIRED_DEVICE = 'ens3'
-WIRELESS_DEVICE = 'ens8'
-
-# Network type strings according to python-networkmanager
-WIRED_NETWORK_TYPE = '802-3-ethernet'
-WIRELESS_NETWORK_TYPE = '802-11-wireless'
-
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
 class DeviceNotFoundException(Exception):
@@ -36,15 +28,10 @@ class NetworkManagerHelper:
         self.logger = logging.getLogger()
 
         # TODO: Remove these and read these values from the config file.
-        self.config['wired_interface_name'] = WIRED_DEVICE
-        self.config['wireless_interface_name'] = WIRELESS_DEVICE
-        self.config['network_activation_timeout'] = 15 # in seconds
+        #self.config['network_activation_timeout'] = 15 # in seconds
 
         self.network_id_table = self._build_network_id_table()
-
-        self.wired_device = None
-        self.wireless_device = None
-        self._get_device_objects()
+        self.device_interface_table = self._build_device_interface_table()
 
     def activate_network(self, network_id):
         """Tells NetworkManager to activate a network with the supplied network_id.
@@ -57,14 +44,15 @@ class NetworkManagerHelper:
         # TODO: Make sure this is actually how NetworkManager handles errors. It will
         #   return a proxy_call object in several cases.
         NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
-        success = self._wait_for_connection(connection)
+        #success = self._wait_for_connection(connection)
 
         return success
 
     def get_network_ip(self, network_id):
         pass
 
-    def check_network_status(self, network_id):
+    def network_is_ready(self, network_id):
+        """Check whether the network with the given network id is ready."""
         pass
 
     def _build_network_id_table(self):
@@ -78,41 +66,23 @@ class NetworkManagerHelper:
 
         return network_id_table
 
-    def _get_device_objects(self):
-        """Store the device objects that Netcheck needs to use frequently. This is part of
-        a workaround for python-networkmanager being out of date in Ubuntu.
+    def _build_device_interface_table(self):
+        """Assemble a helpful dictionary of device objects, indexed by the device's hardware
+        address.
         """
+        device_interface_table = {}
+
         for device in NetworkManager.NetworkManager.GetDevices():
-            if device.Interface == self.config['wired_interface_name']:
-                self.wired_device = device
-            elif device.Interface == self.config['wireless_interface_name']:
-                self.wireless_device = device
+            interface = device.Interface
+            device_interface_table[interface] = device
 
-        if self.wired_device is None or self.wireless_device is None:
-            raise DeviceNotFoundException('Defined wired device %s was not found.' %
-                self.config['wired_interface_name'])
-
-        if self.wireless_device is None:
-            raise DeviceNotFoundException('Defined wireless device %s was not found.' %
-                self.config['wireless_interface_name'])
+        return device_interface_table
 
     def _get_device_for_connection(self, connection):
-        """Get the device object a connection object needs to connect with. This is
-        part of a workaround for python-networkmanager being out of date in Ubuntu.
-        """
+        """Get the device object a connection object needs to connect with."""
 
-        network_type = connection.GetSettings()['connection']['type']
-        network_device = None
-
-        if network_type == WIRED_NETWORK_TYPE:
-            network_device = self.wired_device
-
-        elif network_type is WIRELESS_NETWORK_TYPE:
-            network_device = self.wireless_device
-
-        else:
-            raise NetworkTypeNotHandledException('Network type %s is not supported.' %
-                network_type)
+        connection_interface = connection.GetSettings()['connection']['interface-name']
+        network_device = self.device_interface_table[connection_interface]
 
         return network_device
 
