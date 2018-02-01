@@ -4,7 +4,7 @@ import logging
 import NetworkManager
 import networkmanagerhelper
 
-WIRED_TEST_NETWORK_NAME = 'ethernet-ens3'
+WIRED_TEST_NETWORK_NAME = 'ethernet-ens8'
 
 config = {}
 
@@ -19,6 +19,6 @@ nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
 nmh.activate_network(WIRED_TEST_NETWORK_NAME)
 device = nmh._get_device_for_connection(nmh.network_id_table[WIRED_TEST_NETWORK_NAME])
-print(device.GetAppliedConnection(0))
+#print(device.GetAppliedConnection(0))
 
-print(NetworkManager.NetworkManager.ActiveConnections)
+#print(NetworkManager.NetworkManager.ActiveConnections)

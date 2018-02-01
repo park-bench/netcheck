@@ -9,19 +9,16 @@ import NetworkManager
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
-class DeviceNotFoundException(Exception):
-    """This exception is raised when a configured network device is not found."""
-
-class NetworkTypeNotHandledException(Exception):
-    """This exception is raised when a configured network is a type that this library does
-    not handle.
-    """
+NM_CONNECTION_ACTIVATING = 0
+NM_CONNECTION_ACTIVE = 1
+NM_CONNECTION_DISCONNECTED = 2
 
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
     Dbus API.
     """
 
+    # TODO: We don't need a whole config dict, just the one timeout value.
     def __init__(self, config):
 
         self.config = config
@@ -44,7 +41,7 @@ class NetworkManagerHelper:
         # TODO: Make sure this is actually how NetworkManager handles errors. It will
         #   return a proxy_call object in several cases.
         NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
-        #success = self._wait_for_connection(connection)
+        success = self._wait_for_connection(connection)
 
         return success
 
@@ -78,6 +75,38 @@ class NetworkManagerHelper:
 
         return device_interface_table
 
+    def _get_active_connection(self, network_id):
+        """Returns the active connection object associated with the given network_id."""
+
+        # The active connection objects returned by NetworkManager are very short-lived and
+        #   not directly accessible from the connection object.
+        for listed_active_connection in NetworkManager.NetworkManager.ActiveConnections:
+            if listed_active_connection.Id == network_id:
+                # TODO: Change to trace later, when it won't break testing code.
+                self.logger.debug('Found active connection.')
+                return listed_active_connection
+
+        return None
+
+    def _get_connection_state(self, network_id):
+        """Returns the state of the given active_connection object."""
+        state = NM_CONNECTION_DISCONNECTED
+
+        active_connection = self._get_active_connection(network_id)
+
+        if active_connection is None:
+            self.logger.warn('Connection disconnected.')
+
+        else:
+            self.logger.debug(hasattr(active_connection, 'State'))
+            if hasattr(active_connection, 'State'):
+                if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
+                    state = NM_CONNECTION_CONNECTING
+                if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
+                    state = NM_CONNECTION_ACTIVE
+
+        return state
+
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with."""
 
@@ -86,21 +115,31 @@ class NetworkManagerHelper:
 
         return network_device
 
-    def _wait_for_connection(self, active_connection):
+    def _wait_for_connection(self, connection):
         """Wait timeout number of seconds for an active connection to be ready.
         return True if it connects within timeout, False otherwise.
         """
         success = False
         give_up = False
-
         time_to_give_up = time.time() + self.config['network_activation_timeout']
+        network_id = connection.GetSettings()['connection']['id']
 
-        self.logger.debug('Waiting for connection %s...' % active_connection.GetSettings()['connection']['id'])
+        self.logger.debug('Waiting for connection %s...' % network_id)
         while (success is False and give_up is False):
-            self.logger.debug(active_connection.State)
-            if (active_connection.State == 3 or active_connection.State == 4 or
-                time.time() > time_to_give_up):
-                give_up = True
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
+
+            connection_state = self._get_connection_state(network_id)
+
+            if connection_state is NM_CONNECTION_ACTIVE:
+                self.logger.debug('Connection successful.')
+                success = True
+
+            elif connection_state is NM_CONNECTION_DISCONNECTED:
+                self.logger.warn('Connection disconnected, giving up.')
+                give_up = True
+
+            elif time.time() > time_to_give_up:
+                self.logger.warn('Connection timed out, giving up.')
+                give_up = True
 
         return success
