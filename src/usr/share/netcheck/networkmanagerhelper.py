@@ -19,13 +19,10 @@ class NetworkManagerHelper:
     """
 
     # TODO: We don't need a whole config dict, just the one timeout value.
-    def __init__(self, config):
+    def __init__(self, network_activation_timeout):
 
-        self.config = config
+        self.network_activation_timeout = network_activation_timeout
         self.logger = logging.getLogger()
-
-        # TODO: Remove these and read these values from the config file.
-        #self.config['network_activation_timeout'] = 15 # in seconds
 
         self.network_id_table = self._build_network_id_table()
         self.device_interface_table = self._build_device_interface_table()
@@ -137,7 +134,7 @@ class NetworkManagerHelper:
         """
         success = False
         give_up = False
-        time_to_give_up = time.time() + self.config['network_activation_timeout']
+        time_to_give_up = time.time() + self.network_activation_timeout
         network_id = connection.GetSettings()['connection']['id']
 
         self.logger.debug('Waiting for connection %s...' % network_id)
