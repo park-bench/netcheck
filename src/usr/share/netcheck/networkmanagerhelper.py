@@ -46,15 +46,20 @@ class NetworkManagerHelper:
         return success
 
     def get_network_ip(self, network_id):
+        """Attempts to retrieve the ip address associated with the given network id. If it
+        is unable to, it returns None."""
+        # I decided not to throw an exception here because the intended caller would end up
+        #   simply using it for flow control.
         pass
 
     def network_is_ready(self, network_id):
         """Check whether the network with the given network id is ready."""
-        pass
+        connection = self.network_id_table[network_id]
+        return self._wait_for_connection(connection)
 
     def _build_network_id_table(self):
         """Assemble a helpful dictionary of network objects, indexed by the connection's
-        id in NetworkManager
+        id in NetworkManager.
         """
         network_id_table = {}
         for connection in NetworkManager.Settings.ListConnections():
@@ -64,8 +69,8 @@ class NetworkManagerHelper:
         return network_id_table
 
     def _build_device_interface_table(self):
-        """Assemble a helpful dictionary of device objects, indexed by the device's hardware
-        address.
+        """Assemble a helpful dictionary of device objects, indexed by the device's interface
+        name.
         """
         device_interface_table = {}
 
@@ -76,7 +81,7 @@ class NetworkManagerHelper:
         return device_interface_table
 
     def _get_active_connection(self, network_id):
-        """Returns the active connection object associated with the given network_id."""
+        """Returns the active connection object associated with the given network id."""
 
         # The active connection objects returned by NetworkManager are very short-lived and
         #   not directly accessible from the connection object.
@@ -89,7 +94,7 @@ class NetworkManagerHelper:
         return None
 
     def _get_connection_state(self, network_id):
-        """Returns the state of the given active_connection object."""
+        """Returns the state of the connection with the given network id."""
         state = NM_CONNECTION_DISCONNECTED
 
         active_connection = self._get_active_connection(network_id)
