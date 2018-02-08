@@ -1,6 +1,25 @@
+# Copyright 2015-2018 Joel Allen Luellwitz and Andrew Klapp
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 """NetworkManagerHelper provides a readable layer of abstraction for the
 python-networkmanager class.
 """
+
+__all__ = ['NetworkManagerHelper']
+__author__ = 'Andrew Klapp and Joel Allen Luellwitz'
+__version__ = '0.8'
 
 import datetime
 import logging
@@ -34,8 +53,6 @@ class NetworkManagerHelper:
         connection = self.network_id_table[network_id]
         network_device = self._get_device_for_connection(connection)
 
-        # TODO: Make sure this is actually how NetworkManager handles errors. It will
-        #   return a proxy_call object in several cases.
         networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
         self._run_proxy_call(networkmanager_output)
         success = self._wait_for_connection(connection)
