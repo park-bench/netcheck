@@ -22,4 +22,5 @@ device = nmh._get_device_for_connection(nmh.network_id_table[WIRED_TEST_NETWORK_
 #print(device.GetAppliedConnection(0))
 
 print(nmh.network_is_ready(WIRED_TEST_NETWORK_NAME))
+print(nmh.get_network_ip(WIRED_TEST_NETWORK_NAME))
 #print(NetworkManager.NetworkManager.ActiveConnections)

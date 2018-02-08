@@ -50,7 +50,18 @@ class NetworkManagerHelper:
         is unable to, it returns None."""
         # I decided not to throw an exception here because the intended caller would end up
         #   simply using it for flow control.
-        pass
+        ip_address = None
+
+        connection = self.network_id_table[network_id]
+
+        if self._wait_for_connection(connection):
+            device = self._get_device_for_connection(connection)
+            ip_address = device.Ip4Config.AddressData[0]['address']
+        else:
+            self.logger.warning('Attempted to get IP address for network that is not connected.')
+
+        return ip_address
+
 
     def network_is_ready(self, network_id):
         """Check whether the network with the given network id is ready."""
