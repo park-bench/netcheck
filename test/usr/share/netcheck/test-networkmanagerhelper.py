@@ -4,7 +4,10 @@ import logging
 import NetworkManager
 import networkmanagerhelper
 
+### This is not an automated test script. This is an ugly dumping ground for bits of code I
+#   have used to test the networkmanagerhelper module.
 WIRED_TEST_NETWORK_NAME = 'ethernet-ens8'
+MISSING_TEST_NETWORK_NAME = 'please-dont-have-a-network-with-this-name'
 
 config = {}
 

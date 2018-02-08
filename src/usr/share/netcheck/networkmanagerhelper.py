@@ -18,7 +18,6 @@ class NetworkManagerHelper:
     Dbus API.
     """
 
-    # TODO: We don't need a whole config dict, just the one timeout value.
     def __init__(self, network_activation_timeout):
 
         self.network_activation_timeout = network_activation_timeout
@@ -37,7 +36,8 @@ class NetworkManagerHelper:
 
         # TODO: Make sure this is actually how NetworkManager handles errors. It will
         #   return a proxy_call object in several cases.
-        NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
+        networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
+        self._run_proxy_call(networkmanager_output)
         success = self._wait_for_connection(connection)
 
         return success
@@ -70,7 +70,11 @@ class NetworkManagerHelper:
         id in NetworkManager.
         """
         network_id_table = {}
-        for connection in NetworkManager.Settings.ListConnections():
+
+        all_connections = NetworkManager.Settings.ListConnections()
+        self._run_proxy_call(all_connections)
+
+        for connection in all_connections:
             connection_id = connection.GetSettings()['connection']['id']
             network_id_table[connection_id] = connection
 
@@ -82,7 +86,10 @@ class NetworkManagerHelper:
         """
         device_interface_table = {}
 
-        for device in NetworkManager.NetworkManager.GetDevices():
+        device_list = NetworkManger.NetworkManager.GetDevices()
+        self._run_proxy_call(device_list)
+
+        for device in device_list:
             interface = device.Interface
             device_interface_table[interface] = device
 
@@ -93,7 +100,11 @@ class NetworkManagerHelper:
 
         # The active connection objects returned by NetworkManager are very short-lived and
         #   not directly accessible from the connection object.
-        for listed_active_connection in NetworkManager.NetworkManager.ActiveConnections:
+
+        active_connection_list = NetworkManager.NetworkManager.ActiveConnections
+        self._run_proxy_call(active_connection_list)
+
+        for listed_active_connection in active_connection:
             if listed_active_connection.Id == network_id:
                 # TODO: Change to trace later, when it won't break testing code.
                 self.logger.debug('Found active connection.')
@@ -108,7 +119,7 @@ class NetworkManagerHelper:
         active_connection = self._get_active_connection(network_id)
 
         if active_connection is None:
-            self.logger.warn('Connection disconnected.')
+            self.logger.warning('Connection disconnected.')
 
         else:
             self.logger.debug(hasattr(active_connection, 'State'))
@@ -148,11 +159,19 @@ class NetworkManagerHelper:
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warn('Connection disconnected, giving up.')
+                self.logger.warning('Connection disconnected, giving up.')
                 give_up = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warn('Connection timed out, giving up.')
+                self.logger.warning('Connection timed out, giving up.')
                 give_up = True
 
         return success
+
+    def _run_proxy_call(self, proxy_call):
+        """If proxy_call is callable, call it."""
+        # Sometimes, instead of raising exceptions or returning error states, NetworkManager
+        #   will sometimes return a function that makes a dbus call it assumes will fail. We
+        #   still want this error information, so here, we call it if we can.
+        if callable(proxy_call):
+            proxy_call()
