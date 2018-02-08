@@ -76,7 +76,6 @@ class NetworkManagerHelper:
 
         return ip_address
 
-
     def network_is_ready(self, network_id):
         """Check whether the network with the given network id is ready."""
         connection = self.network_id_table[network_id]

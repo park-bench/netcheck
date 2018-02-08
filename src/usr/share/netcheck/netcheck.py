@@ -25,11 +25,6 @@ import dns
 import NetworkManager
 import networkmetamanager
 
-# TODO: Make these configuration options before merging in.
-WIRED_DEVICE = "eth0"
-WIRELESS_DEVICE = "eth1"
-NETWORKMANAGER_ACTIVATION_CHECK_INTERVAL = 0.1
-
 # TODO: Eventually make multithreaded.
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
 #   sending mail.
@@ -46,9 +41,10 @@ class NetCheck:
         # Get logger
         self.logger = logging.getLogger()
 
-        # Instantiate NetworkMetaManager
-        self.network_meta = networkmetamanager.NetworkMetaManager(
-            self.config['nmcli_timeout'])
+        # TODO: Make this change in the config file and parsing
+        self.config['network_activation_timeout'] = self.config['nmcli_timeout']
+        self.network_helper = networkmanagerhelper.NetworkManagerHelper(
+            self.config['network_activation_timeout'])
 
         self.backup_network_check_time = datetime.datetime.now()
         self.connected_wifi_index = 0
@@ -66,13 +62,6 @@ class NetCheck:
         #else:
         #    self.logger.warn('All wifi networks failed to connect during initialization.')
 
-        # TODO: Make this change in the config file.
-        self.config['network_activation_timeout'] = self.config['nmcli_timeout']
-
-        # TODO: Add these options in the config file before merging in.
-        self.wired_device = WIRED_DEVICE
-        self.wireless_device = WIRELESS_DEVICE
-
         self.logger.info('NetCheck initialized.')
 
     def _dns_query(self, network, nameserver, query_name):
@@ -85,7 +74,8 @@ class NetCheck:
         success = False
 
         # TODO: Add support for when this is not able to obtain the IP.
-        interface_ip = self._get_network_device_from_id(network).Dhcp4Config.Options['ip_address']
+        # TODO: Try to use the gateway address instead of the interface address.
+        interface_ip = self.network_helper.get_ip_address(network)
 
         self.resolver.nameservers = [nameserver]
         try:
@@ -163,7 +153,7 @@ class NetCheck:
                           'Internet over %s.' % network_name)
 
         overall_success = False
-        connection_successful = self.network_meta.connect(network_name)
+        connection_successful = self.network_helper.activate_network(network_name)
         if not(connection_successful):
             self.logger.debug('_connect_and_check_dns: Could not connect to network %s.' %
                               network_name)
@@ -188,7 +178,7 @@ class NetCheck:
                           'Internet over %s.' % network_name)
 
         overall_success = False
-        connection_active = self.network_meta.is_connected(network_name)
+        connection_active = self.network_helper.network_is_ready(network_name)
         if not(connection_active):
             self.logger.debug('_check_connection_and_check_dns: Not connected to network '
                               '%s.' % network_name)
