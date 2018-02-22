@@ -20,7 +20,6 @@ import time
 import traceback
 
 import dns
-import NetworkManager
 import networkmanagerhelper
 
 # TODO: Eventually make multithreaded.
@@ -381,37 +380,3 @@ class NetCheck:
                 self.logger.info('Connection change: Connected to the wired network.')
 
         return current_network_name
-
-    def _activate_network(self, network_id):
-        """Attempts to activate a network with the provided network id on the provided network
-        device. Returns true on success, false on failure or timeout."""
-        success = False
-        give_up = False
-
-        network_device = self._get_network_device_from_id(network_id)
-
-        active_connection = NetworkManager.NetworkManager.ActivateConnection(
-            self.connection_id_table[network_id], network_device, '/')
-
-        time_to_give_up = datetime.datetime.now() + self.config['network_activation_timeout']
-
-        while (success is not True and give_up is not False):
-            if active_connection.State == 2:
-                success = True
-            elif (active_connection.State == 3 or active_connection.State == 4 or
-                  datetime.datetime.now() > time_to_give_up):
-                give_up = True
-            time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_INTERVAL)
-
-        return success
-
-    def _get_network_device_from_id(self, network_id):
-        """Guesses which network device to use based on the wired_network_name config
-        value. Returns a NetworkManager device object."""
-        # This will probably be a little smarter later on.
-        network_device = self.wireless_device
-
-        if network_id == self.config['wired_network_name']:
-            network_device = self.wired_device
-
-        return network_device
