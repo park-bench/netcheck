@@ -15,15 +15,13 @@
 
 import datetime
 import logging
-import os
 import random
-import subprocess
 import time
 import traceback
 
 import dns
 import NetworkManager
-import networkmetamanager
+import networkmanagerhelper
 
 # TODO: Eventually make multithreaded.
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
@@ -41,8 +39,6 @@ class NetCheck:
         # Get logger
         self.logger = logging.getLogger()
 
-        # TODO: Make this change in the config file and parsing
-        self.config['network_activation_timeout'] = self.config['nmcli_timeout']
         self.network_helper = networkmanagerhelper.NetworkManagerHelper(
             self.config['network_activation_timeout'])
 

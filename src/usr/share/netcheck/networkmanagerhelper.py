@@ -102,7 +102,7 @@ class NetworkManagerHelper:
         """
         device_interface_table = {}
 
-        device_list = NetworkManger.NetworkManager.GetDevices()
+        device_list = NetworkManager.NetworkManager.GetDevices()
         self._run_proxy_call(device_list)
 
         for device in device_list:

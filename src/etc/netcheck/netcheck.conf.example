@@ -31,7 +31,7 @@ dig_timeout=2
 
 # Maximum amount of time in seconds to connect to a wireless network (or technically
 #   any other Network Manager operation).
-nmcli_timeout=15
+network_activation_timeout=15
 
 # Maximum delay in days before we try to use the backup network to maintain an active
 #   account with the backup ISP. (This is a requirement from the developers' ISP
