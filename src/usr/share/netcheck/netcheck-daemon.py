@@ -17,57 +17,22 @@
 
 import confighelper
 import ConfigParser
+import daemon
 import logging
 import netcheck
 import os
+# TODO: Remove try/except when we drop support for Ubuntu 14.04 LTS.
+try:
+    from lockfile import pidlockfile
+
+except ImportError:
+    from daemon import pidlockfile
+
 import signal
 import sys
 import traceback
 
 PID_FILE = '/run/netcheck.pid'
-
-
-# TODO: Use standard daemonize module.
-def daemonize():
-    # Fork the first time to make init our parent.
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError as e:
-        logger.critical('Failed to make parent process init: %d (%s)' %
-                        (e.errno, e.strerror))
-        sys.exit(1)
-
-    # TODO: Lock this down.
-    os.chdir('/')  # Change the working directory
-    os.setsid()  # Create a new process session.
-    os.umask(0)
-
-    # Fork the second time to make sure the process is not a session leader.
-    #   This apparently prevents us from taking control of a TTY.
-    try:
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)
-    except OSError as e:
-        logger.critical('Failed to give up session leadership: %d (%s)' %
-                        (e.errno, e.strerror))
-        sys.exit(1)
-
-    # Redirect standard file descriptors
-    sys.stdout.flush()
-    sys.stderr.flush()
-    devnull = os.open(os.devnull, os.O_RDWR)
-    os.dup2(devnull, sys.stdin.fileno())
-    os.dup2(devnull, sys.stdout.fileno())
-    os.dup2(devnull, sys.stderr.fileno())
-    os.close(devnull)
-
-    pid = str(os.getpid())
-    pidFile = file(PID_FILE, 'w')
-    pidFile.write('%s\n' % pid)
-    pidFile.close()
 
 # Verify config file here.
 
@@ -105,8 +70,6 @@ config['backup_network_max_usage_delay'] = config_helper.verify_number_exists(
 config['backup_network_failed_max_usage_delay'] = config_helper.verify_number_exists(
     config_file, 'backup_network_failed_max_usage_delay')
 
-daemonize()
-
 
 def sig_term_handler(signal, stack_frame):
     """Quit when SIGTERM is received."""
@@ -116,8 +79,25 @@ def sig_term_handler(signal, stack_frame):
 signal.signal(signal.SIGTERM, sig_term_handler)
 
 try:
-    the_checker = netcheck.NetCheck(config)
-    the_checker.check_loop()
+    log_file_handle = config_helper.get_log_file_handle()
+
+    daemon_context = daemon.DaemonContext(
+        working_directory = '/',
+        pidfile = pidlockfile.PIDLockFile(PID_FILE),
+        umask = 0
+        )
+
+    daemon_context.signal_map = {
+        signal.SIGTERM: sig_term_handler
+        }
+
+    daemon_context.files_preserve = [log_file_handle]
+
+    logger.info('Daemonizing...')
+    with daemon_context:
+        logger.info('Initializing NetCheck.')
+        the_checker = netcheck.NetCheck(config)
+        the_checker.check_loop()
 
 except Exception as e:
     logger.critical('%s: %s\n' % (type(e).__name__, e.message))
