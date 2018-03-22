@@ -7,6 +7,8 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
+# TODO: The following bug is fixed in Ubuntu 18.04, but not in prior versions. Remove the
+#   workaround when switching versions.
 # python-dbus is a dependency here because python-networkmanager does not declare it as a dependency
 Depends: confighelper (>=0.3),network-manager,python-dbus,python-dnspython,python-networkmanager,dnsutils
 Description: Finds the best network with access to the Internet.
