@@ -41,8 +41,8 @@ config_file.read('/etc/netcheck/netcheck.conf')
 
 # Get logging options first.
 config_helper = confighelper.ConfigHelper()
-log_file = config_helper.verify_string_exists_prelogging(config_file, 'log_file')
-log_level = config_helper.verify_string_exists_prelogging(config_file, 'log_level')
+log_file = config_helper.verify_string_exists(config_file, 'log_file')
+log_level = config_helper.verify_string_exists(config_file, 'log_level')
 
 # Configure the logger.
 config_helper.configure_logger(log_file, log_level)
