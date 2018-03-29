@@ -120,7 +120,7 @@ class NetworkManagerHelper:
         active_connection_list = NetworkManager.NetworkManager.ActiveConnections
         self._run_proxy_call(active_connection_list)
 
-        for listed_active_connection in active_connection:
+        for listed_active_connection in active_connection_list:
             if listed_active_connection.Id == network_id:
                 # TODO: Change to trace later, when it won't break testing code.
                 self.logger.debug('Found active connection.')
