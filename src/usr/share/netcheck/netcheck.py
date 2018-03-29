@@ -20,6 +20,7 @@ import time
 import traceback
 
 import dns
+from dns import resolver
 import networkmanagerhelper
 
 # TODO: Eventually make multithreaded.
