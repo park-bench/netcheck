@@ -150,6 +150,8 @@ class NetworkManagerHelper:
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with."""
 
+        # TODO: It looks like the interface-name property is gone. Have interface names in the
+        #   config file again.
         connection_interface = connection.GetSettings()['connection']['interface-name']
         network_device = self.device_interface_table[connection_interface]
 
