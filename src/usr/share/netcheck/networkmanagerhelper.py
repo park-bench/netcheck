@@ -32,6 +32,16 @@ NM_CONNECTION_ACTIVATING = 0
 NM_CONNECTION_ACTIVE = 1
 NM_CONNECTION_DISCONNECTED = 2
 
+NM_DEVICE_TYPE_ETHERNET = '802-3-ethernet'
+NM_DEVICE_TYPE_WIFI = '802-11-wireless'
+
+# TODO: Remove these static variables for testing before committing.
+WIRED_INTERFACE_NAME = 'ens3'
+WIRELESS_INTERFACE_NAME = 'ens8'
+
+class DeviceNotFoundException(Exception):
+    """Raised when an interface name passed to NetworkManagerHelper is not found."""
+
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
     Dbus API.
@@ -43,7 +53,7 @@ class NetworkManagerHelper:
         self.logger = logging.getLogger()
 
         self.network_id_table = self._build_network_id_table()
-        self.device_interface_table = self._build_device_interface_table()
+        self._get_device_objects(WIRED_INTERFACE_NAME, WIRELESS_INTERFACE_NAME)
 
     def activate_network(self, network_id):
         """Tells NetworkManager to activate a network with the supplied network_id.
@@ -96,21 +106,6 @@ class NetworkManagerHelper:
 
         return network_id_table
 
-    def _build_device_interface_table(self):
-        """Assemble a helpful dictionary of device objects, indexed by the device's interface
-        name.
-        """
-        device_interface_table = {}
-
-        device_list = NetworkManager.NetworkManager.GetDevices()
-        self._run_proxy_call(device_list)
-
-        for device in device_list:
-            interface = device.Interface
-            device_interface_table[interface] = device
-
-        return device_interface_table
-
     def _get_active_connection(self, network_id):
         """Returns the active connection object associated with the given network id."""
 
@@ -147,13 +142,38 @@ class NetworkManagerHelper:
 
         return state
 
+    def _get_device_objects(self, wired_device_name, wireless_device_name):
+        """Store references to the device objects that are used frequently."""
+
+        for device in NetworkManager.NetworkManager.GetDevices():
+            if device.Interface == WIRED_INTERFACE_NAME:
+                self.wired_device = device
+
+            if device.Interface == WIRELESS_INTERFACE_NAME:
+                self.wireless_device = device
+
+        if self.wired_device is None:
+            raise DeviceNotFoundException('Defined wired device %s was not found.' %
+                WIRED_INTERFACE_NAME)
+
+        if self.wireless_device is None:
+            raise DeviceNotFoundException('Defined wireless device %s was not found.' %
+                WIRELESS_INTERFACE_NAME)
+
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with."""
 
-        # TODO: It looks like the interface-name property is gone. Have interface names in the
-        #   config file again.
-        connection_interface = connection.GetSettings()['connection']['interface-name']
-        network_device = self.device_interface_table[connection_interface]
+        network_device = None
+
+        connection_type = connection.GetSettings()['connection']['type']
+        if connection_type == NM_DEVICE_TYPE_ETHERNET:
+            network_device = self.wired_device
+
+        if connection_type == NM_DEVICE_TYPE_WIFI:
+            network_device = self.wireless_device
+
+        else:
+            self.logger.error('Connection type %s not supported.' % connection_type)
 
         return network_device
 
