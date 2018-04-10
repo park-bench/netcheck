@@ -38,6 +38,7 @@ NM_DEVICE_TYPE_WIFI = '802-11-wireless'
 # TODO: Remove these static variables for testing before committing.
 WIRED_INTERFACE_NAME = 'ens3'
 WIRELESS_INTERFACE_NAME = 'ens8'
+WIRED_NETWORK_NAME = 'Wired connection 1'
 
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
@@ -136,7 +137,7 @@ class NetworkManagerHelper:
             self.logger.debug(hasattr(active_connection, 'State'))
             if hasattr(active_connection, 'State'):
                 if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
-                    state = NM_CONNECTION_CONNECTING
+                    state = NM_CONNECTION_ACTIVATING
                 if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
                     state = NM_CONNECTION_ACTIVE
 
@@ -163,17 +164,11 @@ class NetworkManagerHelper:
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with."""
 
-        network_device = None
+        network_device = self.wireless_device
 
-        connection_type = connection.GetSettings()['connection']['type']
-        if connection_type == NM_DEVICE_TYPE_ETHERNET:
+        connection_id = connection.GetSettings()['connection']['id']
+        if connection_id == WIRED_NETWORK_NAME:
             network_device = self.wired_device
-
-        if connection_type == NM_DEVICE_TYPE_WIFI:
-            network_device = self.wireless_device
-
-        else:
-            self.logger.error('Connection type %s not supported.' % connection_type)
 
         return network_device
 
