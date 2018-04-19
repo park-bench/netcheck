@@ -40,7 +40,7 @@ class NetCheck:
         self.logger = logging.getLogger()
 
         self.network_helper = networkmanagerhelper.NetworkManagerHelper(
-            self.config['network_activation_timeout'])
+            self.config)
 
         self.backup_network_check_time = datetime.datetime.now()
         self.connected_wifi_index = 0

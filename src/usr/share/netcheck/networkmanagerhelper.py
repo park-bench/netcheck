@@ -32,14 +32,6 @@ NM_CONNECTION_ACTIVATING = 0
 NM_CONNECTION_ACTIVE = 1
 NM_CONNECTION_DISCONNECTED = 2
 
-NM_DEVICE_TYPE_ETHERNET = '802-3-ethernet'
-NM_DEVICE_TYPE_WIFI = '802-11-wireless'
-
-# TODO: Remove these static variables for testing before committing.
-WIRED_INTERFACE_NAME = 'ens3'
-WIRELESS_INTERFACE_NAME = 'ens8'
-WIRED_NETWORK_NAME = 'Wired connection 1'
-
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
 
@@ -48,13 +40,15 @@ class NetworkManagerHelper:
     Dbus API.
     """
 
-    def __init__(self, network_activation_timeout):
+    def __init__(self, config):
 
-        self.network_activation_timeout = network_activation_timeout
         self.logger = logging.getLogger()
+        self.network_activation_timeout = config['network_activation_timeout']
+        self.wired_network_name = config['wired_network_name']
 
         self.network_id_table = self._build_network_id_table()
-        self._get_device_objects(WIRED_INTERFACE_NAME, WIRELESS_INTERFACE_NAME)
+        self._get_device_objects(config['wired_interface_name'],
+            config['wifi_interface_name'])
 
     def activate_network(self, network_id):
         """Tells NetworkManager to activate a network with the supplied network_id.
@@ -143,23 +137,23 @@ class NetworkManagerHelper:
 
         return state
 
-    def _get_device_objects(self, wired_device_name, wireless_device_name):
+    def _get_device_objects(self, wired_interface_name, wifi_interface_name):
         """Store references to the device objects that are used frequently."""
 
         for device in NetworkManager.NetworkManager.GetDevices():
-            if device.Interface == WIRED_INTERFACE_NAME:
+            if device.Interface == wired_interface_name:
                 self.wired_device = device
 
-            if device.Interface == WIRELESS_INTERFACE_NAME:
+            if device.Interface == wifi_interface_name:
                 self.wireless_device = device
 
         if self.wired_device is None:
             raise DeviceNotFoundException('Defined wired device %s was not found.' %
-                WIRED_INTERFACE_NAME)
+                wired_interface_name)
 
         if self.wireless_device is None:
             raise DeviceNotFoundException('Defined wireless device %s was not found.' %
-                WIRELESS_INTERFACE_NAME)
+                wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with."""
@@ -167,7 +161,7 @@ class NetworkManagerHelper:
         network_device = self.wireless_device
 
         connection_id = connection.GetSettings()['connection']['id']
-        if connection_id == WIRED_NETWORK_NAME:
+        if connection_id == self.wired_network_name:
             network_device = self.wired_device
 
         return network_device

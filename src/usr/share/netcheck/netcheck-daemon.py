@@ -63,8 +63,12 @@ config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_r
 
 config['wired_network_name'] = config_helper.verify_string_exists(
     config_file, 'wired_network_name')
+config['wired_interface_name'] = config_helper.verify_string_exists(
+    config_file, 'wired_interface_name')
 config['wifi_network_names'] = strip_a_list_of_strings(config_helper.verify_string_exists(
     config_file, 'wifi_network_names').split(','))
+config['wifi_interface_name'] = config_helper.verify_string_exists(
+    config_file, 'wifi_interface_name')
 config['nameservers'] = strip_a_list_of_strings(config_helper.verify_string_exists(
     config_file, 'nameservers').split(','))
 config['dns_queries'] = strip_a_list_of_strings(config_helper.verify_string_exists(

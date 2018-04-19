@@ -9,10 +9,16 @@ log_level=info
 # The name of the wired network in network manager.
 wired_network_name=
 
+# The name of the interface associated with the wired network. For example: eth0, ens2
+wired_interface_name=
+
 # Comma delimited list of WiFi networks to connect to ordered by preference.
 #   The first WiFi network is considered the 'backup' network which we have to
 #   connect to periodically to maintain an active account. (See below.)
 wifi_network_names=
+
+# The name of the interface associated with the WiFi networks. For example: wlan0, wlp0s2
+wifi_interface_name=
 
 # Comma delimited list of DNS servers to use. Pick your own servers here to help
 #   prevent fingerprinting of this application.
