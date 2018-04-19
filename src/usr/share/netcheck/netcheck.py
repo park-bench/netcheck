@@ -46,6 +46,8 @@ class NetCheck:
         self.connected_wifi_index = 0
 
         self.resolver = dns.resolver.Resolver()
+        self.resolver.timeout = config['dns_timeout']
+        self.resolver.lifetime = config['dns_timeout']
 
         # This section is commented out because we connect to the backup network
         #   as soon as the program starts anyway. If FreedomPop's monthly usage
