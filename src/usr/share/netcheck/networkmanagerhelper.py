@@ -42,7 +42,7 @@ class NetworkManagerHelper:
 
     def __init__(self, config):
 
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger(__name__)
         self.network_activation_timeout = config['network_activation_timeout']
         self.wired_network_name = config['wired_network_name']
 
@@ -112,8 +112,7 @@ class NetworkManagerHelper:
 
         for listed_active_connection in active_connection_list:
             if listed_active_connection.Id == network_id:
-                # TODO: Change to trace later, when it won't break testing code.
-                self.logger.debug('Found active connection.')
+                self.logger.trace('Found active connection.')
                 return listed_active_connection
 
         return None
@@ -128,7 +127,6 @@ class NetworkManagerHelper:
             self.logger.warning('Connection disconnected.')
 
         else:
-            self.logger.debug(hasattr(active_connection, 'State'))
             if hasattr(active_connection, 'State'):
                 if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
                     state = NM_CONNECTION_ACTIVATING
@@ -198,7 +196,7 @@ class NetworkManagerHelper:
     def _run_proxy_call(self, proxy_call):
         """If proxy_call is callable, call it."""
         # Sometimes, instead of raising exceptions or returning error states, NetworkManager
-        #   will sometimes return a function that makes a dbus call it assumes will fail. We
-        #   still want this error information, so here, we call it if we can.
+        #   will return a function that makes a dbus call it assumes will fail. We still
+        #   want this error information, so here, we call it if we can.
         if callable(proxy_call):
             proxy_call()
