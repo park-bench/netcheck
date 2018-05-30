@@ -30,7 +30,7 @@ import traceback
 PID_FILE = '/run/netcheck.pid'
 
 
-# TODO: Use standard daemonize module.
+# TODO #7: Use standard daemonize module.
 def daemonize():
     # Fork the first time to make init our parent.
     try:
@@ -41,6 +41,7 @@ def daemonize():
         raise Exception('Failed to make parent process init: %d (%s)' % (
             e.errno, e.strerror))
 
+    # Not making an issue because this code will go away soon.
     # TODO: Lock this down.
     os.chdir('/')  # Change the working directory
     os.setsid()  # Create a new process session.

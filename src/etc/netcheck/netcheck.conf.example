@@ -23,7 +23,7 @@ nameservers=
 dns_queries=
 
 # This is not currently used.
-# TODO: Use this or remove it.
+# TODO #6: Use this or remove it.
 backup_network_name=
 
 # Maximum amount of time in seconds for a DNS query lookup.

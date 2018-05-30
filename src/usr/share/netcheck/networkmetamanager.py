@@ -23,7 +23,8 @@ import re
 import subprocess
 
 
-# TODO: Use the network manager API instead.
+# Not making issues for any other TODOs in this file because it is deleted in a pull request.
+# TODO #14: Use the network manager API instead.
 class NetworkMetaManager:
     """NetworkMetaManager provides an easy to work with interface for some of
     NetworkManager's basic functions. It uses the 'nmcli' command and supports NetworkManager

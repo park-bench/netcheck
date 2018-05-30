@@ -28,8 +28,8 @@ import time
 import traceback
 
 
-# TODO: Eventually make multithreaded.
-# TODO: Consider checking if gpgmailer authenticated with the mail server and is
+# TODO #8: Eventually make multithreaded.
+# TODO #9: Consider checking if gpgmailer authenticated with the mail server and is
 #   sending mail.
 class NetCheck:
     """NetCheck monitors the wired network connection. If it is down, it attempts
@@ -73,13 +73,13 @@ class NetCheck:
         """Attempts a DNS query for query_name on 'nameserver' via 'network'.
         Returns True if successful, False otherwise.
         """
-        # TODO: Use something more secure than unauthenticated plaintext DNS requests.
+        # TODO #5: Use something more secure than unauthenticated plaintext DNS requests.
 
         self.logger.trace('Querying %s for %s on network %s.' %
                           (nameserver, query_name, network))
         success = False
 
-        # TODO: Add support for when this is not able to obtain the IP.
+        # TODO #10: Add support for when this is not able to obtain the IP.
         interface_ip = self.network_meta.get_interface_ip(network)
 
         self.resolver.nameservers = [nameserver]
@@ -243,9 +243,9 @@ class NetCheck:
 
         return success
 
-    # TODO: Consider downloading a small file upon successful connection so we are sure
+    # TODO #11: Consider downloading a small file upon successful connection so we are sure
     #   FreedomPop considers this network used.
-    # TODO: The random interval should probably be applied after the last DNS check on the
+    # TODO #12: The random interval should probably be applied after the last DNS check on the
     #   backup network. (We might have used the backup network since the last check or
     #   might even be currently connected to it.)
     def _use_backup_network(self):
@@ -263,7 +263,7 @@ class NetCheck:
             self.logger.info('Trying to use backup wifi network.')
 
             backup_network_is_connected = self._check_connection_and_check_dns(
-                # TODO: Make the backup network actually separate from the list.
+                # TODO #6: Make the backup network actually separate from the list.
                 #   It should use the backup_network_name property from
                 #   from the config file.
                 self.config['wifi_network_names'][0])
@@ -398,6 +398,7 @@ class NetCheck:
 
         return current_network_name
 
+    # TODO #13: Why is this here? It is never called.
     def _subprocess_call(self, command_list):
         """Invokes a program on the system.
         Param command_list is a command split into a list, not a list of separate commands.
@@ -414,6 +415,7 @@ class NetCheck:
             self.logger.trace('_subprocess_call: Subprocess returned code %d.' % exit_code)
         except subprocess.CalledProcessError:
             # Eat exceptions because it will properly return False this way.
+            # Not making an issue because this code will likely be deleted soon.
             # TODO: Print out the subprocess exception.
             self.logger.error('Subprocess call failed!')
 
