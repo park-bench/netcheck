@@ -54,7 +54,6 @@ class NetworkManagerHelper:
         """Tells NetworkManager to activate a network with the supplied network_id.
         Returns True if there are no errors, False otherwise.
         """
-        success = False
         connection = self.network_id_table[network_id]
         network_device = self._get_device_for_connection(connection)
 
