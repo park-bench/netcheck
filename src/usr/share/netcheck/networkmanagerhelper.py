@@ -47,7 +47,7 @@ class NetworkManagerHelper:
         self.wired_network_name = config['wired_network_name']
 
         self.network_id_table = self._build_network_id_table()
-        self._get_device_objects(config['wired_interface_name'],
+        self._create_device_objects(config['wired_interface_name'],
             config['wifi_interface_name'])
 
     def activate_network(self, network_id):
@@ -135,7 +135,7 @@ class NetworkManagerHelper:
 
         return state
 
-    def _get_device_objects(self, wired_interface_name, wifi_interface_name):
+    def _create_device_objects(self, wired_interface_name, wifi_interface_name):
         """Store references to the device objects that are used frequently."""
 
         for device in NetworkManager.NetworkManager.GetDevices():
