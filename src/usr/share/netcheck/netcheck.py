@@ -87,7 +87,8 @@ class NetCheck:
 
         except dns.resolver.NXDOMAIN as detail:
             # Could be either a config error or malicious DNS
-            self.logger.error('DNS query for %s from nameserver %s on network %s was successful,'
+            self.logger.error(
+                'DNS query for %s from nameserver %s on network %s was successful,'
                 ' but the provided domain was not found. %s: %s' %
                 (query_name, nameserver, network, type(detail).__name__, detail.message))
 
