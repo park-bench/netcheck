@@ -53,6 +53,8 @@ class NetworkManagerHelper:
     def activate_network(self, network_id):
         """Tells NetworkManager to activate a network with the supplied network_id.
         Returns True if there are no errors, False otherwise.
+
+        network_id: The name of the network to be activated.
         """
         connection = self.network_id_table[network_id]
         network_device = self._get_device_for_connection(connection)
@@ -65,7 +67,10 @@ class NetworkManagerHelper:
 
     def get_network_ip(self, network_id):
         """Attempts to retrieve the ip address associated with the given network id. If it
-        is unable to, it returns None."""
+        is unable to, it returns None.
+
+        network_id: The name of the network from which to retrieve the address.
+        """
         # I decided not to throw an exception here because the intended caller would end up
         #   simply using it for flow control.
         ip_address = None
@@ -81,7 +86,10 @@ class NetworkManagerHelper:
         return ip_address
 
     def network_is_ready(self, network_id):
-        """Check whether the network with the given network id is ready."""
+        """Check whether the network with the given network id is ready.
+
+        network_id: The name of the network to check.
+        """
         connection = self.network_id_table[network_id]
         return self._wait_for_connection(connection)
 
@@ -101,10 +109,10 @@ class NetworkManagerHelper:
         return network_id_table
 
     def _get_active_connection(self, network_id):
-        """Returns the active connection object associated with the given network id."""
+        """Returns the active connection object associated with the given network id.
 
-        # The active connection objects returned by NetworkManager are very short-lived and
-        #   not directly accessible from the connection object.
+        network_id: The name of the network for which to get an active connection object.
+        """
 
         active_connection_list = NetworkManager.NetworkManager.ActiveConnections
         self._run_proxy_call(active_connection_list)
@@ -117,7 +125,10 @@ class NetworkManagerHelper:
         return None
 
     def _get_connection_state(self, network_id):
-        """Returns the state of the connection with the given network id."""
+        """Returns the state of the connection with the given network id.
+
+        network_id: The name of the network to check.
+        """
         state = NM_CONNECTION_DISCONNECTED
 
         active_connection = self._get_active_connection(network_id)
@@ -135,7 +146,11 @@ class NetworkManagerHelper:
         return state
 
     def _create_device_objects(self, wired_interface_name, wifi_interface_name):
-        """Store references to the device objects that are used frequently."""
+        """Store references to the device objects that are used frequently.
+
+        wired_interface_name: The name of the wired network interface, e.g. eth0, enp0s1.
+        wifi_interface_name: The name of the wifi network interface, e.g. wlan0, wlp0s1.
+        """
 
         for device in NetworkManager.NetworkManager.GetDevices():
             if device.Interface == wired_interface_name:
@@ -153,7 +168,10 @@ class NetworkManagerHelper:
                 wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
-        """Get the device object a connection object needs to connect with."""
+        """Get the device object a connection object needs to connect with.
+
+        connection: The NetworkManager.Connection object for which to find the device.
+        """
 
         network_device = self.wireless_device
 
