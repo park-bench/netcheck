@@ -43,13 +43,6 @@ log_level = config_helper.verify_string_exists(config_file, 'log_level')
 config_helper.configure_logger(log_file, log_level)
 logger = logging.getLogger()
 
-def strip_a_list_of_strings(list_of_strings):
-    stripped_list = []
-    for listed_string in list_of_strings:
-        stripped_list.append(listed_string.strip())
-
-    return stripped_list
-
 # Now read the rest of them.
 config = {}
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
@@ -60,14 +53,14 @@ config['wired_network_name'] = config_helper.verify_string_exists(
     config_file, 'wired_network_name')
 config['wired_interface_name'] = config_helper.verify_string_exists(
     config_file, 'wired_interface_name')
-config['wifi_network_names'] = strip_a_list_of_strings(config_helper.verify_string_exists(
-    config_file, 'wifi_network_names').split(','))
+config['wifi_network_names'] = config_helper.verify_string_list_exists(
+    config_file, 'wifi_network_names')
 config['wifi_interface_name'] = config_helper.verify_string_exists(
     config_file, 'wifi_interface_name')
-config['nameservers'] = strip_a_list_of_strings(config_helper.verify_string_exists(
-    config_file, 'nameservers').split(','))
-config['dns_queries'] = strip_a_list_of_strings(config_helper.verify_string_exists(
-    config_file, 'dns_queries').split(','))
+config['nameservers'] = config_helper.verify_string_list_exists(
+    config_file, 'nameservers')
+config['dns_queries'] = config_helper.verify_string_list_exists(
+    config_file, 'dns_queries')
 
 config['backup_network_name'] = config_helper.verify_string_exists(
     config_file, 'backup_network_name')
