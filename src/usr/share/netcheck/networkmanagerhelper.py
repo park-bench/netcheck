@@ -115,13 +115,13 @@ class NetworkManagerHelper:
         network_id: The name of the network for which to get an active connection object.
         """
 
-        active_connection_list = NetworkManager.NetworkManager.ActiveConnections
-        self._run_proxy_call(active_connection_list)
+        active_connections = NetworkManager.NetworkManager.ActiveConnections
+        self._run_proxy_call(active_connections)
 
-        for listed_active_connection in active_connection_list:
-            if listed_active_connection.Id == network_id:
+        for active_connection in active_connections:
+            if active_connection.Id == network_id:
                 self.logger.trace('Found active connection.')
-                return listed_active_connection
+                return active_connection
 
         return None
 
@@ -206,11 +206,11 @@ class NetworkManagerHelper:
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected, giving up.', network_id)
+                self.logger.warning('Connection %s disconnected. Giving up.', network_id)
                 give_up = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out, giving up.', network_id)
+                self.logger.warning('Connection %s timed out. Giving up.', network_id)
                 give_up = True
 
         return success
