@@ -15,22 +15,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import confighelper
-import ConfigParser
-import daemon
 import logging
-import netcheck
 import os
-# TODO: Remove try/except when we drop support for Ubuntu 14.04 LTS.
-try:
-    from lockfile import pidlockfile
-
-except ImportError:
-    from daemon import pidlockfile
-
 import signal
 import sys
 import traceback
+
+import ConfigParser
+import daemon
+from lockfile import pidlockfile
+
+import netcheck
+import confighelper
 
 PID_FILE = '/run/netcheck.pid'
 
