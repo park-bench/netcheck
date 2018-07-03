@@ -21,7 +21,6 @@ __all__ = ['NetworkManagerHelper']
 __author__ = 'Andrew Klapp and Joel Allen Luellwitz'
 __version__ = '0.8'
 
-import datetime
 import logging
 import time
 import NetworkManager
