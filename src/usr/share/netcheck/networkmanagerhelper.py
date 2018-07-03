@@ -66,8 +66,8 @@ class NetworkManagerHelper:
         return success
 
     def get_network_ip(self, network_id):
-        """Attempts to retrieve the ip address associated with the given network id. If it
-        is unable to, it returns None.
+        """Attempts to retrieve the IP address associated with the given network id. If the
+        IP address is unable to be retrieved, None is returned.
 
         network_id: The name of the network from which to retrieve the address.
         """
