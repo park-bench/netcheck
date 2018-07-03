@@ -185,8 +185,10 @@ class NetworkManagerHelper:
         return network_device
 
     def _wait_for_connection(self, connection):
-        """Wait timeout number of seconds for an active connection to be ready.
-        return True if it connects within timeout, False otherwise.
+        """Wait for the configured number of seconds for an active connection to be ready.
+        return True if it connects in that time, False otherwise.
+
+        connection: The NetworkManager.Connection object to watch for connectivity.
         """
         success = False
         give_up = False
@@ -214,7 +216,11 @@ class NetworkManagerHelper:
         return success
 
     def _run_proxy_call(self, proxy_call):
-        """If proxy_call is callable, call it."""
+        """If proxy_call is callable, call it. This typically means that there was a
+        critical D-Bus error and an exception will most likely be raised.
+
+        proxy_call: The output of a NetworkManager D-Bus call.
+        """
         # Sometimes, instead of raising exceptions or returning error states, NetworkManager
         #   will return a function that makes a dbus call it assumes will fail. We still
         #   want this error information, so here, we call it if we can.
