@@ -82,7 +82,7 @@ class NetworkManagerHelper:
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
             self.logger.warning(
-                    'Attempted to get IP address for network that is not connected.')
+                'Attempted to get IP address for network that is not connected.')
 
         return ip_address
 
@@ -135,7 +135,7 @@ class NetworkManagerHelper:
         active_connection = self._get_active_connection(network_id)
 
         if active_connection is None:
-            self.logger.warning('Connection disconnected.')
+            self.logger.warning('Connection %s disconnected.', network_id)
 
         else:
             if hasattr(active_connection, 'State'):
@@ -193,22 +193,22 @@ class NetworkManagerHelper:
         time_to_give_up = time.time() + self.network_activation_timeout
         network_id = connection.GetSettings()['connection']['id']
 
-        self.logger.debug('Waiting for connection %s...' % network_id)
+        self.logger.debug('Waiting for connection %s...', network_id)
         while (success is False and give_up is False):
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
 
             connection_state = self._get_connection_state(network_id)
 
             if connection_state is NM_CONNECTION_ACTIVE:
-                self.logger.debug('Connection successful.')
+                self.logger.debug('Connection %s successful.', network_id)
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection disconnected, giving up.')
+                self.logger.warning('Connection %s disconnected, giving up.', network_id)
                 give_up = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warning('Connection timed out, giving up.')
+                self.logger.warning('Connection %s timed out, giving up.', network_id)
                 give_up = True
 
         return success
