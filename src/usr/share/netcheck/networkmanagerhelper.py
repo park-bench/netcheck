@@ -48,7 +48,7 @@ class NetworkManagerHelper:
 
         self.network_id_table = self._build_network_id_table()
         self._create_device_objects(config['wired_interface_name'],
-            config['wifi_interface_name'])
+                                    config['wifi_interface_name'])
 
     def activate_network(self, network_id):
         """Tells NetworkManager to activate a network with the supplied network_id.
@@ -59,7 +59,8 @@ class NetworkManagerHelper:
         connection = self.network_id_table[network_id]
         network_device = self._get_device_for_connection(connection)
 
-        networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(connection, network_device, '/')
+        networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
+            connection, network_device, '/')
         self._run_proxy_call(networkmanager_output)
         success = self._wait_for_connection(connection)
 
@@ -81,7 +82,8 @@ class NetworkManagerHelper:
             device = self._get_device_for_connection(connection)
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
-            self.logger.warning('Attempted to get IP address for network that is not connected.')
+            self.logger.warning(
+                    'Attempted to get IP address for network that is not connected.')
 
         return ip_address
 
@@ -138,9 +140,11 @@ class NetworkManagerHelper:
 
         else:
             if hasattr(active_connection, 'State'):
-                if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
+                if active_connection.State \
+                        is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
                     state = NM_CONNECTION_ACTIVATING
-                if active_connection.State is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
+                if active_connection.State \
+                        is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
                     state = NM_CONNECTION_ACTIVE
 
         return state
@@ -161,11 +165,11 @@ class NetworkManagerHelper:
 
         if self.wired_device is None:
             raise DeviceNotFoundException('Defined wired device %s was not found.' %
-                wired_interface_name)
+                                          wired_interface_name)
 
         if self.wireless_device is None:
             raise DeviceNotFoundException('Defined wireless device %s was not found.' %
-                wifi_interface_name)
+                                          wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
         """Get the device object a connection object needs to connect with.
