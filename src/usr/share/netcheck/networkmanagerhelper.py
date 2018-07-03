@@ -71,7 +71,7 @@ class NetworkManagerHelper:
 
         network_id: The name of the network from which to retrieve the address.
         """
-        # I decided not to throw an exception here because the intended caller would end up
+        # I decided to not throw an exception here because the intended caller would end up
         #   simply using it for flow control.
         ip_address = None
 
@@ -82,7 +82,8 @@ class NetworkManagerHelper:
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
             self.logger.warning(
-                'Attempted to get IP address for network that is not connected.')
+                'Attempted to get IP address for network %s, which is not connected.',
+                network_id)
 
         return ip_address
 
