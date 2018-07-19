@@ -89,7 +89,7 @@ class NetworkManagerHelper:
         else:
             self.logger.warning(
                 'Attempted to get IP address for network %s, which is not connected.',
-                network_id)
+                connection_id)
 
         return ip_address
 
@@ -126,7 +126,7 @@ class NetworkManagerHelper:
         self._run_proxy_call(active_connections)
 
         for active_connection in active_connections:
-            if active_connection.Id == network_id:
+            if active_connection.Id == connection_id:
                 self.logger.trace('Found active connection.')
                 return active_connection
 
@@ -142,7 +142,7 @@ class NetworkManagerHelper:
         active_connection = self._get_active_connection(connection_id)
 
         if active_connection is None:
-            self.logger.warning('Connection %s disconnected.', network_id)
+            self.logger.warning('Connection %s disconnected.', connection_id)
 
         else:
             if hasattr(active_connection, 'State'):
@@ -209,15 +209,15 @@ class NetworkManagerHelper:
             connection_state = self._get_connection_state(connection_id)
 
             if connection_state is NM_CONNECTION_ACTIVE:
-                self.logger.debug('Connection %s successful.', network_id)
+                self.logger.debug('Connection %s successful.', connection_id)
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected. Giving up.', network_id)
+                self.logger.warning('Connection %s disconnected. Giving up.', connection_id)
                 give_up = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out. Giving up.', network_id)
+                self.logger.warning('Connection %s timed out. Giving up.', connection_id)
                 give_up = True
 
         return success
