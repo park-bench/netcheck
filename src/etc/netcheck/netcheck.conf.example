@@ -35,8 +35,7 @@ backup_network_name=
 # Maximum amount of time in seconds for a DNS query lookup.
 dns_timeout=2
 
-# Maximum amount of time in seconds to connect to a wireless network (or technically
-#   any other Network Manager operation).
+# Maximum amount of time in seconds to wait to connect to a network.
 network_activation_timeout=15
 
 # Maximum delay in days before we try to use the backup network to maintain an active

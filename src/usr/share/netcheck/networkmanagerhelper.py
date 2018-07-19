@@ -36,10 +36,15 @@ class DeviceNotFoundException(Exception):
 
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
-    Dbus API.
+    D-Bus API.
     """
 
     def __init__(self, config):
+        """Initializes the module by choosing devices and assembling a table of connection
+        IDs.
+
+        config: The configuration dictionary built in netcheck-daemon.
+        """
 
         self.logger = logging.getLogger(__name__)
         self.network_activation_timeout = config['network_activation_timeout']
@@ -53,7 +58,7 @@ class NetworkManagerHelper:
         """Tells NetworkManager to activate a network with the supplied network_id.
         Returns True if there are no errors, False otherwise.
 
-        network_id: The name of the network to be activated.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
         connection = self.network_id_table[network_id]
         network_device = self._get_device_for_connection(connection)
@@ -69,9 +74,9 @@ class NetworkManagerHelper:
         """Attempts to retrieve the IP address associated with the given network id. If the
         IP address is unable to be retrieved, None is returned.
 
-        network_id: The name of the network from which to retrieve the address.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
-        # I decided to not throw an exception here because the intended caller would end up
+        # I decided not to throw an exception here because the intended caller would end up
         #   simply using it for flow control.
         ip_address = None
 
@@ -90,7 +95,7 @@ class NetworkManagerHelper:
     def network_is_ready(self, network_id):
         """Check whether the network with the given network id is ready.
 
-        network_id: The name of the network to check.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
         connection = self.network_id_table[network_id]
         return self._wait_for_connection(connection)
@@ -113,7 +118,7 @@ class NetworkManagerHelper:
     def _get_active_connection(self, network_id):
         """Returns the active connection object associated with the given network id.
 
-        network_id: The name of the network for which to get an active connection object.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
 
         active_connections = NetworkManager.NetworkManager.ActiveConnections
@@ -129,7 +134,7 @@ class NetworkManagerHelper:
     def _get_connection_state(self, network_id):
         """Returns the state of the connection with the given network id.
 
-        network_id: The name of the network to check.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
         state = NM_CONNECTION_DISCONNECTED
 
@@ -172,7 +177,7 @@ class NetworkManagerHelper:
                                           wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
-        """Get the device object a connection object needs to connect with.
+        """Returns the device object a connection object needs to connect with.
 
         connection: The NetworkManager.Connection object for which to find the device.
         """
@@ -223,7 +228,8 @@ class NetworkManagerHelper:
         proxy_call: The output of a NetworkManager D-Bus call.
         """
         # Sometimes, instead of raising exceptions or returning error states, NetworkManager
-        #   will return a function that makes a dbus call it assumes will fail. We still
-        #   want this error information, so here, we call it if we can.
+        #   will return a function that makes a D-Bus call it assumes will fail. We still
+        #   want this error information, so here, we call it if we can. This method will
+        #   probably raise an exception if it is called.
         if callable(proxy_call):
             proxy_call()
