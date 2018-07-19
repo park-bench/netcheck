@@ -170,12 +170,12 @@ class NetworkManagerHelper:
                 self.wireless_device = device
 
         if self.wired_device is None:
-            raise DeviceNotFoundException('Defined wired device %s was not found.' %
-                                          wired_interface_name)
+            raise DeviceNotFoundException('Configured wired device %s was not found.' %
+                wired_interface_name)
 
         if self.wireless_device is None:
-            raise DeviceNotFoundException('Defined wireless device %s was not found.' %
-                                          wifi_interface_name)
+            raise DeviceNotFoundException('Configured wireless device %s was not found.' %
+                wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
         """Returns the device object a connection object needs to connect with.
