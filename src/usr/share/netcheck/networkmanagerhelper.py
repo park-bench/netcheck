@@ -50,17 +50,18 @@ class NetworkManagerHelper:
         self.network_activation_timeout = config['network_activation_timeout']
         self.wired_network_name = config['wired_network_name']
 
-        self.network_id_table = self._build_network_id_table()
-        self._create_device_objects(config['wired_interface_name'],
-                                    config['wifi_interface_name'])
+        self.connection_id_to_connection_dict = self._build_connection_id_table()
+        self._get_device_objects(config['wired_interface_name'],
+                                 config['wifi_interface_name'])
 
-    def activate_network(self, network_id):
-        """Tells NetworkManager to activate a network with the supplied network_id.
+    def activate_network(self, connection_id):
+        """Tells NetworkManager to activate a network with the supplied connection_id.
         Returns True if there are no errors, False otherwise.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
-        connection = self.network_id_table[network_id]
+        success = False
+        connection = self.connection_id_to_connection_dict[connection_id]
         network_device = self._get_device_for_connection(connection)
 
         networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
@@ -70,7 +71,7 @@ class NetworkManagerHelper:
 
         return success
 
-    def get_network_ip(self, network_id):
+    def get_network_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given network id. If the
         IP address is unable to be retrieved, None is returned.
 
@@ -80,7 +81,7 @@ class NetworkManagerHelper:
         #   simply using it for flow control.
         ip_address = None
 
-        connection = self.network_id_table[network_id]
+        connection = self.connection_id_to_connection_dict[connection_id]
 
         if self._wait_for_connection(connection):
             device = self._get_device_for_connection(connection)
@@ -92,30 +93,30 @@ class NetworkManagerHelper:
 
         return ip_address
 
-    def network_is_ready(self, network_id):
+    def network_is_ready(self, connection_id):
         """Check whether the network with the given network id is ready.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
-        connection = self.network_id_table[network_id]
+        connection = self.connection_id_to_connection_dict[connection_id]
         return self._wait_for_connection(connection)
 
-    def _build_network_id_table(self):
+    def _build_connection_id_table(self):
         """Assemble a helpful dictionary of network objects, indexed by the connection's
         id in NetworkManager.
         """
-        network_id_table = {}
+        connection_id_to_connection_dict = {}
 
         all_connections = NetworkManager.Settings.ListConnections()
         self._run_proxy_call(all_connections)
 
         for connection in all_connections:
             connection_id = connection.GetSettings()['connection']['id']
-            network_id_table[connection_id] = connection
+            connection_id_to_connection_dict[connection_id] = connection
 
-        return network_id_table
+        return connection_id_to_connection_dict
 
-    def _get_active_connection(self, network_id):
+    def _get_active_connection(self, connection_id):
         """Returns the active connection object associated with the given network id.
 
         connection_id: The displayed name of the connection in NetworkManager.
@@ -131,14 +132,14 @@ class NetworkManagerHelper:
 
         return None
 
-    def _get_connection_state(self, network_id):
+    def _get_connection_state(self, connection_id):
         """Returns the state of the connection with the given network id.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
         state = NM_CONNECTION_DISCONNECTED
 
-        active_connection = self._get_active_connection(network_id)
+        active_connection = self._get_active_connection(connection_id)
 
         if active_connection is None:
             self.logger.warning('Connection %s disconnected.', network_id)
@@ -199,13 +200,13 @@ class NetworkManagerHelper:
         success = False
         give_up = False
         time_to_give_up = time.time() + self.network_activation_timeout
-        network_id = connection.GetSettings()['connection']['id']
+        connection_id = connection.GetSettings()['connection']['id']
 
-        self.logger.debug('Waiting for connection %s...', network_id)
+        self.logger.debug('Waiting for connection %s...' % connection_id)
         while (success is False and give_up is False):
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
 
-            connection_state = self._get_connection_state(network_id)
+            connection_state = self._get_connection_state(connection_id)
 
             if connection_state is NM_CONNECTION_ACTIVE:
                 self.logger.debug('Connection %s successful.', network_id)
