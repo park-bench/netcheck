@@ -202,7 +202,7 @@ class NetworkManagerHelper:
         time_to_give_up = time.time() + self.network_activation_timeout
         connection_id = connection.GetSettings()['connection']['id']
 
-        self.logger.debug('Waiting for connection %s...' % connection_id)
+        self.logger.debug('Waiting for connection %s...', connection_id)
         while (success is False and give_up is False):
             time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
 

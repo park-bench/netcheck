@@ -68,7 +68,7 @@ class NetCheck:
         """
         # TODO: Use something more secure than unauthenticated plaintext DNS requests.
 
-        self.logger.trace('Querying %s for %s on network %s.' % (nameserver, query_name, network))
+        self.logger.trace('Querying %s for %s on network %s.', nameserver, query_name, network)
         success = False
 
         # TODO: Add support for when this is not able to obtain the IP.
@@ -82,26 +82,27 @@ class NetCheck:
 
         except dns.resolver.Timeout as detail:
             # Network probably disconnected.
-            self.logger.error('DNS query for %s from nameserver %s on network %s timed out. %s: %s' %
-                (query_name, nameserver, network, type(detail).__name__, detail.message))
+            self.logger.error(
+                'DNS query for %s from nameserver %s on network %s timed out. %s: %s',
+                query_name, nameserver, network, type(detail).__name__, detail.message)
 
         except dns.resolver.NXDOMAIN as detail:
             # Could be either a config error or malicious DNS
             self.logger.error(
                 'DNS query for %s from nameserver %s on network %s was successful,'
-                ' but the provided domain was not found. %s: %s' %
-                (query_name, nameserver, network, type(detail).__name__, detail.message))
+                ' but the provided domain was not found. %s: %s',
+                query_name, nameserver, network, type(detail).__name__, detail.message)
 
         except dns.resolver.NoNameservers as detail:
             # Probably a config error, but chosen DNS could be down or blocked.
-            self.logger.error('Could not access nameserver %s on network %s. %s: %s' % (nameserver,
-                network, type(detail).__name__, detail.message))
+            self.logger.error('Could not access nameserver %s on network %s. %s: %s',
+                nameserver, network, type(detail).__name__, detail.message)
 
         except Exception as detail:
             # Something happened that is outside of Netcheck's scope.
             self.logger.error(
-                'Unexpected error querying %s from nameserver %s on network %s. %s: %s' %
-                (query_name, nameserver, network, type(detail).__name__, detail.message))
+                'Unexpected error querying %s from nameserver %s on network %s. %s: %s',
+                query_name, nameserver, network, type(detail).__name__, detail.message)
 
         return success
 
@@ -119,27 +120,26 @@ class NetCheck:
 
         self.logger.trace(
             '_dns_works: Attempting first DNS query for %s on interface %s '
-            'using name server %s.' % (query_names[0], network, nameservers[0]))
+            'using name server %s.', query_names[0], network, nameservers[0])
         if self._dns_query(network, nameservers[0], query_names[0]):
             dns_works = True
-            self.logger.trace('_dns_works: First DNS query on %s successful.' % network)
+            self.logger.trace('_dns_works: First DNS query on %s successful.', network)
         else:
             self.logger.debug(
                 '_dns_works: First DNS query for %s failed on interface %s using name '
-                'server %s. Attempting second query.' %
-                (query_names[0], network, nameservers[0]))
+                'server %s. Attempting second query.', query_names[0], network,
+                nameservers[0])
             self.logger.trace(
                 '_dns_works: Attempting second DNS query for %s on interface %s using name '
-                'server %s.' % (query_names[1], network, nameservers[1]))
+                'server %s.', query_names[1], network, nameservers[1])
             if (self._dns_query(network, nameservers[1], query_names[1])):
                 dns_works = True
-                self.logger.trace('_dns_works: Second DNS query on %s successful.' %
-                                  network)
+                self.logger.trace('_dns_works: Second DNS query on %s successful.', network)
             else:
                 self.logger.debug(
                     '_dns_works: Second DNS query for %s failed on interface %s using name '
-                    'server %s. Assuming network is down.' %
-                    (query_names[1], network, nameservers[1]))
+                    'server %s. Assuming network is down.', query_names[1], network,
+                    nameservers[1])
 
         return dns_works
 
@@ -149,22 +149,22 @@ class NetCheck:
         """
 
         self.logger.trace('_connect_and_check_dns: Attempting to connect to and reach the '
-                          'Internet over %s.' % network_name)
+                          'Internet over %s.', network_name)
 
         overall_success = False
         connection_successful = self.network_helper.activate_network(network_name)
         if not(connection_successful):
-            self.logger.debug('_connect_and_check_dns: Could not connect to network %s.' %
+            self.logger.debug('_connect_and_check_dns: Could not connect to network %s.',
                               network_name)
         else:
-            self.logger.trace('_connect_and_check_dns: Connected to network %s.' %
+            self.logger.trace('_connect_and_check_dns: Connected to network %s.',
                               network_name)
             dns_successful = self._dns_works(network_name)
             if not(dns_successful):
-                self.logger.debug('_connect_and_check_dns: DNS on network %s failed.' %
+                self.logger.debug('_connect_and_check_dns: DNS on network %s failed.',
                                   network_name)
             else:
-                self.logger.trace('_connect_and_check_dns: DNS on network %s successful.' %
+                self.logger.trace('_connect_and_check_dns: DNS on network %s successful.',
                                   network_name)
                 overall_success = True
 
@@ -174,23 +174,23 @@ class NetCheck:
     #   Returns true on success, false on failure.
     def _check_connection_and_check_dns(self, network_name):
         self.logger.trace('_check_connection_and_check_dns: Attempting to reach the '
-                          'Internet over %s.' % network_name)
+                          'Internet over %s.', network_name)
 
         overall_success = False
         connection_active = self.network_helper.network_is_ready(network_name)
         if not(connection_active):
             self.logger.debug('_check_connection_and_check_dns: Not connected to network '
-                              '%s.' % network_name)
+                              '%s.', network_name)
         else:
-            self.logger.trace('_check_connection_and_check_dns: Connected to network %s.' %
+            self.logger.trace('_check_connection_and_check_dns: Connected to network %s.',
                               network_name)
             dns_successful = self._dns_works(network_name)
             if not(dns_successful):
                 self.logger.debug('_check_connection_and_check_dns: DNS on network %s '
-                                  'failed.' % network_name)
+                                  'failed.', network_name)
             else:
                 self.logger.trace('_check_connection_and_check_dns: DNS on network %s '
-                                  'successful.' % network_name)
+                                  'successful.', network_name)
                 overall_success = True
 
         return overall_success
@@ -200,7 +200,7 @@ class NetCheck:
         list of networks.  If it fails, it calls itself on the next network in the list.
         """
 
-        self.logger.trace('_try_wifi_networks: Attempting WiFi network with priority %d.' %
+        self.logger.trace('_try_wifi_networks: Attempting WiFi network with priority %d.',
                           index)
 
         success = None
@@ -219,13 +219,13 @@ class NetCheck:
 
             if wifi_connection_successful:
                 self.logger.debug('_try_wifi_networks: Wifi network %s connected with '
-                                  'successful DNS check.' % network_name)
+                                  'successful DNS check.', network_name)
                 self.connected_wifi_index = index
                 success = True
 
             else:
                 self.logger.debug('_try_wifi_networks: Wifi network %s failed to connect or '
-                                  'failed DNS check.' % network_name)
+                                  'failed DNS check.', network_name)
                 success = self._try_wifi_networks(index + 1)
 
         return success
@@ -269,7 +269,7 @@ class NetCheck:
                     self.backup_network_check_time = datetime.datetime.now(
                         ) + datetime.timedelta(seconds=random.uniform(
                             0, self.config['backup_network_failed_max_usage_delay']))
-                    self.logger.error('Failed to use backup network. Will try again on %s.' %
+                    self.logger.error('Failed to use backup network. Will try again on %s.',
                                       self.backup_network_check_time)
 
         else:
@@ -288,7 +288,7 @@ class NetCheck:
 
         self.backup_network_check_time = datetime.datetime.now() + \
             datetime.timedelta(seconds=random.uniform(0, delay_range_in_seconds))
-        self.logger.info('Successfully used to backup network. Will try again on %s.' %
+        self.logger.info('Successfully used to backup network. Will try again on %s.',
             self.backup_network_check_time)
 
     def check_loop(self):
@@ -342,18 +342,18 @@ class NetCheck:
                             #   connected during initialization.
                             current_network_name = current_wifi_network_name
                             self.logger.debug('check_loop: Current wifi network %s still '
-                                              'active.' % current_wifi_network_name)
+                                              'active.', current_wifi_network_name)
                         else:
                             self.logger.debug(
                                 'check_loop: Current wifi network %s is no longer '
-                                'connected.' % current_wifi_network_name)
+                                'connected.', current_wifi_network_name)
 
                             wifi_connection_successful = self._try_wifi_networks(0)
 
                             if (wifi_connection_successful):
                                 current_network_name = self.config[
                                     'wifi_network_names'][self.connected_wifi_index]
-                                self.logger.info('Connected to wireless network %s.' %
+                                self.logger.info('Connected to wireless network %s.',
                                                  current_network_name)
                             else:
                                 current_network_name = None
@@ -364,12 +364,12 @@ class NetCheck:
                     prior_network_name, current_network_name)
 
             except Exception as e:
-                self.logger.error('Unexpected error %s: %s\n' % (type(e).__name__,
-                                  e.message))
+                self.logger.error('Unexpected error %s: %s\n', type(e).__name__,
+                                  e.message)
                 self.logger.error(traceback.format_exc())
 
             sleep_time = random.uniform(0, self.config['sleep_range'])
-            self.logger.debug('Sleeping for %f seconds!' % sleep_time)
+            self.logger.debug('Sleeping for %f seconds!', sleep_time)
             time.sleep(sleep_time)
 
     def _log_connection_change(self, prior_network_name, current_network_name):
@@ -378,7 +378,7 @@ class NetCheck:
             if current_network_name is None:
                 self.logger.error('Connection change: Not connected to any network!')
             elif current_network_name != self.config['wired_network_name']:
-                self.logger.warn('Connection change: Connected to wireless network %s.' %
+                self.logger.warn('Connection change: Connected to wireless network %s.',
                                  current_network_name)
             else:
                 self.logger.info('Connection change: Connected to the wired network.')

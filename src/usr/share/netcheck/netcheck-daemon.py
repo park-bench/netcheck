@@ -100,6 +100,6 @@ try:
         the_checker.check_loop()
 
 except Exception as e:
-    logger.critical('%s: %s\n' % (type(e).__name__, e.message))
+    logger.critical('%s: %s\n', type(e).__name__, e.message)
     logger.error(traceback.format_exc())
     sys.exit(1)
