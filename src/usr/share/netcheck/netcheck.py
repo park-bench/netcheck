@@ -73,7 +73,7 @@ class NetCheck:
 
         # TODO: Add support for when this is not able to obtain the IP.
         # TODO: Try to use the gateway address instead of the interface address.
-        interface_ip = self.network_helper.get_network_ip(network)
+        interface_ip = self.network_helper.get_connection_ip(network)
 
         self.resolver.nameservers = [nameserver]
         try:

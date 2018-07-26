@@ -71,7 +71,7 @@ class NetworkManagerHelper:
 
         return success
 
-    def get_network_ip(self, connection_id):
+    def get_connection_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given network id. If the
         IP address is unable to be retrieved, None is returned.
 
