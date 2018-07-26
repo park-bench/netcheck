@@ -133,22 +133,27 @@ class NetworkManagerHelper:
 
         return connection_id_to_connection_dict
 
-    def _get_active_connection(self, connection_id):
-        """Returns the active connection object associated with the given network id.
+    def _create_device_objects(self, wired_interface_name, wifi_interface_name):
+        """Store references to the device objects that are used frequently.
 
-        connection_id: The displayed name of the connection in NetworkManager.
+        wired_interface_name: The name of the wired network interface, e.g. eth0, enp0s1.
+        wifi_interface_name: The name of the wifi network interface, e.g. wlan0, wlp0s1.
         """
 
-        active_connections = NetworkManager.NetworkManager.ActiveConnections
-        self._run_proxy_call(active_connections)
+        for device in NetworkManager.NetworkManager.GetDevices():
+            if device.Interface == wired_interface_name:
+                self.wired_device = device
 
-        for active_connection in active_connections:
-            if active_connection.Id == connection_id:
-                self.logger.trace('Found active connection for connection %s.',
-                                  connection_id)
-                return active_connection
+            if device.Interface == wifi_interface_name:
+                self.wireless_device = device
 
-        return None
+        if self.wired_device is None:
+            raise DeviceNotFoundException('Configured wired device %s was not found.' %
+                                          wired_interface_name)
+
+        if self.wireless_device is None:
+            raise DeviceNotFoundException('Configured wireless device %s was not found.' %
+                                          wifi_interface_name)
 
     def _get_connection_state(self, connection_id):
         """Returns the state of the connection with the given network id.
@@ -177,46 +182,23 @@ class NetworkManagerHelper:
 
         return state
 
-    def _create_device_objects(self, wired_interface_name, wifi_interface_name):
-        """Store references to the device objects that are used frequently.
+    def _get_active_connection(self, connection_id):
+        """Returns the active connection object associated with the given network id.
 
-        wired_interface_name: The name of the wired network interface, e.g. eth0, enp0s1.
-        wifi_interface_name: The name of the wifi network interface, e.g. wlan0, wlp0s1.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
+        active_connection = None
 
-        for device in NetworkManager.NetworkManager.GetDevices():
-            if device.Interface == wired_interface_name:
-                self.wired_device = device
+        active_connections = NetworkManager.NetworkManager.ActiveConnections
+        self._run_proxy_call(active_connections)
 
-            if device.Interface == wifi_interface_name:
-                self.wireless_device = device
+        for available_active_connection in active_connections:
+            if available_active_connection.Id == connection_id:
+                self.logger.trace('Found active connection for connection %s.',
+                                  connection_id)
+                active_connection = available_active_connection
 
-        if self.wired_device is None:
-            raise DeviceNotFoundException('Configured wired device %s was not found.' %
-                                          wired_interface_name)
-
-        if self.wireless_device is None:
-            raise DeviceNotFoundException('Configured wireless device %s was not found.' %
-                                          wifi_interface_name)
-
-    def _get_device_for_connection(self, connection):
-        """Returns the device object a connection object needs to connect with.
-
-        connection: The NetworkManager.Connection object for which to find the device.
-        """
-
-        connection_id = connection.GetSettings()['connection']['id']
-        if connection_id == self.wired_network_name:
-            network_device = self.wired_device
-
-        elif connection_id in self.wifi_network_names:
-            network_device = self.wireless_device
-
-        else:
-            raise UnknownConnectionIDException('The connection id %s is not configured.' %
-                                               connection_id)
-
-        return network_device
+        return active_connection
 
     def _wait_for_connection(self, connection):
         """Wait for the configured number of seconds for an active connection to be ready.
