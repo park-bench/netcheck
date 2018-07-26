@@ -83,7 +83,7 @@ class NetworkManagerHelper:
 
         connection = self.connection_id_to_connection_dict[connection_id]
 
-        if self.network_is_ready(connection):
+        if self.connection_is_ready(connection):
             device = self._get_device_for_connection(connection)
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
@@ -93,7 +93,7 @@ class NetworkManagerHelper:
 
         return ip_address
 
-    def network_is_ready(self, connection_id):
+    def connection_is_ready(self, connection_id):
         """Check whether the network with the given network id is ready.
 
         connection_id: The displayed name of the connection in NetworkManager.
