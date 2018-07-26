@@ -88,7 +88,7 @@ class NetworkManagerHelper:
 
         connection = self.connection_id_to_connection_dict[connection_id]
 
-        if self.connection_is_ready(connection):
+        if self.connection_is_activated(connection):
             device = self._get_device_for_connection(connection)
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
@@ -98,21 +98,21 @@ class NetworkManagerHelper:
 
         return ip_address
 
-    def connection_is_ready(self, connection_id):
+    def connection_is_activated(self, connection_id):
         """Check whether the network with the given network id is ready.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
 
-        connection_is_ready = False
+        connection_is_activated = False
 
         connection = self.connection_id_to_connection_dict[connection_id]
         connection_state = self._get_connection_state(connection)
 
         if connection_state is NM_CONNECTION_ACTIVATED:
-            connection_is_ready = True
+            connection_is_activated = True
 
-        return connection_is_ready
+        return connection_is_activated
 
     def _build_connection_id_table(self):
         """Assemble a helpful dictionary of network objects, indexed by the connection's

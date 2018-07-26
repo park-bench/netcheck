@@ -177,7 +177,7 @@ class NetCheck:
                           'Internet over %s.', network_name)
 
         overall_success = False
-        connection_active = self.network_helper.connection_is_ready(network_name)
+        connection_active = self.network_helper.connection_is_activated(network_name)
         if not(connection_active):
             self.logger.debug('_check_connection_and_check_dns: Not connected to network '
                               '%s.', network_name)
