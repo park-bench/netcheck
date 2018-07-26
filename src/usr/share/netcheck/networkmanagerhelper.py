@@ -66,8 +66,13 @@ class NetworkManagerHelper:
 
         networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
             connection, network_device, '/')
-        self._run_proxy_call(networkmanager_output)
-        success = self._wait_for_connection(connection)
+
+        try:
+            self._run_proxy_call(networkmanager_output)
+            success = self._wait_for_connection(connection)
+
+        except Exception as exception:
+            self.logger.error('D-Bus call failed: %s', exception)
 
         return success
 
