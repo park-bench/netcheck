@@ -28,7 +28,7 @@ import NetworkManager
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
 NM_CONNECTION_ACTIVATING = 0
-NM_CONNECTION_ACTIVE = 1
+NM_CONNECTION_ACTIVATED = 1
 NM_CONNECTION_DISCONNECTED = 2
 
 class DeviceNotFoundException(Exception):
@@ -104,7 +104,7 @@ class NetworkManagerHelper:
         connection = self.connection_id_to_connection_dict[connection_id]
         connection_state = self._get_connection_state(connection)
 
-        if connection_state is NM_CONNECTION_ACTIVE:
+        if connection_state is NM_CONNECTION_ACTIVATED:
             connection_is_ready = True
 
         return connection_is_ready
@@ -159,7 +159,7 @@ class NetworkManagerHelper:
                     state = NM_CONNECTION_ACTIVATING
                 if active_connection.State \
                         is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
-                    state = NM_CONNECTION_ACTIVE
+                    state = NM_CONNECTION_ACTIVATED
 
         return state
 
@@ -216,7 +216,7 @@ class NetworkManagerHelper:
 
             connection_state = self._get_connection_state(connection_id)
 
-            if connection_state is NM_CONNECTION_ACTIVE:
+            if connection_state is NM_CONNECTION_ACTIVATED:
                 self.logger.debug('Connection %s successful.', connection_id)
                 success = True
 
