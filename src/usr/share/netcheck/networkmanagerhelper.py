@@ -51,8 +51,8 @@ class NetworkManagerHelper:
         self.wired_network_name = config['wired_network_name']
 
         self.connection_id_to_connection_dict = self._build_connection_id_table()
-        self._get_device_objects(config['wired_interface_name'],
-                                 config['wifi_interface_name'])
+        self._create_device_objects(config['wired_interface_name'],
+                                    config['wifi_interface_name'])
 
     def activate_network(self, connection_id):
         """Tells NetworkManager to activate a network with the supplied connection_id.
