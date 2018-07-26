@@ -83,7 +83,7 @@ class NetworkManagerHelper:
 
         connection = self.connection_id_to_connection_dict[connection_id]
 
-        if self._wait_for_connection(connection):
+        if self.network_is_ready(connection):
             device = self._get_device_for_connection(connection)
             ip_address = device.Ip4Config.AddressData[0]['address']
         else:
@@ -98,8 +98,16 @@ class NetworkManagerHelper:
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
+
+        connection_is_ready = False
+
         connection = self.connection_id_to_connection_dict[connection_id]
-        return self._wait_for_connection(connection)
+        connection_state = self._get_connection_state(connection)
+
+        if connection_state is NM_CONNECTION_ACTIVE:
+            connection_is_ready = True
+
+        return connection_is_ready
 
     def _build_connection_id_table(self):
         """Assemble a helpful dictionary of network objects, indexed by the connection's
