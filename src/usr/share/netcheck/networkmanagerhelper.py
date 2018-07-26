@@ -34,6 +34,9 @@ NM_CONNECTION_DISCONNECTED = 2
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
 
+class UnknownConnectionIDException(Exception):
+    """Raised when a connection ID is requested, but it is not known."""
+
 class NetworkManagerHelper:
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
     D-Bus API.
@@ -49,6 +52,7 @@ class NetworkManagerHelper:
         self.logger = logging.getLogger(__name__)
         self.network_activation_timeout = config['network_activation_timeout']
         self.wired_network_name = config['wired_network_name']
+        self.wifi_network_names = config['wifi_network_names']
 
         self.connection_id_to_connection_dict = self._build_connection_id_table()
         self._create_device_objects(config['wired_interface_name'],
@@ -141,7 +145,7 @@ class NetworkManagerHelper:
         for active_connection in active_connections:
             if active_connection.Id == connection_id:
                 self.logger.trace('Found active connection for connection %s.',
-                                   connection_id)
+                                  connection_id)
                 return active_connection
 
         return None
@@ -189,11 +193,11 @@ class NetworkManagerHelper:
 
         if self.wired_device is None:
             raise DeviceNotFoundException('Configured wired device %s was not found.' %
-                wired_interface_name)
+                                          wired_interface_name)
 
         if self.wireless_device is None:
             raise DeviceNotFoundException('Configured wireless device %s was not found.' %
-                wifi_interface_name)
+                                          wifi_interface_name)
 
     def _get_device_for_connection(self, connection):
         """Returns the device object a connection object needs to connect with.
@@ -201,11 +205,16 @@ class NetworkManagerHelper:
         connection: The NetworkManager.Connection object for which to find the device.
         """
 
-        network_device = self.wireless_device
-
         connection_id = connection.GetSettings()['connection']['id']
         if connection_id == self.wired_network_name:
             network_device = self.wired_device
+
+        elif connection_id in self.wifi_network_names:
+            network_device = self.wireless_device
+
+        else:
+            raise UnknownConnectionIDException('The connection id %s is not configured.' %
+                                               connection_id)
 
         return network_device
 
