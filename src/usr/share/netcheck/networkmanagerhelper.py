@@ -140,7 +140,8 @@ class NetworkManagerHelper:
 
         for active_connection in active_connections:
             if active_connection.Id == connection_id:
-                self.logger.trace('Found active connection.')
+                self.logger.trace('Found active connection for connection %s.',
+                                   connection_id)
                 return active_connection
 
         return None
@@ -165,6 +166,10 @@ class NetworkManagerHelper:
                 if active_connection.State \
                         is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
                     state = NM_CONNECTION_ACTIVATED
+
+            else:
+                self.logger.error('Active connection for connection %s is no longer valid.',
+                                  connection_id)
 
         return state
 
