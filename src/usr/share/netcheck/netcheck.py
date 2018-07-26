@@ -77,7 +77,7 @@ class NetCheck:
 
         self.resolver.nameservers = [nameserver]
         try:
-            query_result = self.resolver.query(query_name, source=interface_ip)
+            self.resolver.query(query_name, source=interface_ip)
             success = True
 
         except dns.resolver.Timeout as detail:
