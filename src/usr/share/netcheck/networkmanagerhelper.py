@@ -60,7 +60,7 @@ class NetworkManagerHelper:
             config['wired_interface_name'],
             config['wifi_interface_name'])
 
-    def activate_network(self, connection_id):
+    def activate_connection(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection_id.
         Returns True if there are no errors, False otherwise.
 
