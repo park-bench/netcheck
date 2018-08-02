@@ -27,9 +27,9 @@ import NetworkManager
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
-NM_CONNECTION_ACTIVATING = 0
-NM_CONNECTION_ACTIVATED = 1
-NM_CONNECTION_DISCONNECTED = 2
+NM_CONNECTION_ACTIVATING = "NM_Connection_Activating"
+NM_CONNECTION_ACTIVATED = "NM_Connection_Activated"
+NM_CONNECTION_DISCONNECTED = "NM_Connection_Disconnected"
 
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
@@ -94,7 +94,7 @@ class NetworkManagerHelper:
 
         connection = self.connection_id_to_connection_dict[connection_id]
 
-        if self.connection_is_activated(connection):
+        if self.connection_is_activated(connection_id):
             device = self._get_device_for_connection(connection)
             gateway_octets = device.Ip4Config.Gateway.split('.')
 
@@ -126,8 +126,7 @@ class NetworkManagerHelper:
 
         connection_is_activated = False
 
-        connection = self.connection_id_to_connection_dict[connection_id]
-        connection_state = self._get_connection_state(connection)
+        connection_state = self._get_connection_state(connection_id)
 
         if connection_state is NM_CONNECTION_ACTIVATED:
             connection_is_activated = True
