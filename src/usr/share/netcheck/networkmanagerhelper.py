@@ -67,18 +67,24 @@ class NetworkManagerHelper:
         connection_id: The displayed name of the connection in NetworkManager.
         """
         success = False
-        connection = self.connection_id_to_connection_dict[connection_id]
-        network_device = self._get_device_for_connection(connection)
 
-        networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
-            connection, network_device, '/')
+        if not self.connection_is_activated(connection_id):
+            connection = self.connection_id_to_connection_dict[connection_id]
+            network_device = self._get_device_for_connection(connection)
 
-        try:
-            self._run_proxy_call(networkmanager_output)
-            success = self._wait_for_connection(connection)
+            networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
+                connection, network_device, '/')
 
-        except Exception as exception:
-            self.logger.error('D-Bus call failed: %s', exception)
+            try:
+                self._run_proxy_call(networkmanager_output)
+                success = self._wait_for_connection(connection)
+
+            except Exception as exception:
+                self.logger.error('D-Bus call failed: %s', exception)
+
+        else:
+            self.logger.debug('Network %s is already up.', connection_id)
+            success = True
 
         return success
 
@@ -232,7 +238,7 @@ class NetworkManagerHelper:
 
         for available_active_connection in active_connections:
             if available_active_connection.Id == connection_id:
-                self.logger.trace('Found active connection for connection %s.',
+                self.logger.debug('Found active connection for connection %s.',
                                   connection_id)
                 active_connection = available_active_connection
 
