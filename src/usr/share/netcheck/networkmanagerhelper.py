@@ -55,8 +55,10 @@ class NetworkManagerHelper:
         self.wifi_network_names = config['wifi_network_names']
 
         self.connection_id_to_connection_dict = self._build_connection_id_table()
-        self._create_device_objects(config['wired_interface_name'],
-                                    config['wifi_interface_name'])
+
+        self.wired_device, self.wireless_device = self._create_device_objects(
+            config['wired_interface_name'],
+            config['wifi_interface_name'])
 
     def activate_network(self, connection_id):
         """Tells NetworkManager to activate a network with the supplied connection_id.
@@ -153,21 +155,25 @@ class NetworkManagerHelper:
         wired_interface_name: The name of the wired network interface, e.g. eth0, enp0s1.
         wifi_interface_name: The name of the wifi network interface, e.g. wlan0, wlp0s1.
         """
+        wired_device = None
+        wireless_device = None
 
         for device in NetworkManager.NetworkManager.GetDevices():
             if device.Interface == wired_interface_name:
-                self.wired_device = device
+                wired_device = device
 
             if device.Interface == wifi_interface_name:
-                self.wireless_device = device
+                wireless_device = device
 
-        if self.wired_device is None:
+        if wired_device is None:
             raise DeviceNotFoundException('Configured wired device %s was not found.' %
                                           wired_interface_name)
 
-        if self.wireless_device is None:
+        if wireless_device is None:
             raise DeviceNotFoundException('Configured wireless device %s was not found.' %
                                           wifi_interface_name)
+
+        return (wired_device, wireless_device)
 
     def _get_device_for_connection(self, connection):
         """Returns the device object a connection object needs to connect with.

@@ -21,13 +21,13 @@
 import logging
 import networkmanagerhelper
 
-WIRED_TEST_NETWORK_NAME = 'ethernet-ens8'
+WIRED_TEST_NETWORK_NAME = 'ens3'
 MISSING_TEST_NETWORK_NAME = 'please-dont-have-a-network-with-this-name'
 
 config = {}
 
 config['wired_interface_name'] = 'ens3'
-config['wifi_interface_name'] = 'ens8'
+config['wifi_interface_name'] = 'ens3'
 config['network_activation_timeout'] = 15
 
 config['wired_network_name'] = WIRED_TEST_NETWORK_NAME
@@ -38,10 +38,10 @@ logger = logging.getLogger()
 
 nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
+print(nmh.get_connection_ip(WIRED_TEST_NETWORK_NAME))
 nmh.activate_network(WIRED_TEST_NETWORK_NAME)
-device = nmh._get_device_for_connection(nmh.network_id_table[WIRED_TEST_NETWORK_NAME])
+device = nmh._get_device_for_connection(nmh.connection_id_to_connection_dict[WIRED_TEST_NETWORK_NAME])
 #print(device.GetAppliedConnection(0))
 
-print(nmh.network_is_ready(WIRED_TEST_NETWORK_NAME))
-print(nmh.get_network_ip(WIRED_TEST_NETWORK_NAME))
+#print(nmh.network_is_ready(WIRED_TEST_NETWORK_NAME))
 #print(NetworkManager.NetworkManager.ActiveConnections)
