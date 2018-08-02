@@ -61,7 +61,7 @@ class NetworkManagerHelper:
             config['wifi_interface_name'])
 
     def activate_network(self, connection_id):
-        """Tells NetworkManager to activate a network with the supplied connection_id.
+        """Tells NetworkManager to activate a connection with the supplied connection_id.
         Returns True if there are no errors, False otherwise.
 
         connection_id: The displayed name of the connection in NetworkManager.
@@ -83,14 +83,14 @@ class NetworkManagerHelper:
                 self.logger.error('D-Bus call failed: %s', exception)
 
         else:
-            self.logger.debug('Network %s is already up.', connection_id)
+            self.logger.debug('Connection %s is already activated.', connection_id)
             success = True
 
         return success
 
     def get_connection_ip(self, connection_id):
-        """Attempts to retrieve the IP address associated with the given network id. If the
-        IP address is unable to be retrieved, None is returned.
+        """Attempts to retrieve the IP address associated with the given connection's gateway.
+        If the IP address is unable to be retrieved, None is returned.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
@@ -114,18 +114,18 @@ class NetworkManagerHelper:
 
             if ip_address is None:
                 self.logger.warning(
-                    'No IP addresses for network %s associated with a gateway.',
+                    'No IP addresses for connection %s associated with a gateway.',
                     connection_id)
 
         else:
             self.logger.warning(
-                'Attempted to get IP address for network %s, which is not connected.',
+                'Attempted to get IP address for connection %s, which is not connected.',
                 connection_id)
 
         return ip_address
 
     def connection_is_activated(self, connection_id):
-        """Check whether the network with the given network id is ready.
+        """Check whether the network with the given connection id is ready.
 
         connection_id: The displayed name of the connection in NetworkManager.
         """
@@ -140,7 +140,7 @@ class NetworkManagerHelper:
         return connection_is_activated
 
     def _build_connection_id_table(self):
-        """Assemble a helpful dictionary of network objects, indexed by the connection's
+        """Assemble a helpful dictionary of connection objects, indexed by the connection's
         id in NetworkManager.
         """
         connection_id_to_connection_dict = {}
