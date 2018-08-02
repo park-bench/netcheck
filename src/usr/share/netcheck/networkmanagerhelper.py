@@ -155,6 +155,25 @@ class NetworkManagerHelper:
             raise DeviceNotFoundException('Configured wireless device %s was not found.' %
                                           wifi_interface_name)
 
+    def _get_device_for_connection(self, connection):
+        """Returns the device object a connection object needs to connect with.
+
+        connection: The NetworkManager.Connection object for which to find the device.
+        """
+
+        connection_id = connection.GetSettings()['connection']['id']
+        if connection_id == self.wired_network_name:
+            network_device = self.wired_device
+
+        elif connection_id in self.wifi_network_names:
+            network_device = self.wireless_device
+
+        else:
+            raise UnknownConnectionIDException('The connection id %s is not configured.' %
+                                               connection_id)
+
+        return network_device
+
     def _get_connection_state(self, connection_id):
         """Returns the state of the connection with the given network id.
 
