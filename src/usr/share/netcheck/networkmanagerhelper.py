@@ -94,7 +94,21 @@ class NetworkManagerHelper:
 
         if self.connection_is_activated(connection):
             device = self._get_device_for_connection(connection)
-            ip_address = device.Ip4Config.AddressData[0]['address']
+            gateway_octets = device.Ip4Config.Gateway.split('.')
+
+            for address_data in device.Ip4Config.AddressData:
+                address_octets = address_data['address'].split('.')
+                if address_octets[0] == gateway_octets[0] \
+                        and address_octets[1] == gateway_octets[1] \
+                        and address_octets[2] == gateway_octets[2]:
+
+                    ip_address = address_data['address']
+
+            if ip_address is None:
+                self.logger.warning(
+                    'No IP addresses for network %s associated with a gateway.',
+                    connection_id)
+
         else:
             self.logger.warning(
                 'Attempted to get IP address for network %s, which is not connected.',
