@@ -38,10 +38,9 @@ logger = logging.getLogger()
 
 nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
-nmh.activate_network(WIRED_TEST_NETWORK_NAME)
+nmh.activate_connection(WIRED_TEST_NETWORK_NAME)
+print(nmh.get_connection_ip(WIRED_TEST_NETWORK_NAME))
+print(nmh.connection_is_activated(WIRED_TEST_NETWORK_NAME))
 
 #device = nmh._get_device_for_connection(nmh.connection_id_to_connection_dict[WIRED_TEST_NETWORK_NAME])
 #print(device.GetAppliedConnection(0))
-
-print(nmh.get_connection_ip(WIRED_TEST_NETWORK_NAME))
-print(nmh.connection_is_activated(WIRED_TEST_NETWORK_NAME))
