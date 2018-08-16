@@ -1,0 +1,5 @@
+# Set NetworkManager as the default renderer for all adapters.
+
+network:
+    version: 2
+    renderer: NetworkManager
