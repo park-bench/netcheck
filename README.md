@@ -29,8 +29,7 @@ _netcheck_ depends on one other piece of the Parkbench project, which must be in
 
 1. Clone the latest release tag. (Do not clone the master branch. `master` may not be stable.)
 2. Use `debuild` from the project root directory to build the package.
-3. Use `dpkg -i` to install the package.
-4. Use `apt-get -f install` to resolve any missing dependencies. The daemon will attempt to start and fail. (This is expected.)
+3. Use `apt install /path/to/package.deb` to install the package. The daemon will attempt to start and fail. (This is expected.)
 
 ## Post-Install configuration
 
