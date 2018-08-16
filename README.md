@@ -35,10 +35,7 @@ _netcheck_ depends on one other piece of the Parkbench project, which must be in
 ## Post-Install configuration
 
 # Configuring NetworkManager
-1. Edit the file `/etc/network/interfaces` and remove any interfaces that you want Netcheck to use.
-2. Edit the file `/usr/lib/NetworkManager/conf.d/10-globally-managed-devices.conf` and add `except:type:ethernet`
-    to the unmanaged-devices list.
-3. Add any network interfaces you want Netcheck to use with `nmcli con add`.
+Add any network interfaces you want Netcheck to use with `nmcli con add`.
 
 # Configuring Netcheck
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
