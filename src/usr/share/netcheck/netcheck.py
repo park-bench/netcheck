@@ -18,15 +18,13 @@ import logging
 import random
 import time
 import traceback
-
 import dns
-from dns import resolver
 import networkmanagerhelper
 
 # TODO: Eventually make multithreaded.
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
 #   sending mail.
-class NetCheck:
+class NetCheck(object):
     """NetCheck monitors the wired network connection. If it is down, it attempts
     to connect to a prioritized list of wireless networks.  If nothing works, it
     will cycle through both the wired and wireless networks until one is available.
@@ -79,29 +77,30 @@ class NetCheck:
                 self.resolver.query(query_name, source=interface_ip)
                 success = True
 
-            except dns.resolver.Timeout as detail:
+            except dns.resolver.Timeout as exception:
                 # Network probably disconnected.
                 self.logger.error(
                     'DNS query for %s from nameserver %s on network %s timed out. %s: %s',
-                    query_name, nameserver, network, type(detail).__name__, detail.message)
+                    query_name, nameserver, network, type(exception).__name__, str(exception))
 
-            except dns.resolver.NXDOMAIN as detail:
+            except dns.resolver.NXDOMAIN as exception:
                 # Could be either a config error or malicious DNS
                 self.logger.error(
                     'DNS query for %s from nameserver %s on network %s was successful,'
                     ' but the provided domain was not found. %s: %s',
-                    query_name, nameserver, network, type(detail).__name__, detail.message)
+                    query_name, nameserver, network, type(exception).__name__, str(exception))
 
-            except dns.resolver.NoNameservers as detail:
+            except dns.resolver.NoNameservers as exception:
                 # Probably a config error, but chosen DNS could be down or blocked.
                 self.logger.error('Could not access nameserver %s on network %s. %s: %s',
-                    nameserver, network, type(detail).__name__, detail.message)
+                    nameserver, network, type(exception).__name__, str(exception))
 
-            except Exception as detail:
+            except Exception as exception:
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
                     'Unexpected error querying %s from nameserver %s on network %s. %s: %s',
-                    query_name, nameserver, network, type(detail).__name__, detail.message)
+                    query_name, nameserver, network, type(exception).__name__,
+                    str(exception))
 
         return success
 
@@ -362,9 +361,9 @@ class NetCheck:
                 prior_network_name = self._log_connection_change(
                     prior_network_name, current_network_name)
 
-            except Exception as e:
-                self.logger.error('Unexpected error %s: %s\n', type(e).__name__,
-                                  e.message)
+            except Exception as exception:
+                self.logger.error('Unexpected error %s: %s\n', type(exception).__name__,
+                                  str(exception))
                 self.logger.error(traceback.format_exc())
 
             sleep_time = random.uniform(0, self.config['sleep_range'])

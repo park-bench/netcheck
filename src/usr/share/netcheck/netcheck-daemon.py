@@ -99,7 +99,7 @@ try:
         the_checker = netcheck.NetCheck(config)
         the_checker.check_loop()
 
-except Exception as e:
-    logger.critical('%s: %s\n', type(e).__name__, e.message)
+except Exception as exception:
+    logger.critical('%s: %s\n', type(exception).__name__, str(exception))
     logger.error(traceback.format_exc())
     sys.exit(1)

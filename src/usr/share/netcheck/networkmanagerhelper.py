@@ -28,26 +28,26 @@ import NetworkManager
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
-NM_CONNECTION_ACTIVATING = "NM_Connection_Activating"
-NM_CONNECTION_ACTIVATED = "NM_Connection_Activated"
-NM_CONNECTION_DISCONNECTED = "NM_Connection_Disconnected"
+NM_CONNECTION_ACTIVATING = "NM_CONNECTION_ACTIVATED"
+NM_CONNECTION_ACTIVATED = "NM_CONNECTION_ACTIVATED"
+NM_CONNECTION_DISCONNECTED = "NM_CONNECTION_DISCONNECTED"
 
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
 
-class UnknownConnectionIDException(Exception):
+class UnknownConnectionIdException(Exception):
     """Raised when a connection ID is requested, but it is not known."""
 
-class NetworkManagerHelper:
+class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
     D-Bus API.
     """
 
     def __init__(self, config):
-        """Initializes the module by choosing devices and assembling a table of connection
-        IDs.
+        """Initializes the module by storing references to device objects and assembling a
+        dict of connection IDs.
 
-        config: The configuration dictionary built in netcheck-daemon.
+        config: The configuration dictionary constructed during program initialization.
         """
 
         self.logger = logging.getLogger(__name__)
@@ -55,11 +55,10 @@ class NetworkManagerHelper:
         self.wired_network_name = config['wired_network_name']
         self.wifi_network_names = config['wifi_network_names']
 
-        self.connection_id_to_connection_dict = self._build_connection_id_table()
+        self.connection_id_to_connection_dict = self._build_connection_id_dict()
 
         self.wired_device, self.wireless_device = self._create_device_objects(
-            config['wired_interface_name'],
-            config['wifi_interface_name'])
+            config['wired_interface_name'], config['wifi_interface_name'])
 
     def activate_connection(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection_id.
@@ -69,9 +68,13 @@ class NetworkManagerHelper:
         """
         success = False
 
-        if not self.connection_is_activated(connection_id):
+        if self.connection_is_activated(connection_id):
+            self.logger.debug('Connection %s is already activated.', connection_id)
+            success = True
+
+        else:
+            network_device = self._get_device_for_connection(connection_id)
             connection = self.connection_id_to_connection_dict[connection_id]
-            network_device = self._get_device_for_connection(connection)
 
             networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
                 connection, network_device, '/')
@@ -81,11 +84,9 @@ class NetworkManagerHelper:
                 success = self._wait_for_connection(connection)
 
             except Exception as exception:
-                self.logger.error('D-Bus call failed: %s', exception)
-
-        else:
-            self.logger.debug('Connection %s is already activated.', connection_id)
-            success = True
+                self.logger.error(
+                    'D-Bus call failed while activating network %s. %s: %s', connection_id,
+                    type(exception).__name__, str(exception))
 
         return success
 
@@ -99,10 +100,8 @@ class NetworkManagerHelper:
         #   simply using it for flow control.
         ip_address = None
 
-        connection = self.connection_id_to_connection_dict[connection_id]
-
         if self.connection_is_activated(connection_id):
-            device = self._get_device_for_connection(connection)
+            device = self._get_device_for_connection(connection_id)
             gateway_address = netaddr.IPNetwork(device.Ip4Config.Gateway)
 
             for address_data in device.Ip4Config.AddressData:
@@ -139,7 +138,7 @@ class NetworkManagerHelper:
 
         return connection_is_activated
 
-    def _build_connection_id_table(self):
+    def _build_connection_id_dict(self):
         """Assemble a helpful dictionary of connection objects, indexed by the connection's
         id in NetworkManager.
         """
@@ -180,13 +179,12 @@ class NetworkManagerHelper:
 
         return (wired_device, wireless_device)
 
-    def _get_device_for_connection(self, connection):
+    def _get_device_for_connection(self, connection_id):
         """Returns the device object a connection object needs to connect with.
 
-        connection: The NetworkManager.Connection object for which to find the device.
+        connection_id: The displayed name of the connection in NetworkManager.
         """
 
-        connection_id = connection.GetSettings()['connection']['id']
         if connection_id == self.wired_network_name:
             network_device = self.wired_device
 
@@ -194,7 +192,7 @@ class NetworkManagerHelper:
             network_device = self.wireless_device
 
         else:
-            raise UnknownConnectionIDException('The connection id %s is not configured.' %
+            raise UnknownConnectionIdException('The connection id %s is not configured.' %
                                                connection_id)
 
         return network_device
