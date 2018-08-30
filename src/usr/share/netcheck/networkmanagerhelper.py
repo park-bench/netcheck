@@ -23,6 +23,7 @@ __version__ = '0.8'
 
 import logging
 import time
+import netaddr
 import NetworkManager
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
@@ -102,14 +103,13 @@ class NetworkManagerHelper:
 
         if self.connection_is_activated(connection_id):
             device = self._get_device_for_connection(connection)
-            gateway_octets = device.Ip4Config.Gateway.split('.')
+            gateway_address = netaddr.IPNetwork(device.Ip4Config.Gateway)
 
             for address_data in device.Ip4Config.AddressData:
-                address_octets = address_data['address'].split('.')
-                if address_octets[0] == gateway_octets[0] \
-                        and address_octets[1] == gateway_octets[1] \
-                        and address_octets[2] == gateway_octets[2]:
+                address_cidr = '%s/%s' % (address_data['address'], address_data['prefix'])
+                address_network = netaddr.IPNetwork(address_cidr)
 
+                if gateway_address in address_network:
                     ip_address = address_data['address']
 
             if ip_address is None:
