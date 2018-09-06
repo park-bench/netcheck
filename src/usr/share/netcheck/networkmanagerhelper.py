@@ -62,9 +62,10 @@ class NetworkManagerHelper(object):
 
     def activate_connection(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection_id.
-        Returns True if there are no errors, False otherwise.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns True if there are no errors, returns False otherwise.
         """
         success = False
 
@@ -91,13 +92,15 @@ class NetworkManagerHelper(object):
         return success
 
     def get_connection_ip(self, connection_id):
-        """Attempts to retrieve the IP address associated with the given connection's gateway.
-        If the IP address is unable to be retrieved, None is returned.
+        """Attempts to retrieve the IP address associated with the given connection's
+        gateway. If the IP address is unable to be retrieved, None is returned.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns the IP address as a string if it can be retrieved, returns None otherwise.
         """
-        # I decided not to throw an exception here because the intended caller would end up
-        #   simply using it for flow control.
+
+        # TODO #19: Add IPv6 support.
         ip_address = None
 
         if self.connection_is_activated(connection_id):
@@ -113,8 +116,8 @@ class NetworkManagerHelper(object):
 
             if ip_address is None:
                 self.logger.warning(
-                    'No IP addresses for connection %s associated with a gateway.',
-                    connection_id)
+                    'No IP addresses for connection %s associated with gateway %s.',
+                    connection_id, gateway_address)
 
         else:
             self.logger.warning(
@@ -124,9 +127,12 @@ class NetworkManagerHelper(object):
         return ip_address
 
     def connection_is_activated(self, connection_id):
-        """Check whether the network with the given connection id is ready.
+        """Check whether the network with the given connection id is activated. Returns True if
+        it is, otherwise it returns False.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns True if the connection is activated, returns False otherwise.
         """
 
         connection_is_activated = False
@@ -141,6 +147,9 @@ class NetworkManagerHelper(object):
     def _build_connection_id_dict(self):
         """Assemble a helpful dictionary of connection objects, indexed by the connection's
         id in NetworkManager.
+
+        Returns a dict, with keys being connection IDs and values being
+        NetworkManager.Connection objects.
         """
         connection_id_to_connection_dict = {}
 
@@ -156,8 +165,11 @@ class NetworkManagerHelper(object):
     def _create_device_objects(self, wired_interface_name, wifi_interface_name):
         """Store references to the device objects that are used frequently.
 
-        wired_interface_name: The name of the wired network interface, e.g. eth0, enp0s1.
-        wifi_interface_name: The name of the wifi network interface, e.g. wlan0, wlp0s1.
+        wired_interface_name: The name of the wired network interface, ex: eth0, enp0s1.
+        wifi_interface_name: The name of the WiFi network interface, ex: wlan0, wlp0s1.
+
+        Returns a tuple containing the NetworkManager wired device object and the
+        NetworkManager wireless device object.
         """
         wired_device = None
         wireless_device = None
@@ -180,9 +192,12 @@ class NetworkManagerHelper(object):
         return (wired_device, wireless_device)
 
     def _get_device_for_connection(self, connection_id):
-        """Returns the device object a connection object needs to connect with.
+        """Finds the appropriate device object for the given connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns a NetworkManager device object. If no suitable device is found, an exception
+        is raised.
         """
 
         if connection_id == self.wired_network_name:
@@ -198,16 +213,21 @@ class NetworkManagerHelper(object):
         return network_device
 
     def _get_connection_state(self, connection_id):
-        """Returns the state of the connection with the given network id.
+        """Read the current state of the connection associated with the given connection id.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns a constant representing the current connection state. Possible values are:
+            NM_CONNECTION_DISCONNECTED,
+            NM_CONNECTION_ACTIVATING,
+            NM_CONNECTION_ACTIVATED
         """
         state = NM_CONNECTION_DISCONNECTED
 
         active_connection = self._get_active_connection(connection_id)
 
         if active_connection is None:
-            self.logger.warning('Connection %s disconnected.', connection_id)
+            self.logger.warning('Connection %s is not activated.', connection_id)
 
         else:
             if hasattr(active_connection, 'State'):
@@ -219,41 +239,45 @@ class NetworkManagerHelper(object):
                     state = NM_CONNECTION_ACTIVATED
 
             else:
-                self.logger.error('Active connection for connection %s is no longer valid.',
+                self.logger.error('Connection %s is no longer activated.',
                                   connection_id)
 
         return state
 
     def _get_active_connection(self, connection_id):
-        """Returns the active connection object associated with the given network id.
+        """Finds the active connection object for a given connection id.
 
         connection_id: The displayed name of the connection in NetworkManager.
+
+        Returns a NetworkManager.ActiveConnection object. If no appropriate object exists,
+        it returns None.
         """
         active_connection = None
 
         active_connections = NetworkManager.NetworkManager.ActiveConnections
         self._run_proxy_call(active_connections)
 
-        for available_active_connection in active_connections:
-            if available_active_connection.Id == connection_id:
-                self.logger.debug('Found active connection for connection %s.',
+        for active_connection in active_connections:
+            if active_connection.Id == connection_id:
+                self.logger.debug('Found that connection %s is active.',
                                   connection_id)
-                active_connection = available_active_connection
+                matched_active_connection = active_connection
 
-        return active_connection
+        return matched_active_connection
 
     def _wait_for_connection(self, connection):
-        """Wait for the configured number of seconds for an active connection to be ready.
-        return True if it connects in that time, False otherwise.
+        """Wait for the configured number of seconds for an active connection to be activated.
 
         connection: The NetworkManager.Connection object to watch for connectivity.
+
+        Return True if the connection is activated, and False otherwise.
         """
         success = False
         give_up = False
         connection_id = connection.GetSettings()['connection']['id']
+        time_to_give_up = time.time() + self.network_activation_timeout
 
         self.logger.debug('Waiting for connection %s...', connection_id)
-        time_to_give_up = time.time() + self.network_activation_timeout
         while (success is False and give_up is False):
 
             connection_state = self._get_connection_state(connection_id)
@@ -263,11 +287,13 @@ class NetworkManagerHelper(object):
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected. Giving up.', connection_id)
+                self.logger.warning('Connection %s disconnected. Trying next connection.',
+                                    connection_id)
                 give_up = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out. Giving up.', connection_id)
+                self.logger.warning('Connection %s timed out. Trying next connection.',
+                                    connection_id)
                 give_up = True
 
             else:
@@ -279,11 +305,12 @@ class NetworkManagerHelper(object):
         """If proxy_call is callable, call it. This typically means that there was a
         critical D-Bus error and an exception will most likely be raised.
 
+        Sometimes NetworkManager will return a function that makes a D-Bus call it assumes
+        will fail instead of raising an exception or returning an error state. This error
+        information is valuable, so this method attempts to call that function to raise any
+        exception and report the error.
+
         proxy_call: The output of a NetworkManager D-Bus call.
         """
-        # Sometimes, instead of raising exceptions or returning error states, NetworkManager
-        #   will return a function that makes a D-Bus call it assumes will fail. We still
-        #   want this error information, so here, we call it if we can. This method will
-        #   probably raise an exception if it is called.
         if callable(proxy_call):
             proxy_call()
