@@ -25,9 +25,9 @@ import networkmanagerhelper
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is
 #   sending mail.
 class NetCheck(object):
-    """NetCheck monitors the wired network connection. If it is down, it attempts
-    to connect to a prioritized list of wireless networks.  If nothing works, it
-    will cycle through both the wired and wireless networks until one is available.
+    """NetCheck monitors the wired connection. If it is down, it attempts
+    to connect to a prioritized list of wireless connections.  If nothing works, it
+    will cycle through both the wired and wireless connections until one is available.
     """
 
     def __init__(self, config):
@@ -40,17 +40,17 @@ class NetCheck(object):
         self.network_helper = networkmanagerhelper.NetworkManagerHelper(
             self.config)
 
-        self.backup_network_check_time = datetime.datetime.now()
+        self.backup_connection_check_time = datetime.datetime.now()
         self.connected_wifi_index = 0
 
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = config['dns_timeout']
         self.resolver.lifetime = config['dns_timeout']
 
-        # This section is commented out because we connect to the backup network
+        # This section is commented out because we connect to the backup connection
         #   as soon as the program starts anyway. If FreedomPop's monthly usage
         #   requirement goes away, we should revert back to using this.
-        #wifi_connection_successful = self._try_wifi_networks(0)
+        #wifi_connection_successful = self._try_wireless_connections(0)
         #
         #if wifi_connection_successful:
         #    self.logger.info('Connected to wifi network %s during initialization.' % \
@@ -61,7 +61,7 @@ class NetCheck(object):
         self.logger.info('NetCheck initialized.')
 
     def _dns_query(self, connection_id, nameserver, query_name):
-        """Attempts a DNS query for query_name on 'nameserver' via 'network'.
+        """Attempts a DNS query for query_name on 'nameserver' via 'connection_id'.
         Returns True if successful, False otherwise.
         """
         # TODO: Use something more secure than unauthenticated plaintext DNS requests.
@@ -81,15 +81,16 @@ class NetCheck(object):
             except dns.resolver.Timeout as exception:
                 # Network probably disconnected.
                 self.logger.error(
-                    'DNS query for %s from nameserver %s on connection %s timed out. %s: %s',
-                    query_name, nameserver, connection_id, type(exception).__name__, str(exception))
+                    'DNS query for %s from nameserver %s on connection %s timed out. %s: '
+                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
+                    str(exception))
 
             except dns.resolver.NXDOMAIN as exception:
                 # Could be either a config error or malicious DNS
                 self.logger.error(
                     'DNS query for %s from nameserver %s on connection %s was successful,'
-                    ' but the provided domain was not found. %s: %s',
-                    query_name, nameserver, connection_id, type(exception).__name__, str(exception))
+                    ' but the provided domain was not found. %s: %s', query_name,
+                    nameserver, connection_id, type(exception).__name__, str(exception))
 
             except dns.resolver.NoNameservers as exception:
                 # Probably a config error, but chosen DNS could be down or blocked.
@@ -99,8 +100,8 @@ class NetCheck(object):
             except Exception as exception:
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
-                    'Unexpected error querying %s from nameserver %s on connection %s. %s: %s',
-                    query_name, nameserver, connection_id, type(exception).__name__,
+                    'Unexpected error querying %s from nameserver %s on connection %s. %s: '
+                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
                     str(exception))
 
         return success
@@ -201,42 +202,43 @@ class NetCheck(object):
 
         return overall_success
 
-    def _try_wifi_networks(self, index):
-        """Tries to connect to the wireless connection at a specific index of the config file's
-        list of connection IDs.  If it fails, it calls itself on the next connection in the
-        list.
+    def _try_wireless_connections(self, index):
+        """Tries to connect to the wireless connection at a specific index of the config
+        file's list of connection IDs.  If it fails, it calls itself on the next connection
+        in the list.
         """
 
         self.logger.trace(
-            '_try_wifi_networks: Attempting wireless connection with priority %d.', index)
+            '_try_wireless_connections: Attempting wireless connection with priority %d.',
+            index)
 
         success = None
 
-        if index >= len(self.config['wifi_network_names']):
+        if index >= len(self.config['wireless_connection_ids']):
             # Out of bounds means that we're out of connection.
             self.logger.debug(
-                '_try_wifi_networks: Reached end of wireless connection list. Setting first '
-                'connection as the currently connected connection.')
+                '_try_wireless_connections: Reached end of wireless connection list. '
+                'Setting first connection as the currently connected connection.')
             self.connected_wifi_index = 0
             success = False
 
         else:
-            connection_id = self.config['wifi_network_names'][index]
+            connection_id = self.config['wireless_connection_ids'][index]
 
             wifi_connection_successful = self._connect_and_check_dns(connection_id)
 
             if wifi_connection_successful:
                 self.logger.debug(
-                    '_try_wifi_networks: wireless connection %s is activated with successful '
-                    'DNS check.', connection_id)
+                    '_try_wireless_connections: wireless connection %s is activated with'
+                    'successful DNS check.', connection_id)
                 self.connected_wifi_index = index
                 success = True
 
             else:
                 self.logger.debug(
-                    '_try_wifi_networks: wireless connection %s failed to activate or failed '
-                    ' DNS check.', connection_id)
-                success = self._try_wifi_networks(index + 1)
+                    '_try_wireless_connections: wireless connection %s failed to activate '
+                    'or failed DNS check.', connection_id)
+                success = self._try_wireless_connections(index + 1)
 
         return success
 
@@ -245,26 +247,26 @@ class NetCheck(object):
     # TODO: The random interval should probably be applied after the last DNS check on the
     #   backup connection. (We might have used the backup connection since the last check or
     #   might even be currently connected to it.)
-    def _use_backup_network(self):
+    def _use_backup_connection(self):
         """Use the highest-priority wireless connection randomly between zero and a
         user-specified number of days. Recalculate that interval every time the connection
-        is checked and then call _try_wifi_networks. FreedomPop requires monthly usage and
-        is assumed to be the highest-priority connection.
+        is checked and then call _try_wireless_connections. FreedomPop requires monthly usage
+        and is assumed to be the highest-priority connection.
         """
 
         self.logger.trace(
-            '_use_backup_network: Determining if we should use the main wireless backup '
+            '_use_backup_connection: Determining if we should use the main wireless backup '
             'connection.')
 
-        if datetime.datetime.now() >= self.backup_network_check_time:
+        if datetime.datetime.now() >= self.backup_connection_check_time:
 
             self.logger.info('Trying to use backup wifi connection.')
 
             # TODO: Make the backup connection actually separate from the list.
-            #   It should use the backup_network_name property from
+            #   It should use the backup_connection_name property from
             #   from the config file.
             backup_connection_is_active = self._check_connection_and_check_dns(
-                self.config['wifi_network_names'][0])
+                self.config['wireless_connection_ids'][0])
 
             if backup_connection_is_active:
                 self._update_successful_backup_check_time()
@@ -272,20 +274,21 @@ class NetCheck(object):
             else:
                 self.logger.info('Trying to connect and use backup wifi connection.')
                 wifi_connection_successful = self._connect_and_check_dns(
-                    self.config['wifi_network_names'][0])
+                    self.config['wireless_connection_ids'][0])
 
                 if wifi_connection_successful:
                     self._update_successful_backup_check_time()
                 else:
-                    self.backup_network_check_time = datetime.datetime.now(
+                    self.backup_connection_check_time = datetime.datetime.now(
                         ) + datetime.timedelta(seconds=random.uniform(
-                            0, self.config['backup_network_failed_max_usage_delay']))
+                            0, self.config['backup_connection_failed_max_usage_delay']))
                     self.logger.error(
                         'Failed to use backup connection. Will try again on %s.',
-                        self.backup_network_check_time)
+                        self.backup_connection_check_time)
 
         else:
-            self.logger.trace('Skipping backup connection check because it is not time yet.')
+            self.logger.trace(
+                'Skipping backup connection check because it is not time yet.')
 
     def _update_successful_backup_check_time(self):
         """Determine the next time we will try to connect to the main backup wireless
@@ -297,12 +300,12 @@ class NetCheck(object):
 
         # Convert days to seconds.
         delay_range_in_seconds = self.config[
-            'backup_network_max_usage_delay'] * 24 * 60 * 60
+            'backup_connection_max_usage_delay'] * 24 * 60 * 60
 
-        self.backup_network_check_time = datetime.datetime.now() + \
+        self.backup_connection_check_time = datetime.datetime.now() + \
             datetime.timedelta(seconds=random.uniform(0, delay_range_in_seconds))
         self.logger.info('Successfully used to backup connection. Will try again on %s.',
-            self.backup_network_check_time)
+            self.backup_connection_check_time)
 
     def check_loop(self):
         """Attempts to connect to the wired connection and falls back to wireless
@@ -323,24 +326,24 @@ class NetCheck(object):
 
                 # Periodically connect to the main backup connection because the carrier
                 #   requires this.
-                self._use_backup_network()
+                self._use_backup_connection()
 
                 wired_is_connected = self._check_connection_and_check_dns(
-                    self.config['wired_network_name'])
+                    self.config['wired_connection_id'])
 
                 if (wired_is_connected):
                     self.logger.debug(
                         'check_loop: Wired connection still active with successful DNS '
                         'check.')
-                    current_connection_name = self.config['wired_network_name']
+                    current_connection_name = self.config['wired_connection_id']
                 else:
                     self.logger.debug('check_loop: Wired connection is not active.')
 
                     wired_connection_success = self._connect_and_check_dns(
-                        self.config['wired_network_name'])
+                        self.config['wired_connection_id'])
 
                     if (wired_connection_success):
-                        current_connection_name = self.config['wired_network_name']
+                        current_connection_name = self.config['wired_connection_id']
                         self.logger.info(
                             'Wired connection active with successful DNS check.')
                     else:
@@ -348,7 +351,7 @@ class NetCheck(object):
                             'check_loop: Wired connection failed to activate.')
 
                         current_wifi_connection_id = self.config[
-                            'wifi_network_names'][self.connected_wifi_index]
+                            'wireless_connection_ids'][self.connected_wifi_index]
                         wifi_is_connected = self._check_connection_and_check_dns(
                             current_wifi_connection_id)
 
@@ -364,17 +367,18 @@ class NetCheck(object):
                                 'check_loop: Current wireless connection %s is no longer '
                                 'active.', current_wifi_connection_id)
 
-                            wifi_connection_successful = self._try_wifi_networks(0)
+                            wifi_connection_successful = self._try_wireless_connections(0)
 
                             if (wifi_connection_successful):
                                 current_connection_name = self.config[
-                                    'wifi_network_names'][self.connected_wifi_index]
+                                    'wireless_connection_ids'][self.connected_wifi_index]
                                 self.logger.info('Connected to wireless connection %s.',
                                                  current_connection_name)
                             else:
                                 current_connection_name = None
                                 self.logger.debug(
-                                    'check_loop: All wireless connections failed to activate.')
+                                    'check_loop: All wireless connections failed to '
+                                    'activate.')
 
                 prior_connection_name = self._log_connection_change(
                     prior_connection_name, current_connection_name)
@@ -393,7 +397,7 @@ class NetCheck(object):
         if prior_connection_name != current_connection_name:
             if current_connection_name is None:
                 self.logger.error('Connection change: No connections are active!')
-            elif current_connection_name != self.config['wired_network_name']:
+            elif current_connection_name != self.config['wired_connection_id']:
                 self.logger.warn('Connection change: Wireless connection %s is active.',
                                  current_connection_name)
             else:

@@ -51,9 +51,9 @@ class NetworkManagerHelper(object):
         """
 
         self.logger = logging.getLogger(__name__)
-        self.network_activation_timeout = config['network_activation_timeout']
-        self.wired_network_name = config['wired_network_name']
-        self.wifi_network_names = config['wifi_network_names']
+        self.connection_activation_timeout = config['connection_activation_timeout']
+        self.wired_connection_name = config['wired_connection_name']
+        self.wireless_network_names = config['wireless_network_names']
 
         self.connection_id_to_connection_dict = self._build_connection_id_dict()
 
@@ -127,8 +127,8 @@ class NetworkManagerHelper(object):
         return ip_address
 
     def connection_is_activated(self, connection_id):
-        """Check whether the network with the given connection id is activated. Returns True if
-        it is, otherwise it returns False.
+        """Check whether the network with the given connection id is activated. Returns True
+        if it is, otherwise it returns False.
 
         connection_id: The displayed name of the connection in NetworkManager.
 
@@ -200,10 +200,10 @@ class NetworkManagerHelper(object):
         is raised.
         """
 
-        if connection_id == self.wired_network_name:
+        if connection_id == self.wired_connection_name:
             network_device = self.wired_device
 
-        elif connection_id in self.wifi_network_names:
+        elif connection_id in self.wireless_network_names:
             network_device = self.wireless_device
 
         else:
@@ -275,7 +275,7 @@ class NetworkManagerHelper(object):
         success = False
         give_up = False
         connection_id = connection.GetSettings()['connection']['id']
-        time_to_give_up = time.time() + self.network_activation_timeout
+        time_to_give_up = time.time() + self.connection_activation_timeout
 
         self.logger.debug('Waiting for connection %s...', connection_id)
         while (success is False and give_up is False):

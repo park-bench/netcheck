@@ -6,19 +6,20 @@
 log_file=/var/log/netcheck.log
 log_level=info
 
-# The name of the wired network in network manager.
-wired_network_name=
+# The name of the wired connection in NetworkManager.
+wired_connection_id=
 
-# The name of the interface associated with the wired network. For example: eth0, ens2
+# The name of the interface associated with the wired connection. For example: eth0, ens2
 wired_interface_name=
 
-# Comma delimited list of WiFi networks to connect to ordered by preference.
-#   The first WiFi network is considered the 'backup' network which we have to
+# Comma delimited list of wireless connections to use ordered by preference.
+#   The first wireless connection is considered the 'backup' connection which we have to
 #   connect to periodically to maintain an active account. (See below.)
-wifi_network_names=
+wireless_connection_ids=
 
-# The name of the interface associated with the WiFi networks. For example: wlan0, wlp0s2
-wifi_interface_name=
+# The name of the interface associated with the wireless connectionss.
+#   For example: wlan0, wlp0s2
+wireless_interface_name=
 
 # Comma delimited list of DNS servers to use. Pick your own servers here to help
 #   prevent fingerprinting of this application.
@@ -30,22 +31,22 @@ dns_queries=
 
 # This is not currently used.
 # TODO: Use this or remove it.
-backup_network_name=
+backup_connection_id=
 
 # Maximum amount of time in seconds for a DNS query lookup.
 dns_timeout=2
 
-# Maximum amount of time in seconds to wait to connect to a network.
-network_activation_timeout=15
+# Maximum amount of time in seconds to wait to activate a connection.
+connection_activation_timeout=15
 
-# Maximum delay in days before we try to use the backup network to maintain an active
+# Maximum delay in days before we try to use the backup connection to maintain an active
 #   account with the backup ISP. (This is a requirement from the developers' ISP
 #   [FreedomPop].) (Cannot be negative.)
-backup_network_max_usage_delay=14
+backup_connection_max_usage_delay=14
 
-# Maximum delay in seconds that we try to reuse the backup network if the first (and
+# Maximum delay in seconds that we try to reuse the backup connection if the first (and
 #   subsequent retries) failed. (Cannot be negative.)
-backup_network_failed_max_usage_delay=3600
+backup_connection_failed_max_usage_delay=3600
 
 # Maximum sleep time between each loop iteration. (Cannot be negative.)
 sleep_range=60

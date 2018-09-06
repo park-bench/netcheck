@@ -46,29 +46,29 @@ logger = logging.getLogger()
 # Now read the rest of them.
 config = {}
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
-config['network_activation_timeout'] = config_helper.verify_number_exists(
-    config_file, 'network_activation_timeout')
+config['connection_activation_timeout'] = config_helper.verify_number_exists(
+    config_file, 'connection_activation_timeout')
 config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_range')
 
-config['wired_network_name'] = config_helper.verify_string_exists(
-    config_file, 'wired_network_name')
+config['wired_connection_name'] = config_helper.verify_string_exists(
+    config_file, 'wired_connection_name')
 config['wired_interface_name'] = config_helper.verify_string_exists(
     config_file, 'wired_interface_name')
-config['wifi_network_names'] = config_helper.verify_string_list_exists(
-    config_file, 'wifi_network_names')
-config['wifi_interface_name'] = config_helper.verify_string_exists(
-    config_file, 'wifi_interface_name')
+config['wireless_connection_names'] = config_helper.verify_string_list_exists(
+    config_file, 'wireless_connection_names')
+config['wireless_interface_name'] = config_helper.verify_string_exists(
+    config_file, 'wireless_interface_name')
 config['nameservers'] = config_helper.verify_string_list_exists(
     config_file, 'nameservers')
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 
-config['backup_network_name'] = config_helper.verify_string_exists(
-    config_file, 'backup_network_name')
-config['backup_network_max_usage_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_network_max_usage_delay')
-config['backup_network_failed_max_usage_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_network_failed_max_usage_delay')
+config['backup_connection_name'] = config_helper.verify_string_exists(
+    config_file, 'backup_connection_name')
+config['backup_connection_max_usage_delay'] = config_helper.verify_number_exists(
+    config_file, 'backup_connection_max_usage_delay')
+config['backup_connection_failed_max_usage_delay'] = config_helper.verify_number_exists(
+    config_file, 'backup_connection_failed_max_usage_delay')
 
 
 def sig_term_handler(signal, stack_frame):
