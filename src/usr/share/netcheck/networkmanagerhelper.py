@@ -212,6 +212,42 @@ class NetworkManagerHelper(object):
 
         return network_device
 
+    def _wait_for_connection(self, connection):
+        """Wait for the configured number of seconds for an active connection to be activated.
+
+        connection: The NetworkManager.Connection object to watch for connectivity.
+
+        Return True if the connection is activated, and False otherwise.
+        """
+        success = False
+        give_up = False
+        connection_id = connection.GetSettings()['connection']['id']
+        time_to_give_up = time.time() + self.connection_activation_timeout
+
+        self.logger.debug('Waiting for connection %s...', connection_id)
+        while (success is False and give_up is False):
+
+            connection_state = self._get_connection_state(connection_id)
+
+            if connection_state is NM_CONNECTION_ACTIVATED:
+                self.logger.debug('Connection %s successful.', connection_id)
+                success = True
+
+            elif connection_state is NM_CONNECTION_DISCONNECTED:
+                self.logger.warning('Connection %s disconnected. Trying next connection.',
+                                    connection_id)
+                give_up = True
+
+            elif time.time() > time_to_give_up:
+                self.logger.warning('Connection %s timed out. Trying next connection.',
+                                    connection_id)
+                give_up = True
+
+            else:
+                time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
+
+        return success
+
     def _get_connection_state(self, connection_id):
         """Read the current state of the connection associated with the given connection id.
 
@@ -264,42 +300,6 @@ class NetworkManagerHelper(object):
                 matched_active_connection = active_connection
 
         return matched_active_connection
-
-    def _wait_for_connection(self, connection):
-        """Wait for the configured number of seconds for an active connection to be activated.
-
-        connection: The NetworkManager.Connection object to watch for connectivity.
-
-        Return True if the connection is activated, and False otherwise.
-        """
-        success = False
-        give_up = False
-        connection_id = connection.GetSettings()['connection']['id']
-        time_to_give_up = time.time() + self.connection_activation_timeout
-
-        self.logger.debug('Waiting for connection %s...', connection_id)
-        while (success is False and give_up is False):
-
-            connection_state = self._get_connection_state(connection_id)
-
-            if connection_state is NM_CONNECTION_ACTIVATED:
-                self.logger.debug('Connection %s successful.', connection_id)
-                success = True
-
-            elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected. Trying next connection.',
-                                    connection_id)
-                give_up = True
-
-            elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out. Trying next connection.',
-                                    connection_id)
-                give_up = True
-
-            else:
-                time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
-
-        return success
 
     def _run_proxy_call(self, proxy_call):
         """If proxy_call is callable, call it. This typically means that there was a
