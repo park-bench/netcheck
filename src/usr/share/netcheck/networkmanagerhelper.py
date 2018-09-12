@@ -103,7 +103,12 @@ class NetworkManagerHelper(object):
         # TODO #19: Add IPv6 support.
         ip_address = None
 
-        if self.connection_is_activated(connection_id):
+        if not self.connection_is_activated(connection_id):
+            self.logger.warning(
+                'Attempted to get IP address for connection %s, which is not connected.',
+                connection_id)
+
+        else:
             device = self._get_device_for_connection(connection_id)
             gateway_address = netaddr.IPNetwork(device.Ip4Config.Gateway)
 
@@ -118,11 +123,6 @@ class NetworkManagerHelper(object):
                 self.logger.warning(
                     'No IP addresses for connection %s associated with gateway %s.',
                     connection_id, gateway_address)
-
-        else:
-            self.logger.warning(
-                'Attempted to get IP address for connection %s, which is not connected.',
-                connection_id)
 
         return ip_address
 
