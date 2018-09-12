@@ -15,8 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# This is not an automated test script. This is an ugly dumping ground for bits of code I
-#   have used to test the networkmanagerhelper module.
+""" This is not an automated test script. This is an ugly dumping ground for bits of code I
+have used to test the networkmanagerhelper module.
+"""
 
 import logging
 import networkmanagerhelper

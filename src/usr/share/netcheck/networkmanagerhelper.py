@@ -77,10 +77,9 @@ class NetworkManagerHelper(object):
             network_device = self._get_device_for_connection(connection_id)
             connection = self.connection_id_to_connection_dict[connection_id]
 
-            networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
-                connection, network_device, '/')
-
             try:
+                networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
+                    connection, network_device, '/')
                 self._run_proxy_call(networkmanager_output)
                 success = self._wait_for_connection(connection)
 
@@ -145,8 +144,8 @@ class NetworkManagerHelper(object):
         return connection_is_activated
 
     def _build_connection_id_dict(self):
-        """Assemble a helpful dictionary of connection objects, indexed by the connection's
-        id in NetworkManager.
+        """Assemble a dictionary of connection objects, indexed by the connection's id in
+        NetworkManager.
 
         Returns a dict, with keys being connection IDs and values being
         NetworkManager.Connection objects.
@@ -295,7 +294,7 @@ class NetworkManagerHelper(object):
 
         for active_connection in active_connections:
             if active_connection.Id == connection_id:
-                self.logger.debug('Found that connection %s is active.',
+                self.logger.trace('Found that connection %s is active.',
                                   connection_id)
                 matched_active_connection = active_connection
 
