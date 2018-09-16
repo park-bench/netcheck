@@ -8,7 +8,7 @@ netcheck is licensed under the GNU GPLv3. All source code commits prior to the p
 
 Bug fixes are welcome!
 
-## Prerequisites
+# Prerequisites
 
 This software is currently only supported on Ubuntu 14.04 and may not be ready for use in a production environment.
 
@@ -19,34 +19,34 @@ The only current method of installation for our software is building and install
 *    `build-essential` is installed.
 *    `devscripts` is installed.
 
-## Parkbench Dependencies
+# Parkbench Dependencies
 
 _netcheck_ depends on one other piece of the Parkbench project, which must be installed first:
 
 * [_confighelper_](https://github.com/park-bench/confighelper)
 
-## Steps to Build and Install
+# Steps to Build and Install
 
 1. Clone the latest release tag. (Do not clone the master branch. `master` may not be stable.)
 2. Use `debuild` from the project root directory to build the package.
 3. Use `apt install /path/to/package.deb` to install the package. The daemon will attempt to start and fail. (This is expected.)
 
-## Post-Install configuration
+# Post-Install configuration
 
-# Configuring NetworkManager
+## Configuring NetworkManager
 Add any network connections you want Netcheck to use with `nmcli con add`.
 
-# Configuring Netcheck
+## Configuring Netcheck
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
 2. Copy or rename this file to `netcheck.conf` in the same directory. Edit this file to add configuration details.
 3. Restart the daemon with `service netcheck restart`. If the configuration file is valid and named correctly, the service will now start successfully.
 
-## Updates
+# Updates
 
 Updates may change configuration file options, so if you have a configuration
 file already, check that it has all of the required options in the current
 example file.
 
-## Known Errors and Limitations
+# Known Errors and Limitations
 
 * IPv6 is not supported.
