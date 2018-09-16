@@ -15,33 +15,34 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-""" This is not an automated test script. This is an ugly dumping ground for bits of code I
+"""This is not an automated test script. This is an ugly dumping ground for bits of code I
 have used to test the networkmanagerhelper module.
 """
 
 import logging
 import networkmanagerhelper
 
-WIRED_TEST_NETWORK_NAME = 'ens3'
-MISSING_TEST_NETWORK_NAME = 'please-dont-have-a-network-with-this-name'
+WIRED_TEST_CONNECTION_NAME = 'ens3'
+MISSING_TEST_CONNECTION_NAME = 'please-dont-have-a-connection-with-this-name'
 
 config = {}
 
 config['wired_interface_name'] = 'ens3'
-config['wifi_interface_name'] = 'ens3'
-config['network_activation_timeout'] = 15
+config['wireless_interface_name'] = 'ens3'
+config['connection_activation_timeout'] = 15
 
-config['wired_network_name'] = WIRED_TEST_NETWORK_NAME
-config['wifi_network_names'] = []
+config['wired_connection_id'] = WIRED_TEST_CONNECTION_NAME
+config['wireless_connection_ids'] = []
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger()
 
 nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
-nmh.activate_connection(WIRED_TEST_NETWORK_NAME)
-print(nmh.get_connection_ip(WIRED_TEST_NETWORK_NAME))
-print(nmh.connection_is_activated(WIRED_TEST_NETWORK_NAME))
+nmh.activate_connection(WIRED_TEST_CONNECTION_NAME)
+print(nmh.get_connection_ip(WIRED_TEST_CONNECTION_NAME))
+print(nmh.connection_is_activated(WIRED_TEST_CONNECTION_NAME))
 
-#device = nmh._get_device_for_connection(nmh.connection_id_to_connection_dict[WIRED_TEST_NETWORK_NAME])
+#device = nmh._get_device_for_connection(
+#    nmh.connection_id_to_connection_dict[WIRED_TEST_CONNECTION_NAME])
 #print(device.GetAppliedConnection(0))

@@ -23,9 +23,8 @@ import traceback
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
-
-import netcheck
 import confighelper
+import netcheck
 
 PID_FILE = '/run/netcheck.pid'
 
@@ -50,12 +49,12 @@ config['connection_activation_timeout'] = config_helper.verify_number_exists(
     config_file, 'connection_activation_timeout')
 config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_range')
 
-config['wired_connection_name'] = config_helper.verify_string_exists(
-    config_file, 'wired_connection_name')
+config['wired_connection_id'] = config_helper.verify_string_exists(
+    config_file, 'wired_connection_id')
 config['wired_interface_name'] = config_helper.verify_string_exists(
     config_file, 'wired_interface_name')
-config['wireless_connection_names'] = config_helper.verify_string_list_exists(
-    config_file, 'wireless_connection_names')
+config['wireless_connection_ids'] = config_helper.verify_string_list_exists(
+    config_file, 'wireless_connection_ids')
 config['wireless_interface_name'] = config_helper.verify_string_exists(
     config_file, 'wireless_interface_name')
 config['nameservers'] = config_helper.verify_string_list_exists(
@@ -63,12 +62,12 @@ config['nameservers'] = config_helper.verify_string_list_exists(
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 
-config['backup_connection_name'] = config_helper.verify_string_exists(
-    config_file, 'backup_connection_name')
-config['backup_connection_max_usage_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_connection_max_usage_delay')
-config['backup_connection_failed_max_usage_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_connection_failed_max_usage_delay')
+config['backup_connection_id'] = config_helper.verify_string_exists(
+    config_file, 'backup_connection_id')
+config['backup_connection_usage_max_delay'] = config_helper.verify_number_exists(
+    config_file, 'backup_connection_usage_max_delay')
+config['backup_connection_failed_usage_max_delay'] = config_helper.verify_number_exists(
+    config_file, 'backup_connection_failed_usage_max_delay')
 
 
 def sig_term_handler(signal, stack_frame):
@@ -82,9 +81,9 @@ try:
     log_file_handle = config_helper.get_log_file_handle()
 
     daemon_context = daemon.DaemonContext(
-        working_directory = '/',
-        pidfile = pidlockfile.PIDLockFile(PID_FILE),
-        umask = 0
+        working_directory='/',
+        pidfile=pidlockfile.PIDLockFile(PID_FILE),
+        umask=0
         )
 
     daemon_context.signal_map = {
@@ -101,5 +100,5 @@ try:
 
 except Exception as exception:
     logger.critical('%s: %s\n', type(exception).__name__, str(exception))
-    logger.error(traceback.format_exc())
+    logger.critical(traceback.format_exc())
     sys.exit(1)

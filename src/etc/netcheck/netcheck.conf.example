@@ -12,12 +12,12 @@ wired_connection_id=
 # The name of the interface associated with the wired connection. For example: eth0, ens2
 wired_interface_name=
 
-# Comma delimited list of wireless connections to use ordered by preference.
-#   The first wireless connection is considered the 'backup' connection which we have to
-#   connect to periodically to maintain an active account. (See below.)
+# Comma delimited list of NetworkManager wireless connection names to use ordered by
+#   preference. The first wireless connection is considered the 'backup' connection which is
+#   activated periodically to maintain an active account. (See below.)
 wireless_connection_ids=
 
-# The name of the interface associated with the wireless connectionss.
+# The name of the interface associated with the wireless connections.
 #   For example: wlan0, wlp0s2
 wireless_interface_name=
 
@@ -39,14 +39,14 @@ dns_timeout=2
 # Maximum amount of time in seconds to wait to activate a connection.
 connection_activation_timeout=15
 
-# Maximum delay in days before we try to use the backup connection to maintain an active
+# Maximum delay in days before attempting to use the backup connection to maintain an active
 #   account with the backup ISP. (This is a requirement from the developers' ISP
 #   [FreedomPop].) (Cannot be negative.)
-backup_connection_max_usage_delay=14
+backup_connection_usage_max_delay=14
 
-# Maximum delay in seconds that we try to reuse the backup connection if the first (and
-#   subsequent retries) failed. (Cannot be negative.)
-backup_connection_failed_max_usage_delay=3600
+# Maximum delay in seconds before attempting to reactivate the backup connection if
+#   the first attempt (and subsequent attempts) failed. (Cannot be negative.)
+backup_connection_failed_usage_max_delay=3600
 
 # Maximum sleep time between each loop iteration. (Cannot be negative.)
 sleep_range=60

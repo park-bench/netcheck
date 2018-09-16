@@ -17,7 +17,7 @@
 python-networkmanager class.
 """
 
-__all__ = ['NetworkManagerHelper']
+__all__ = ['DeviceNotFoundException', 'UnknownConnectionIdException', 'NetworkManagerHelper']
 __author__ = 'Andrew Klapp and Joel Allen Luellwitz'
 __version__ = '0.8'
 
@@ -52,20 +52,19 @@ class NetworkManagerHelper(object):
 
         self.logger = logging.getLogger(__name__)
         self.connection_activation_timeout = config['connection_activation_timeout']
-        self.wired_connection_name = config['wired_connection_name']
-        self.wireless_network_names = config['wireless_network_names']
+        self.wired_connection_id = config['wired_connection_id']
+        self.wireless_connection_ids = config['wireless_connection_ids']
 
         self.connection_id_to_connection_dict = self._build_connection_id_dict()
 
         self.wired_device, self.wireless_device = self._create_device_objects(
-            config['wired_interface_name'], config['wifi_interface_name'])
+            config['wired_interface_name'], config['wireless_interface_name'])
 
     def activate_connection(self, connection_id):
-        """Tells NetworkManager to activate a connection with the supplied connection_id.
+        """Tells NetworkManager to activate a connection with the supplied connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns True if there are no errors, returns False otherwise.
+        Returns True if the connection is activated, False otherwise.
         """
         success = False
 
@@ -85,18 +84,17 @@ class NetworkManagerHelper(object):
 
             except Exception as exception:
                 self.logger.error(
-                    'D-Bus call failed while activating network %s. %s: %s', connection_id,
-                    type(exception).__name__, str(exception))
+                    'D-Bus call failed while activating connection %s. %s: %s',
+                    connection_id, type(exception).__name__, str(exception))
 
         return success
 
     def get_connection_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given connection's
-        gateway. If the IP address is unable to be retrieved, None is returned.
+        gateway.  If the IP address is unable to be retrieved, None is returned.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns the IP address as a string if it can be retrieved, returns None otherwise.
+        Returns the IP address as a string if it can be retrieved.  Returns None otherwise.
         """
 
         # TODO #19: Add IPv6 support.
@@ -126,12 +124,10 @@ class NetworkManagerHelper(object):
         return ip_address
 
     def connection_is_activated(self, connection_id):
-        """Check whether the network with the given connection id is activated. Returns True
-        if it is, otherwise it returns False.
+        """Check whether the connection with the given connection ID is activated.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns True if the connection is activated, returns False otherwise.
+        Returns True if the connection is activated, False otherwise.
         """
 
         connection_is_activated = False
@@ -144,11 +140,11 @@ class NetworkManagerHelper(object):
         return connection_is_activated
 
     def _build_connection_id_dict(self):
-        """Assemble a dictionary of connection objects, indexed by the connection's id in
+        """Assemble a dictionary of connection objects, indexed by the connection's ID in
         NetworkManager.
 
         Returns a dict, with keys being connection IDs and values being
-        NetworkManager.Connection objects.
+          NetworkManager.Connection objects.
         """
         connection_id_to_connection_dict = {}
 
@@ -161,14 +157,14 @@ class NetworkManagerHelper(object):
 
         return connection_id_to_connection_dict
 
-    def _create_device_objects(self, wired_interface_name, wifi_interface_name):
+    def _create_device_objects(self, wired_interface_name, wireless_interface_name):
         """Store references to the device objects that are used frequently.
 
         wired_interface_name: The name of the wired network interface, ex: eth0, enp0s1.
-        wifi_interface_name: The name of the WiFi network interface, ex: wlan0, wlp0s1.
-
+        wireless_interface_name: The name of the wireless network interface, ex: wlan0,
+          wlp0s1.
         Returns a tuple containing the NetworkManager wired device object and the
-        NetworkManager wireless device object.
+          NetworkManager wireless device object.
         """
         wired_device = None
         wireless_device = None
@@ -177,7 +173,7 @@ class NetworkManagerHelper(object):
             if device.Interface == wired_interface_name:
                 wired_device = device
 
-            if device.Interface == wifi_interface_name:
+            if device.Interface == wireless_interface_name:
                 wireless_device = device
 
         if wired_device is None:
@@ -186,37 +182,36 @@ class NetworkManagerHelper(object):
 
         if wireless_device is None:
             raise DeviceNotFoundException('Configured wireless device %s was not found.' %
-                                          wifi_interface_name)
+                                          wireless_interface_name)
 
         return (wired_device, wireless_device)
 
     def _get_device_for_connection(self, connection_id):
-        """Finds the appropriate device object for the given connection ID.
+        """Finds the device object associated with the given connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns a NetworkManager device object. If no suitable device is found, an exception
-        is raised.
+        Returns a NetworkManager device object.  If no matching device is found, an exception
+          is raised.
         """
 
-        if connection_id == self.wired_connection_name:
+        if connection_id == self.wired_connection_id:
             network_device = self.wired_device
 
-        elif connection_id in self.wireless_network_names:
+        elif connection_id in self.wireless_connection_ids:
             network_device = self.wireless_device
 
         else:
-            raise UnknownConnectionIdException('The connection id %s is not configured.' %
+            raise UnknownConnectionIdException('The connection ID %s is not configured.' %
                                                connection_id)
 
         return network_device
 
     def _wait_for_connection(self, connection):
-        """Wait for the configured number of seconds for an active connection to be activated.
+        """Wait for the configured number of seconds for the specified active connection to
+        finish activation.
 
         connection: The NetworkManager.Connection object to watch for connectivity.
-
-        Return True if the connection is activated, and False otherwise.
+        Return True if the connection is activated, False otherwise.
         """
         success = False
         give_up = False
@@ -224,7 +219,7 @@ class NetworkManagerHelper(object):
         time_to_give_up = time.time() + self.connection_activation_timeout
 
         self.logger.debug('Waiting for connection %s...', connection_id)
-        while (success is False and give_up is False):
+        while not success and not give_up:
 
             connection_state = self._get_connection_state(connection_id)
 
@@ -248,14 +243,11 @@ class NetworkManagerHelper(object):
         return success
 
     def _get_connection_state(self, connection_id):
-        """Read the current state of the connection associated with the given connection id.
+        """Reads the current state of the connection identified by the connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns a constant representing the current connection state. Possible values are:
-            NM_CONNECTION_DISCONNECTED,
-            NM_CONNECTION_ACTIVATING,
-            NM_CONNECTION_ACTIVATED
+        Returns a constant representing the current connection state.  Possible values are:
+          NM_CONNECTION_ACTIVATING, NM_CONNECTION_ACTIVATED, and NM_CONNECTION_DISCONNECTED
         """
         state = NM_CONNECTION_DISCONNECTED
 
@@ -280,14 +272,13 @@ class NetworkManagerHelper(object):
         return state
 
     def _get_active_connection(self, connection_id):
-        """Finds the active connection object for a given connection id.
+        """Finds the active connection object for a given connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-
-        Returns a NetworkManager.ActiveConnection object. If no appropriate object exists,
-        it returns None.
+        Returns a NetworkManager.ActiveConnection object.  If no matching object exists, None
+          is returned.
         """
-        active_connection = None
+        matched_active_connection = None
 
         active_connections = NetworkManager.NetworkManager.ActiveConnections
         self._run_proxy_call(active_connections)
@@ -301,13 +292,11 @@ class NetworkManagerHelper(object):
         return matched_active_connection
 
     def _run_proxy_call(self, proxy_call):
-        """If proxy_call is callable, call it. This typically means that there was a
-        critical D-Bus error and an exception will most likely be raised.
+        """If proxy_call is callable, call it.
 
-        Sometimes NetworkManager will return a function that makes a D-Bus call it assumes
-        will fail instead of raising an exception or returning an error state. This error
-        information is valuable, so this method attempts to call that function to raise any
-        exception and report the error.
+        Sometimes if NetworkManager enounters a critical error, it will return a callable
+        that will raise an exception if called.  This error information is valuable, so
+        raising this exception allows this program to get access to the error details.
 
         proxy_call: The output of a NetworkManager D-Bus call.
         """
