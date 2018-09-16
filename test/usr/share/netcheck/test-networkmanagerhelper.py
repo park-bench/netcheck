@@ -19,6 +19,9 @@
 have used to test the networkmanagerhelper module.
 """
 
+__author__ = 'Joel Luellwitz and Andrew Klapp'
+__version__ = '0.8'
+
 import logging
 import networkmanagerhelper
 

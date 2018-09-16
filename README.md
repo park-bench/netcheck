@@ -34,7 +34,7 @@ _netcheck_ depends on one other piece of the Parkbench project, which must be in
 ## Post-Install configuration
 
 # Configuring NetworkManager
-Add any network interfaces you want Netcheck to use with `nmcli con add`.
+Add any network connections you want Netcheck to use with `nmcli con add`.
 
 # Configuring Netcheck
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.

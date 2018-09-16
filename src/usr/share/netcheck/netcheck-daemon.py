@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# Copyright 2015-2017 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2018 Joel Allen Luellwitz and Andrew Klapp
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__author__ = 'Joel Luellwitz and Andrew Klapp'
+__version__ = '0.8'
+
 import logging
 import signal
 import sys
 import traceback
-
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
@@ -101,4 +103,4 @@ try:
 except Exception as exception:
     logger.critical('%s: %s\n', type(exception).__name__, str(exception))
     logger.critical(traceback.format_exc())
-    sys.exit(1)
+    raise exception

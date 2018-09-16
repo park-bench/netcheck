@@ -13,6 +13,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+__all__ = ['NetCheck']
+__author__ = 'Joel Luellwitz and Andrew Klapp'
+__version__ = '0.8'
+
 import datetime
 import logging
 import random
@@ -21,9 +25,9 @@ import traceback
 import dns
 import networkmanagerhelper
 
-# TODO: Eventually make multithreaded.
-# TODO: Consider checking if gpgmailer authenticated with the mail server and is
-#   sending mail.
+# TODO: Eventually make multithreaded. (issue 8)
+# TODO: Consider checking if gpgmailer authenticated with the mail server and is sending
+#   mail. (issue 9)
 class NetCheck(object):
     """NetCheck monitors the wired connection.  If the wired connection is down, the program
     attempts to activate a prioritized list of wireless connections.  If a connection cannot
@@ -71,6 +75,7 @@ class NetCheck(object):
         Returns True if successful, False otherwise.
         """
         # TODO: Use something more secure than unauthenticated plaintext DNS requests.
+        #   (issue 5)
 
         self.logger.trace('Querying %s for %s on connection %s.', nameserver, query_name,
                           connection_id)
@@ -262,17 +267,16 @@ class NetCheck(object):
         return success
 
     # TODO: Consider downloading a small file upon successful connection so we are sure
-    #   FreedomPop considers this connection used.
+    #   FreedomPop considers this connection used. (issue 11)
     # TODO: The random interval should probably be applied after the last DNS check on the
     #   backup connection. (We might have used the backup connection since the last check or
-    #   the backup connection might even be currently activated.)
+    #   the backup connection might even be currently activated.) (issue 12)
     def _use_backup_connection(self):
         """Use the highest-priority wireless connection randomly between zero and a
         user-specified number of days.  Recalculate that interval every time the connection
         is checked and then call _try_wireless_connections.  FreedomPop requires monthly
         usage and is assumed to be the highest-priority connection.
         """
-
         self.logger.trace(
             '_use_backup_connection: Determining if the main wireless backup connection '
             'should be used.')
@@ -283,14 +287,13 @@ class NetCheck(object):
         else:
             self.logger.info('Trying to use the backup wireless connection.')
 
-            # TODO: Make the backup connection actually separate from the list.
-            #   It should use the backup_connection_id property from from the config file.
+            # TODO: Make the backup connection actually separate from the list. It should use
+            #   the backup_connection_id property from from the config file. (issue 6)
             backup_connection_is_active = self._check_connection_and_check_dns(
                 self.config['wireless_connection_ids'][0])
 
             if backup_connection_is_active:
                 self._update_successful_backup_check_time()
-
             else:
                 self.logger.info('Trying to activate and use backup wireless connection.')
                 wireless_activation_successful = self._activate_connection_and_check_dns(
