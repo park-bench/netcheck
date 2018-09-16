@@ -46,3 +46,7 @@ Add any network interfaces you want Netcheck to use with `nmcli con add`.
 Updates may change configuration file options, so if you have a configuration
 file already, check that it has all of the required options in the current
 example file.
+
+## Known Errors and Limitations
+
+* IPv6 is not supported.
