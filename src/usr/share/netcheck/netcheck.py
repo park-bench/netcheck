@@ -22,7 +22,7 @@ import logging
 import random
 import time
 import traceback
-import dns
+import dns.resolver
 import networkmanagerhelper
 
 # TODO: Eventually make multithreaded. (issue 8)
