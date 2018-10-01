@@ -53,12 +53,8 @@ config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_r
 
 config['wired_connection_id'] = config_helper.verify_string_exists(
     config_file, 'wired_connection_id')
-config['wired_interface_name'] = config_helper.verify_string_exists(
-    config_file, 'wired_interface_name')
 config['wireless_connection_ids'] = config_helper.verify_string_list_exists(
     config_file, 'wireless_connection_ids')
-config['wireless_interface_name'] = config_helper.verify_string_exists(
-    config_file, 'wireless_interface_name')
 config['nameservers'] = config_helper.verify_string_list_exists(
     config_file, 'nameservers')
 config['dns_queries'] = config_helper.verify_string_list_exists(

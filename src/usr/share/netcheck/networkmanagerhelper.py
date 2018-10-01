@@ -35,6 +35,7 @@ NM_CONNECTION_DISCONNECTED = "NM_CONNECTION_DISCONNECTED"
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
 
+# TODO: Make sure this is still used somewhere.
 class UnknownConnectionIdException(Exception):
     """Raised when a connection ID is requested, but it is not known."""
 
@@ -56,9 +57,6 @@ class NetworkManagerHelper(object):
         self.wireless_connection_ids = config['wireless_connection_ids']
 
         self.connection_id_to_connection_dict = self._build_connection_id_dict()
-
-        self.wired_device, self.wireless_device = self._create_device_objects(
-            config['wired_interface_name'], config['wireless_interface_name'])
 
     def activate_connection(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection ID.
@@ -157,35 +155,6 @@ class NetworkManagerHelper(object):
 
         return connection_id_to_connection_dict
 
-    def _create_device_objects(self, wired_interface_name, wireless_interface_name):
-        """Store references to the device objects that are used frequently.
-
-        wired_interface_name: The name of the wired network interface, ex: eth0, enp0s1.
-        wireless_interface_name: The name of the wireless network interface, ex: wlan0,
-          wlp0s1.
-        Returns a tuple containing the NetworkManager wired device object and the
-          NetworkManager wireless device object.
-        """
-        wired_device = None
-        wireless_device = None
-
-        for device in NetworkManager.NetworkManager.GetDevices():
-            if device.Interface == wired_interface_name:
-                wired_device = device
-
-            if device.Interface == wireless_interface_name:
-                wireless_device = device
-
-        if wired_device is None:
-            raise DeviceNotFoundException('Configured wired device %s was not found.' %
-                                          wired_interface_name)
-
-        if wireless_device is None:
-            raise DeviceNotFoundException('Configured wireless device %s was not found.' %
-                                          wireless_interface_name)
-
-        return (wired_device, wireless_device)
-
     def _get_device_for_connection(self, connection_id):
         """Finds the device object associated with the given connection ID.
 
@@ -193,18 +162,26 @@ class NetworkManagerHelper(object):
         Returns a NetworkManager device object.  If no matching device is found, an exception
           is raised.
         """
+        connection = self.connection_id_to_connection_dict[connection_id]
 
-        if connection_id == self.wired_connection_id:
-            network_device = self.wired_device
+        connection_settings = connection.GetSettings()
+        connection_interface = connection_settings['connection'].get('interface-name', None)
+        connection_type = connection_settings['connection']['type']
+        connection_mac_address = connection_settings[connection_type].get(
+            'mac-address', None)
 
-        elif connection_id in self.wireless_connection_ids:
-            network_device = self.wireless_device
+        matching_device = None
 
-        else:
-            raise UnknownConnectionIdException('The connection ID %s is not configured.' %
-                                               connection_id)
+        for device in NetworkManager.NetworkManager.GetDevices():
+            device_interface = device.Interface
+            specific_device = device.SpecificDevice()
+            device_mac_address = None
+            if hasattr(specific_device, 'HwAddress'):
+                device_mac_address = specific_device.HwAddress
 
-        return network_device
+            if 
+
+        return matching_device
 
     def _wait_for_connection(self, connection):
         """Wait for the configured number of seconds for the specified active connection to

@@ -9,17 +9,10 @@ log_level=info
 # The name of the wired connection in NetworkManager.
 wired_connection_id=
 
-# The name of the interface associated with the wired connection. For example: eth0, ens2
-wired_interface_name=
-
 # Comma delimited list of NetworkManager wireless connection names to use ordered by
 #   preference. The first wireless connection is considered the 'backup' connection which is
 #   activated periodically to maintain an active account. (See below.)
 wireless_connection_ids=
-
-# The name of the interface associated with the wireless connections.
-#   For example: wlan0, wlp0s2
-wireless_interface_name=
 
 # Comma delimited list of DNS servers to use. Pick your own servers here to help
 #   prevent fingerprinting of this application.
