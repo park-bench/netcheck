@@ -66,13 +66,32 @@ class NetworkManagerHelper(object):
         """
         success = False
 
-        if self.connection_is_activated(connection_id):
-            self.logger.debug('Connection %s is already activated.', connection_id)
-            success = True
+        # Get a list of all devices this connection can be applied to.
+        available_devices = []
+        # TODO: Do we need to do the proxy call after calling GetDevices?
+        for device in NetworkManager.NetworkManager.GetDevices():
+            # See if the connection is already activated.
+            applied_connection = device.GetAppliedConnection()
+            if applied_connection is not None \
+                    and applied_connection.id == connection_id:
+                # The connection is already activated.
+                # I do hate multiple returns but this does seem the most Pythonic.
+                return True
+            else:
+                for available_connection in device.AvailableConnections:
+                    # TODO: Verify the applied connection is in the available connection
+                    #   list.
+                    if available_connection.id == connection_id:
+                        available_devices.append(device)
 
-        else:
-            network_device = self._get_device_for_connection(connection_id)
-            connection = self.connection_id_to_connection_dict[connection_id]
+        # Try to activate the connection with a random available device.
+        success = False
+        devices_left = len(devices)
+        while success is False and not devices_left:
+            random_index = random_int(0, devices_left)
+            available_device = availale_devices[random_index]
+            available_devices[random_index] = available_devices[devices_left - 1]
+            devices_left -= 1
 
             try:
                 networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
@@ -136,6 +155,25 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
+
+    def get_available_connections(self):
+        """Returns a list of available connections. An available connection is defined as an
+        enabled connection that is not activated that can be activated on a device where the
+        device does not have an active connection.
+
+        Returns an array of NetworkManager connection IDs.
+        """
+        connection_ids = Set()
+        for device in NetworkManager.NetworkManager.GetDevices():
+            for available_connection in device.AvailableConnections:
+                available_connection_id = available_connection.id
+                applied_connection = device.GetAppliedConnection
+                # TODO: Verify the applied connection is in the available connection list.
+                if applied_connection is not None \
+                        and applied_connection.id != available_connection_id:
+                    connection_ids.append(availale_connection_id)
+
+        return connection_ids.to_array()
 
     def _build_connection_id_dict(self):
         """Assemble a dictionary of connection objects, indexed by the connection's ID in
@@ -268,6 +306,7 @@ class NetworkManagerHelper(object):
 
         return matched_active_connection
 
+    # TODO: Make sure this is really needed.
     def _run_proxy_call(self, proxy_call):
         """If proxy_call is callable, call it.
 

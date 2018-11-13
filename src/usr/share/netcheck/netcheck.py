@@ -25,17 +25,25 @@ import traceback
 import dns.resolver
 import networkmanagerhelper
 
+class UnknownConnectionException(Exception):
+    """Thrown during instantiation if a connection ID is not known to NetworkManager."""
+
+
 # TODO: Eventually make multithreaded. (issue 8)
 # TODO: Consider checking if gpgmailer authenticated with the mail server and is sending
 #   mail. (issue 9)
 class NetCheck(object):
-    """NetCheck monitors the wired connection.  If the wired connection is down, the program
-    attempts to activate a prioritized list of wireless connections.  If a connection cannot
-    be activated, the program will cycle through both the wired and wireless connections
-    until one is activated.
+    """NetCheck tries to maintain as many active connections to the Internet as possible. It
+    activates connections from a list of known connections using all available network
+    devices. It also periodically makes DNS requests to make sure the connections are
+    actually on the Internet.
     """
 
     def __init__(self, config):
+        """Instantiates the class.
+
+        config: The program configuration dictionary.
+        """
 
         self.config = config
 
@@ -51,18 +59,28 @@ class NetCheck(object):
         self.resolver.timeout = config['dns_timeout']
         self.resolver.lifetime = config['dns_timeout']
 
-        # This section is commented out because we activate the backup connection
-        #   as soon as the program starts anyway. If FreedomPop's monthly usage
-        #   requirement goes away, we should revert back to using this.
-        #wireless_activation_successful = self._try_wireless_connections(0)
-        #
-        #if wireless_activation_successful:
-        #    self.logger.info(
-        #        'Activated wireless connection %s during initialization.' %
-        #        self.config['wireless_connection_ids'][self.activated_wireless_index])
-        #else:
-        #    self.logger.warn(
-        #        'All wireless connections failed to activate during initialization.')
+        # Verify each connection is known to NetworkManager.
+        # TODO: This is currently pseduocode. Clean this up.
+        nm_connections_set = set(self.network_helper.get_all_enabled_connections())
+        known_connections_set = set(config['connection_ids'])
+        missing_connections = known_connections_set - nm_connections_set
+        if missing_connections:
+            raise UnknownConnectionException(
+                'Connection "%s" is not known to NetworkManager.' % missing_connections[0])
+
+        self.connection_contexts = {}
+        for connection_id in config['connection_ids']:
+            connection_context = {}
+            connection_context.id = connection_id
+            connection_context.activated = False
+            connection_context.next_check = None
+            connection_context.last_successful_check = None
+            connection_context.next_required_usage_check = None
+            self.connection_contexts[connection_id] = connection_context
+
+        for connection_id in config['required_usage_max_delay']:
+            self.connection_contexts[connection_id].next_required_usage_check = \
+                time.time() + random(0, number(config['required_usage_max_delay']));
 
         self.logger.info('NetCheck initialized.')
 
@@ -221,48 +239,44 @@ class NetCheck(object):
 
         return overall_success
 
-    def _try_wireless_connections(self, index):
-        """Tries to activate the wireless connection at the specified index of the config
-        file's list of connection IDs.  If the activation fails, this method calls itself
-        with the next index.
+    def _activate_available_connections(self, index):
+        """Tries to activate the connection at the specified index of the config file's list
+        of connection IDs.
 
-        index: The index of the wireless connection as defined in the program configuration
-          file.
         Returns True if a connection activation is successful, False otherwise.
         """
 
-        self.logger.trace(
-            '_try_wireless_connections: Attempting wireless connection with priority %d.',
-            index)
+        available_connections = self.network_helper.get_available_connections()
 
-        success = None
+        self.logger.trace(
+            '_activate_available_connections: Available connections: %s' %
+            available_connections.join(', '))
+
+        success = False
 
         if index >= len(self.config['wireless_connection_ids']):
             # Out of bounds means that we're out of connections.
             self.logger.debug(
-                '_try_wireless_connections: Reached end of wireless connection list. '
+                '_try_connections: Reached end of connection list. '
                 'Setting first connection as the currently activated wireless connection.')
             self.activated_wireless_index = 0
-            success = False
 
         else:
-            connection_id = self.config['wireless_connection_ids'][index]
+            connection_id = self.config['connection_ids'][index]
 
             wireless_activation_successful = self._activate_connection_and_check_dns(
                 connection_id)
 
             if wireless_activation_successful:
                 self.logger.debug(
-                    '_try_wireless_connections: wireless connection %s is activated with'
-                    'successful DNS check.', connection_id)
-                self.activated_wireless_index = index
+                    '_try_connections: Connection %s is activated with successful DNS '
+                    'check.', connection_id)
                 success = True
 
             else:
                 self.logger.debug(
-                    '_try_wireless_connections: wireless connection %s failed to activate '
-                    'or failed DNS check.', connection_id)
-                success = self._try_wireless_connections(index + 1)
+                    '_try_connections: connection %s failed to activate or failed DNS '
+                    'check.', connection_id)
 
         return success
 
@@ -271,11 +285,11 @@ class NetCheck(object):
     # TODO: The random interval should probably be applied after the last DNS check on the
     #   backup connection. (We might have used the backup connection since the last check or
     #   the backup connection might even be currently activated.) (issue 12)
-    def _use_backup_connection(self):
-        """Use the highest-priority wireless connection randomly between zero and a
-        user-specified number of days.  Recalculate that interval every time the connection
-        is checked and then call _try_wireless_connections.  FreedomPop requires monthly
-        usage and is assumed to be the highest-priority connection.
+    def _use_required_usage_connections(self):
+        # TODO: Update comment.
+        """Use the 'required usage' connections randomly between zero and a user-specified
+        number of days.  Recalculate the interval for the connection every time that
+        connection is checked and then call _try_connections.
         """
         self.logger.trace(
             '_use_backup_connection: Determining if the main wireless backup connection '
@@ -326,11 +340,19 @@ class NetCheck(object):
         self.logger.info('Successfully used backup connection. Will try again on %s.',
                          self.backup_connection_check_time)
 
+    # TODO: Is this still appropriately named?
     def check_loop(self):
         """Attempts to activate the wired connection and falls back to wireless connections
         in a specified priority order. Also, activates the main backup wireless connection
         periodically to comply with carrier requirements.
         """
+        # TODO: Get all the devices connected to something right away without checking if
+        #   connection activations are actually successful. The thinking here is that the
+        #   main loop can be relatively slow and the first activation attempt takes a long
+        #   time delaying the availability of the other connections.
+        for connection_id in config['connection_ids']:
+            self.network_helper.activate_connection(connection_id)
+
         self.logger.info('Check loop starting.')
 
         current_connection_id = None
@@ -344,60 +366,36 @@ class NetCheck(object):
 
                 # Periodically activates the main backup connection because the carrier
                 #   requires this.
-                self._use_backup_connection()
+                # TODO: Eventually store the last required usage access times under var.
+                self._use_required_usage_backup_connections()
 
-                wired_is_activated = self._check_connection_and_check_dns(
-                    self.config['wired_connection_id'])
+                current_connection_id = self.config['connection_ids'][self.activated_index]
+                connection_is_activated = self._check_connection_and_check_dns(
+                    current_connection_id)
 
-                if wired_is_activated:
+                if connection_is_activated:
+                    # Set current_connection_id because connection may have been
+                    #   activated during initialization.
                     self.logger.debug(
-                        'check_loop: Wired connection still active with successful DNS '
-                        'check.')
-                    current_connection_id = self.config['wired_connection_id']
+                        'check_loop: Current wireless connection %s still active.',
+                        current_connection_id)
                 else:
-                    self.logger.debug('check_loop: Wired connection is not active.')
+                    self.logger.debug(
+                        'check_loop: Current wireless connection %s is no longer '
+                        'active.', current_wireless_connection_id)
 
-                    wired_activation_success = self._activate_connection_and_check_dns(
-                        self.config['wired_connection_id'])
+                    activation_successful = self._try_connections(0)
 
-                    if wired_activation_success:
-                        current_connection_id = self.config['wired_connection_id']
-                        self.logger.info(
-                            'Wired connection active with successful DNS check.')
-                    else:
-                        self.logger.debug(
-                            'check_loop: Wired connection failed to activate.')
-
-                        current_wireless_connection_id = self.config[
+                    if activation_successful:
+                        current_connection_id = self.config[
                             'wireless_connection_ids'][self.activated_wireless_index]
-                        wireless_is_activated = self._check_connection_and_check_dns(
-                            current_wireless_connection_id)
-
-                        if wireless_is_activated:
-                            # Set current_connection_id because connection may have been
-                            #   activated during initialization.
-                            current_connection_id = current_wireless_connection_id
-                            self.logger.debug(
-                                'check_loop: Current wireless connection %s still active.',
-                                current_wireless_connection_id)
-                        else:
-                            self.logger.debug(
-                                'check_loop: Current wireless connection %s is no longer '
-                                'active.', current_wireless_connection_id)
-
-                            wireless_activation_successful = self._try_wireless_connections(
-                                0)
-
-                            if wireless_activation_successful:
-                                current_connection_id = self.config[
-                                    'wireless_connection_ids'][self.activated_wireless_index]
-                                self.logger.info('Connected to wireless connection %s.',
-                                                 current_connection_id)
-                            else:
-                                current_connection_id = None
-                                self.logger.debug(
-                                    'check_loop: All wireless connections failed to '
-                                    'activate.')
+                        self.logger.info('Connected to wireless connection %s.',
+                                         current_connection_id)
+                    else:
+                        current_connection_id = None
+                        self.logger.debug(
+                            'check_loop: All wireless connections failed to '
+                            'activate.')
 
                 self._log_connection_change(prior_connection_id, current_connection_id)
                 prior_connection_id = current_connection_id
@@ -407,8 +405,13 @@ class NetCheck(object):
                                   str(exception))
                 self.logger.error(traceback.format_exc())
 
+            # TODO: Scan wireless devices.
+            self.network_helper.update_available_connections()
+
             sleep_time = random.uniform(0, self.config['sleep_range'])
             self.logger.debug('Sleeping for %f seconds!', sleep_time)
+            # TODO: Check for Disconnection While "Sleeping" (issue 20)
+            # TODO: Don't Sleep Until There is an Active Connection (issue 21)
             time.sleep(sleep_time)
 
     def _log_connection_change(self, prior_connection_id, current_connection_id):

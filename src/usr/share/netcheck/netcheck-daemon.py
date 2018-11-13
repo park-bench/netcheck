@@ -51,21 +51,19 @@ config['connection_activation_timeout'] = config_helper.verify_number_exists(
     config_file, 'connection_activation_timeout')
 config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_range')
 
-config['wired_connection_id'] = config_helper.verify_string_exists(
-    config_file, 'wired_connection_id')
-config['wireless_connection_ids'] = config_helper.verify_string_list_exists(
-    config_file, 'wireless_connection_ids')
+config['connection_ids'] = config_helper.verify_string_list_exists(
+    config_file, 'connection_ids')
 config['nameservers'] = config_helper.verify_string_list_exists(
     config_file, 'nameservers')
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 
-config['backup_connection_id'] = config_helper.verify_string_exists(
-    config_file, 'backup_connection_id')
-config['backup_connection_usage_max_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_connection_usage_max_delay')
-config['backup_connection_failed_usage_max_delay'] = config_helper.verify_number_exists(
-    config_file, 'backup_connection_failed_usage_max_delay')
+config['required_usage_connection_ids'] = config_helper.verify_string_exists(
+    config_file, 'required_usage_connection_ids')
+config['required_usage_max_delay'] = config_helper.verify_number_exists(
+    config_file, 'required_usage_max_delay')
+config['required_usage_failed_retry_delay'] = config_helper.verify_number_exists(
+    config_file, 'required_usage_failed_retry_delay')
 
 
 def sig_term_handler(signal, stack_frame):
