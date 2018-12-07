@@ -24,7 +24,11 @@ dns_timeout=2
 connection_activation_timeout=15
 
 # Maximum sleep time between each loop iteration. (Cannot be negative.)
-sleep_range=10
+# TODO: Update description.
+connection_periodic_check_time=5
+
+# TODO: This is essentially the wireless connections refresh.
+available_connections_check_time=5
 
 # Some ISPs have minimum usage requirements (like FreedomPop). This is a comma delimited list
 #   of connection IDs that netcheck will periodically connect to to ensure their associated

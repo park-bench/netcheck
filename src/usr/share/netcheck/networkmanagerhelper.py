@@ -58,7 +58,18 @@ class NetworkManagerHelper(object):
 
         self.connection_id_to_connection_dict = self._build_connection_id_dict()
 
-    def activate_connection(self, connection_id):
+    def activate_connections_quickly(self, connection_ids):
+        """ TODO: """
+
+    def activate_connection_and_steal_device(self, connection_id,
+            excluded_connection_ids = None):
+        """ TODO: 
+        Returns a tuple. The first value is either true or false indicating whether the
+          connection was successful. The second value is a String indicating which connection
+          was stolen. None is returned for the second value if no connection was stolen.
+        """
+
+    def activate_connection_with_available_device(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
@@ -101,7 +112,7 @@ class NetworkManagerHelper(object):
 
             except Exception as exception:
                 self.logger.error(
-                    'D-Bus call failed while activating connection %s. %s: %s',
+                    'D-Bus call failed while activating connection "%s". %s: %s',
                     connection_id, type(exception).__name__, str(exception))
 
         return success

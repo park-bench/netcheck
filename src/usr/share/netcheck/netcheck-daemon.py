@@ -49,7 +49,10 @@ config = {}
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_exists(
     config_file, 'connection_activation_timeout')
-config['sleep_range'] = config_helper.verify_number_exists(config_file, 'sleep_range')
+config['connection_periodic_check_time'] = config_helper.verify_number_exists(
+    config_file, 'connection_periodic_check_time')
+config['available_connections_check_time'] = config_helper.verify_number_exists(
+    config_file, 'available_connections_check_time')
 
 config['connection_ids'] = config_helper.verify_string_list_exists(
     config_file, 'connection_ids')
@@ -92,7 +95,7 @@ try:
     with daemon_context:
         logger.info('Initializing NetCheck.')
         the_checker = netcheck.NetCheck(config)
-        the_checker.check_loop()
+        the_checker.start()
 
 except Exception as exception:
     logger.critical('%s: %s\n', type(exception).__name__, str(exception))
