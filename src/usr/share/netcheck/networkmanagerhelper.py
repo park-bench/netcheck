@@ -22,8 +22,10 @@ __author__ = 'Andrew Klapp and Joel Allen Luellwitz'
 __version__ = '0.8'
 
 import logging
+import random
 import time
 import netaddr
+import numpy
 import NetworkManager
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
@@ -53,21 +55,96 @@ class NetworkManagerHelper(object):
 
         self.logger = logging.getLogger(__name__)
         self.connection_activation_timeout = config['connection_activation_timeout']
-        self.wired_connection_id = config['wired_connection_id']
-        self.wireless_connection_ids = config['wireless_connection_ids']
+        self.connection_ids = config['connection_ids']
 
-        self.connection_id_to_connection_dict = self._build_connection_id_dict()
+        self.random = random.SystemRandom()
 
     def activate_connections_quickly(self, connection_ids):
-        """ TODO: """
+        """ TODO: 
+        Remember, the big difference here is we aren't waiting to see if the connection
+        succeeded.
+        """
+
+        # Create a connection to device multi-map.
+        connection_devices_dict = {}
+        for device in NetworkManager.NetworkManager.GetDevices():
+            if not device.applied_connection \
+                    or device.applied_connection.id not in connection_ids:
+                for connection in device.AvailableConnections:
+                    if connection.id in connection_ids:
+                        if connection_devices_dict[connection.id] is None:
+                            connection_devices_dict[connection.id] = []
+                        connection_devices_dict[connection].append(device)
+
+        used_device_set = set()
+        for connection in connection_devices_dict:
+
+            # Try to activate the connection with a random available device.
+            connection_device_set = set(connection_devices_dict[connection])
+            available_device_set = connection_device_set.difference(used_device_set)
+            random_index = self.random.randint(0, len(available_device_set))
+            device = available_device_set[random_index]
+
+            # '/' means pick an access point automatically (if applicable).
+            NetworkManager.NetworkManager.ActivateConnection(
+                connection, device, '/')
+
+            used_device_set.add(device)
 
     def activate_connection_and_steal_device(self, connection_id,
-            excluded_connection_ids = None):
+                                             excluded_connection_ids=None):
         """ TODO: 
         Returns a tuple. The first value is either true or false indicating whether the
           connection was successful. The second value is a String indicating which connection
           was stolen. None is returned for the second value if no connection was stolen.
         """
+        success = False
+
+        # Get a list of all devices this connection can be applied to.
+        available_device_connection_dict = {}
+        connection = None
+        # TODO: Do we need to do the proxy call after calling GetDevices?
+        for device in NetworkManager.NetworkManager.GetDevices():
+            # See if the connection is already activated.
+            applied_connection = device.GetAppliedConnection()
+            if applied_connection is not None \
+                    and applied_connection.id == connection_id:
+                # The connection is already activated.
+                # I do hate multiple returns but this does seem the most Pythonic.
+                return True, None
+            elif excluded_connection_ids is None or applied_connection is None \
+                    or applied_connection.id not in excluded_connection_ids:
+                for available_connection in device.AvailableConnections:
+                    if available_connection.id == connection_id:
+                        connection = available_connection
+                        available_device_connection_dict[device] = applied_connection.id
+
+        stolen_connection_id = None
+        if connection is None:
+            self.logger.warning('Connection %s is not available.', connection_id)
+        else:
+            # Try to activate the connection with a random available device.
+            success = False
+            available_devices = numpy.asarray(available_device_connection_dict.keys)
+            devices_left = len(available_devices)
+            while not success and devices_left:
+                random_index = self.random.randint(0, devices_left)
+                available_device = available_devices[random_index]
+                available_devices[random_index] = available_devices[devices_left - 1]
+                devices_left -= 1
+
+                # '/' means pick an access point automatically (if applicable).
+                networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
+                    connection, available_device, '/')
+                # TODO: Do we need to run the proxy call? Is it appropriate to raise an
+                #   exception?
+                self._run_proxy_call(networkmanager_output)
+                success = self._wait_for_connection(connection)
+
+                if success:
+                    stolen_connection_id = available_device_connection_dict[available_device]
+
+        return success, stolen_connection_id
 
     def activate_connection_with_available_device(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection ID.
@@ -79,6 +156,7 @@ class NetworkManagerHelper(object):
 
         # Get a list of all devices this connection can be applied to.
         available_devices = []
+        connection = None
         # TODO: Do we need to do the proxy call after calling GetDevices?
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
@@ -88,32 +166,32 @@ class NetworkManagerHelper(object):
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
                 return True
-            else:
+            elif applied_connection is None and \
+                    applied_connection.id not in self.connection_ids:
                 for available_connection in device.AvailableConnections:
-                    # TODO: Verify the applied connection is in the available connection
-                    #   list.
                     if available_connection.id == connection_id:
+                        connection = available_connection
                         available_devices.append(device)
 
-        # Try to activate the connection with a random available device.
-        success = False
-        devices_left = len(devices)
-        while success is False and not devices_left:
-            random_index = random_int(0, devices_left)
-            available_device = availale_devices[random_index]
-            available_devices[random_index] = available_devices[devices_left - 1]
-            devices_left -= 1
+        if connection is None:
+            self.logger.warning('Connection %s is not available.', connection_id)
+        else:
+            # Try to activate the connection with a random available device.
+            success = False
+            devices_left = len(available_devices)
+            while not success and devices_left:
+                random_index = self.random.randint(0, devices_left)
+                available_device = available_devices[random_index]
+                available_devices[random_index] = available_devices[devices_left - 1]
+                devices_left -= 1
 
-            try:
+                # '/' means pick an access point automatically (if applicable).
                 networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
-                    connection, network_device, '/')
+                    connection, available_device, '/')
+                # TODO: Do we need to run the proxy call? Is is propriate to raise an
+                #   exception?
                 self._run_proxy_call(networkmanager_output)
                 success = self._wait_for_connection(connection)
-
-            except Exception as exception:
-                self.logger.error(
-                    'D-Bus call failed while activating connection "%s". %s: %s',
-                    connection_id, type(exception).__name__, str(exception))
 
         return success
 
@@ -134,20 +212,34 @@ class NetworkManagerHelper(object):
                 connection_id)
 
         else:
-            device = self._get_device_for_connection(connection_id)
-            gateway_address = netaddr.IPNetwork(device.Ip4Config.Gateway)
+            connection_device = None
+            for device in NetworkManager.NetworkManager.GetDevices():
+                applied_connection = device.GetAppliedConnection()
+                if applied_connection is not None \
+                        and applied_connection.id == connection_id:
+                    connection_device = device
+                    break
 
-            for address_data in device.Ip4Config.AddressData:
-                address_cidr = '%s/%s' % (address_data['address'], address_data['prefix'])
-                address_network = netaddr.IPNetwork(address_cidr)
+            if connection_device is None:
+                self.logger.warning('Connection %s is no longer active.', connection_id)
+            else:
+                gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 
-                if gateway_address in address_network:
-                    ip_address = address_data['address']
+                for address_data in connection_device.Ip4Config.AddressData:
+                    # TODO: Verify this bad CIDR notation works. (The IP portion should be the
+                    #   first address in the CIDR.)
+                    address_cidr = '%s/%s' % (
+                        address_data['address'], address_data['prefix'])
+                    address_network = netaddr.IPNetwork(address_cidr)
 
-            if ip_address is None:
-                self.logger.warning(
-                    'No IP addresses for connection %s associated with gateway %s.',
-                    connection_id, gateway_address)
+                    if gateway_address in address_network:
+                        ip_address = address_data['address']
+                        break
+
+                if ip_address is None:
+                    self.logger.warning(
+                        'No IP addresses for connection %s associated with gateway %s.',
+                        connection_id, gateway_address)
 
         return ip_address
 
@@ -166,71 +258,6 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
-
-    def get_available_connections(self):
-        """Returns a list of available connections. An available connection is defined as an
-        enabled connection that is not activated that can be activated on a device where the
-        device does not have an active connection.
-
-        Returns an array of NetworkManager connection IDs.
-        """
-        connection_ids = Set()
-        for device in NetworkManager.NetworkManager.GetDevices():
-            for available_connection in device.AvailableConnections:
-                available_connection_id = available_connection.id
-                applied_connection = device.GetAppliedConnection
-                # TODO: Verify the applied connection is in the available connection list.
-                if applied_connection is not None \
-                        and applied_connection.id != available_connection_id:
-                    connection_ids.append(availale_connection_id)
-
-        return connection_ids.to_array()
-
-    def _build_connection_id_dict(self):
-        """Assemble a dictionary of connection objects, indexed by the connection's ID in
-        NetworkManager.
-
-        Returns a dict, with keys being connection IDs and values being
-          NetworkManager.Connection objects.
-        """
-        connection_id_to_connection_dict = {}
-
-        all_connections = NetworkManager.Settings.ListConnections()
-        self._run_proxy_call(all_connections)
-
-        for connection in all_connections:
-            connection_id = connection.GetSettings()['connection']['id']
-            connection_id_to_connection_dict[connection_id] = connection
-
-        return connection_id_to_connection_dict
-
-    def _get_device_for_connection(self, connection_id):
-        """Finds the device object associated with the given connection ID.
-
-        connection_id: The displayed name of the connection in NetworkManager.
-        Returns a NetworkManager device object.  If no matching device is found, an exception
-          is raised.
-        """
-        connection = self.connection_id_to_connection_dict[connection_id]
-
-        connection_settings = connection.GetSettings()
-        connection_interface = connection_settings['connection'].get('interface-name', None)
-        connection_type = connection_settings['connection']['type']
-        connection_mac_address = connection_settings[connection_type].get(
-            'mac-address', None)
-
-        matching_device = None
-
-        for device in NetworkManager.NetworkManager.GetDevices():
-            device_interface = device.Interface
-            specific_device = device.SpecificDevice()
-            device_mac_address = None
-            if hasattr(specific_device, 'HwAddress'):
-                device_mac_address = specific_device.HwAddress
-
-            if 
-
-        return matching_device
 
     def _wait_for_connection(self, connection):
         """Wait for the configured number of seconds for the specified active connection to
@@ -314,6 +341,7 @@ class NetworkManagerHelper(object):
                 self.logger.trace('Found that connection %s is active.',
                                   connection_id)
                 matched_active_connection = active_connection
+                break
 
         return matched_active_connection
 

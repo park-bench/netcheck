@@ -405,6 +405,7 @@ class NetCheck(object):
         """ TODO: """
         for connection_context in self.connection_contexts:
             if connection_context.is_required_usage_connection:
+                # TODO: Add a try/except here.
                 activation_successful = \
                     self._steal_device_and_check_dns(connection_context)
                 if activation_successful:
@@ -416,6 +417,7 @@ class NetCheck(object):
         """ TODO: """
         for connection_id in self.config.connection_ids:
             connection_context = self.connection_contexts[connection_id]
+            # TODO: Add a try/except here.
             if connection_context.activated:
                 self.prior_connection_ids.append(connection_context.id)
             else:
