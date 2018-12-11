@@ -24,6 +24,8 @@ __version__ = '0.8'
 import logging
 import random
 import time
+import traceback
+from dbus import DBusException
 import netaddr
 import numpy
 import NetworkManager
@@ -58,6 +60,20 @@ class NetworkManagerHelper(object):
         self.connection_ids = config['connection_ids']
 
         self.random = random.SystemRandom()
+
+    def update_available_connections(self):
+        """ TODO: """
+        for device in NetworkManager.NetworkManager.GetDevices():
+            # TODO: See if we even need hasattr.
+            if hasattr(device.SpecificDevice(), "RequestScan") and callable(
+                    device.SpecificDevice().RequestScan({})):
+                try:
+                    device.SpecificDevice().RequestScan({})
+                except DBusException as exception:
+                    self.logger.debug(
+                        "An error occurred while requesting scan from device %s. %s: %s",
+                         device.Interface, type(exception).__name__, str(exception))
+                    self.logger.error(traceback.format_exc())
 
     def activate_connections_quickly(self, connection_ids):
         """ TODO: 

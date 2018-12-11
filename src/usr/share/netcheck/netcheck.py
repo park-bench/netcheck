@@ -405,9 +405,17 @@ class NetCheck(object):
         """ TODO: """
         for connection_context in self.connection_contexts:
             if connection_context.is_required_usage_connection:
-                # TODO: Add a try/except here.
-                activation_successful = \
-                    self._steal_device_and_check_dns(connection_context)
+                activation_success = False
+                try:
+                    activation_successful = \
+                        self._steal_device_and_check_dns(connection_context)
+                except Exception as exception:
+                    connection_context.activated = False
+                    self.logger.error(
+                        'Exception thrown while initially attempting to activate required '
+                        'usage connection "%s". %s: %s', connection_context.id,
+                        type(exception).__name__, str(exception))
+                    self.logger.error(traceback.format_exc())
                 if activation_successful:
                     self._update_required_check_time_on_success(connection_context)
                 else:
@@ -417,12 +425,20 @@ class NetCheck(object):
         """ TODO: """
         for connection_id in self.config.connection_ids:
             connection_context = self.connection_contexts[connection_id]
-            # TODO: Add a try/except here.
             if connection_context.activated:
                 self.prior_connection_ids.append(connection_context.id)
             else:
-                activation_successful = self._steal_device_and_check_dns(
-                    connection_id, excluded_connection_ids=self.prior_connection_ids)
+                activation_successful = False
+                try:
+                    activation_successful = self._steal_device_and_check_dns(
+                        connection_id, excluded_connection_ids=self.prior_connection_ids)
+                except Exception as exception:
+                    connection_context.activated = False
+                    self.logger.error(
+                        'Exception thrown while initially attempting to activate '
+                        'prioritized connection "%s". %s: %s', connection_context.id,
+                        type(exception).__name__, str(exception))
+
                 if activation_successful:
                     self.prior_connection_ids.append(connection_context.id)
 
@@ -501,7 +517,6 @@ class NetCheck(object):
                 self.prior_connection_ids = current_connection_ids
 
                 # Scan wireless devices.
-                # TODO: This should probably run on its own schedule.
                 if self.available_connections_check_time < datetime.datetime.now():
                     self.network_helper.update_available_connections()
                     self.available_connections_check_time = \
