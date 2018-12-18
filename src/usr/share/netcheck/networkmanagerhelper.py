@@ -72,7 +72,7 @@ class NetworkManagerHelper(object):
                 except DBusException as exception:
                     self.logger.debug(
                         "An error occurred while requesting scan from device %s. %s: %s",
-                         device.Interface, type(exception).__name__, str(exception))
+                        device.Interface, type(exception).__name__, str(exception))
                     self.logger.error(traceback.format_exc())
 
     def activate_connections_quickly(self, connection_ids):
@@ -109,7 +109,7 @@ class NetworkManagerHelper(object):
 
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
-        """ TODO: 
+        """ TODO:
         Returns a tuple. The first value is either true or false indicating whether the
           connection was successful. The second value is a String indicating which connection
           was stolen. None is returned for the second value if no connection was stolen.
@@ -211,6 +211,36 @@ class NetworkManagerHelper(object):
 
         return success
 
+    def deactivate_connection(self, connection_id):
+        """ TODO: """
+        connection = None
+        for device in NetworkManager.NetworkManager.GetDevices():
+            # See if the connection is already activated.
+            applied_connection = device.GetAppliedConnection()
+            if applied_connection is not None \
+                    and applied_connection.id == connection_id:
+                connection = applied_connection
+                # I do hate multiple returns but this does seem the most Pythonic.
+                break
+
+        # TODO: Is it really worth returning a status?
+        success = False
+        if connection:
+            NetworkManager.NetworkManager.DeactivateConnection(connection)
+            # TODO: Call proxy object?
+            success = True
+
+        return success
+
+    def get_all_connection_ids(self):
+        """ TODO: """
+        connection_ids = []
+        # TODO: Do proxy call?
+        for connection in NetworkManager.Settings.ListConnections():
+            connection_ids.append(connection.GetSettings()['connection']['id'])
+
+        return connection_ids
+
     def get_connection_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given connection's
         gateway.  If the IP address is unable to be retrieved, None is returned.
@@ -242,8 +272,8 @@ class NetworkManagerHelper(object):
                 gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 
                 for address_data in connection_device.Ip4Config.AddressData:
-                    # TODO: Verify this bad CIDR notation works. (The IP portion should be the
-                    #   first address in the CIDR.)
+                    # TODO: Verify this bad CIDR notation works. (The IP portion should be
+                    #   the first address in the CIDR.)
                     address_cidr = '%s/%s' % (
                         address_data['address'], address_data['prefix'])
                     address_network = netaddr.IPNetwork(address_cidr)
