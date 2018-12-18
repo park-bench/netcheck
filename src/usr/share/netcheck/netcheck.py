@@ -521,6 +521,8 @@ class NetCheck(object):
                         if not self.network_helper.connection_is_activated(
                                 connection_context.id):
                             connection_context.activated = False
+                        elif not connection_context.activated:
+                            self.network_helper.deactivate_connection(connection_context.id)
                         self._activate_with_free_device_and_check_dns(
                             loop_time, connection_context.id)
                         if connection_context.activated:
