@@ -61,7 +61,7 @@ config['nameservers'] = config_helper.verify_string_list_exists(
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 
-config['required_usage_connection_ids'] = config_helper.verify_string_exists(
+config['required_usage_connection_ids'] = config_helper.get_string_list_if_exists(
     config_file, 'required_usage_connection_ids')
 config['required_usage_max_delay'] = config_helper.verify_number_exists(
     config_file, 'required_usage_max_delay')

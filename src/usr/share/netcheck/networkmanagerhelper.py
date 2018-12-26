@@ -66,14 +66,14 @@ class NetworkManagerHelper(object):
         for device in NetworkManager.NetworkManager.GetDevices():
             # TODO: See if we even need hasattr.
             if hasattr(device.SpecificDevice(), "RequestScan") and callable(
-                    device.SpecificDevice().RequestScan({})):
+                    device.SpecificDevice().RequestScan):
                 try:
                     device.SpecificDevice().RequestScan({})
                 except DBusException as exception:
                     self.logger.debug(
                         "An error occurred while requesting scan from device %s. %s: %s",
                         device.Interface, type(exception).__name__, str(exception))
-                    self.logger.error(traceback.format_exc())
+                    self.logger.debug(traceback.format_exc())
 
     def activate_connections_quickly(self, connection_ids):
         """ TODO: 
@@ -84,12 +84,15 @@ class NetworkManagerHelper(object):
         # Create a connection to device multi-map.
         connection_devices_dict = {}
         for device in NetworkManager.NetworkManager.GetDevices():
-            if not device.applied_connection \
-                    or device.applied_connection.id not in connection_ids:
+            # See if the connection is already activated.
+            applied_connection = self._get_applied_connection(device)
+            if not applied_connection \
+                    or applied_connection['connection']['id'] not in connection_ids:
                 for connection in device.AvailableConnections:
-                    if connection.id in connection_ids:
-                        if connection_devices_dict[connection.id] is None:
-                            connection_devices_dict[connection.id] = []
+                    available_connection_id = connection.GetSettings()['connection']['id']
+                    if available_connection_id in connection_ids:
+                        if connection_devices_dict[available_connection_id] is None:
+                            connection_devices_dict[available_connection_id] = []
                         connection_devices_dict[connection].append(device)
 
         used_device_set = set()
@@ -122,22 +125,25 @@ class NetworkManagerHelper(object):
         # TODO: Do we need to do the proxy call after calling GetDevices?
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
-            applied_connection = device.GetAppliedConnection()
-            if applied_connection is not None \
-                    and applied_connection.id == connection_id:
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
                 return True, None
             elif excluded_connection_ids is None or applied_connection is None \
-                    or applied_connection.id not in excluded_connection_ids:
+                    or applied_connection['connection']['id'] not in excluded_connection_ids:
                 for available_connection in device.AvailableConnections:
-                    if available_connection.id == connection_id:
+                    if available_connection.GetSettings()['connection']['id'] \
+                            == connection_id:
                         connection = available_connection
-                        available_device_connection_dict[device] = applied_connection.id
+                        available_device_connection_dict[device] = \
+                            applied_connection['connection']['id'] if applied_connection \
+                            else None
 
         stolen_connection_id = None
         if connection is None:
-            self.logger.warning('Connection %s is not available.', connection_id)
+            self.logger.debug('Connection %s is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
             success = False
@@ -176,21 +182,22 @@ class NetworkManagerHelper(object):
         # TODO: Do we need to do the proxy call after calling GetDevices?
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
-            applied_connection = device.GetAppliedConnection()
-            if applied_connection is not None \
-                    and applied_connection.id == connection_id:
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
                 return True
-            elif applied_connection is None and \
-                    applied_connection.id not in self.connection_ids:
+            elif not applied_connection \
+                    or applied_connection['connection']['id'] not in self.connection_ids:
                 for available_connection in device.AvailableConnections:
-                    if available_connection.id == connection_id:
+                    if available_connection.GetSettings()['connection']['id'] \
+                            == connection_id:
                         connection = available_connection
                         available_devices.append(device)
 
         if connection is None:
-            self.logger.warning('Connection %s is not available.', connection_id)
+            self.logger.debug('Connection %s is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
             success = False
@@ -216,9 +223,9 @@ class NetworkManagerHelper(object):
         connection = None
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
-            applied_connection = device.GetAppliedConnection()
-            if applied_connection is not None \
-                    and applied_connection.id == connection_id:
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
                 connection = applied_connection
                 # I do hate multiple returns but this does seem the most Pythonic.
                 break
@@ -226,7 +233,7 @@ class NetworkManagerHelper(object):
         # TODO: Is it really worth returning a status?
         success = False
         if connection:
-            NetworkManager.NetworkManager.DeactivateConnection(connection)
+            NetworkManager.NetworkManager.DeactivateConnection(connection_id)
             # TODO: Call proxy object?
             success = True
 
@@ -260,9 +267,9 @@ class NetworkManagerHelper(object):
         else:
             connection_device = None
             for device in NetworkManager.NetworkManager.GetDevices():
-                applied_connection = device.GetAppliedConnection()
+                applied_connection = self._get_applied_connection(device)
                 if applied_connection is not None \
-                        and applied_connection.id == connection_id:
+                        and applied_connection['connection']['id'] == connection_id:
                     connection_device = device
                     break
 
@@ -304,6 +311,21 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
+
+    def _get_applied_connection(self, device):
+        """ TOOD: """
+        applied_connection = None
+        if device.State == NetworkManager.NM_DEVICE_STATE_ACTIVATED:
+            try:
+                # 0 means no flags
+                applied_connection, _ = device.GetAppliedConnection(0)
+            except DBusException as exception:
+                self.logger.error(
+                    'Error getting applied connection for device %s. %s: %s',
+                    device.Interface, type(exception).__name__, str(exception))
+                self.logger.error(traceback.format_exc())
+
+        return applied_connection
 
     def _wait_for_connection(self, connection):
         """Wait for the configured number of seconds for the specified active connection to
@@ -353,7 +375,7 @@ class NetworkManagerHelper(object):
         active_connection = self._get_active_connection(connection_id)
 
         if active_connection is None:
-            self.logger.warning('Connection %s is not activated.', connection_id)
+            self.logger.debug('Connection %s is not activated.', connection_id)
 
         else:
             if hasattr(active_connection, 'State'):
