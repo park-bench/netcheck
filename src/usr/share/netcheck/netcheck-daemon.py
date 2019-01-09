@@ -68,6 +68,9 @@ config['required_usage_max_delay'] = config_helper.verify_number_exists(
 config['required_usage_failed_retry_delay'] = config_helper.verify_number_exists(
     config_file, 'required_usage_failed_retry_delay')
 
+config['periodic_status_delay'] = config_helper.verify_number_within_range(
+    config_file, 'periodic_status_delay', lower_bound=0)
+
 
 def sig_term_handler(signal, stack_frame):
     """Quit when SIGTERM is received."""

@@ -57,6 +57,7 @@ class NetCheck(object):
 
         self.next_available_connections_check_time = \
             self._calculate_available_connections_check_time(datetime.datetime.now())
+        self.next_log_time = self._calculate_next_log_time(datetime.datetime.now())
 
         # Verify each connection is known to NetworkManager.
         nm_connection_set = set(self.network_helper.get_all_connection_ids())
@@ -217,12 +218,6 @@ class NetCheck(object):
                 deactivation_successful = self.network_helper. \
                     deactivate_connection(connection_context['id'])
 
-                if deactivation_successful:
-                    self.logger.info(
-                        'Deactivated connection "%s".', connection_context['id'])
-                else:
-                    self.logger.error('Deactivation failed for connection "%s".',
-                                      connection_context['id'])
             else:
                 self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
                                   'successful.', connection_context['id'])
@@ -246,9 +241,13 @@ class NetCheck(object):
         self.logger.trace('_activate_connection_and_check_dns: Attempting to activate and '
                           'reach the Internet over connection %s.', connection_context['id'])
 
-        activation_successful, deactivated_connection_id = self.network_helper. \
+        activation_successful, deactivated_connection_ids = self.network_helper. \
             activate_connection_and_steal_device(
                 connection_context['id'], excluded_connection_ids)
+
+        for deactivated_connection_id in deactivated_connection_ids:
+            self.connection_contexts[deactivated_connection_id]['activated'] = False
+
         if not activation_successful:
             self.logger.debug('_activate_connection_and_check_dns: Could not activate '
                               'connection %s.', connection_context['id'])
@@ -277,8 +276,6 @@ class NetCheck(object):
                 connection_context['activated'] = True
                 connection_context['last_check_time'] = loop_time
                 connection_context['next_check'] = self._calculate_periodic_check_time()
-                if deactivated_connection_id:
-                    self.connection_contexts[deactivated_connection_id]['activated'] = False
 
         return connection_context['activated']
 
@@ -461,6 +458,7 @@ class NetCheck(object):
                         'Exception thrown while initially attempting to activate '
                         'prioritized connection "%s". %s: %s', connection_context['id'],
                         type(exception).__name__, str(exception))
+                    self.logger.error(traceback.format_exc())
 
                 if activation_successful:
                     self.prior_connection_ids.append(connection_context['id'])
@@ -540,10 +538,8 @@ class NetCheck(object):
                                           type(exception).__name__, str(exception))
                         self.logger.error(traceback.format_exc())
 
-                # TODO: Consider having a periodic update indicating the program is still
-                #   running and its current status.
-                self._log_connection_change(
-                    self.prior_connection_ids, current_connection_ids)
+                self._log_connections(
+                    loop_time, self.prior_connection_ids, current_connection_ids)
                 self.prior_connection_ids = current_connection_ids
 
                 # Scan wireless devices.
@@ -564,9 +560,10 @@ class NetCheck(object):
         return loop_time + datetime.timedelta(seconds=random.uniform(
             0, self.config['available_connections_check_time']))
 
-    def _log_connection_change(self, prior_connection_ids, current_connection_ids):
+    def _log_connections(self, loop_time, prior_connection_ids, current_connection_ids):
         """Logs changes to the connections in use.
 
+        TODO: Update
         prior_connection_id: The NetworkManager display names of the active connections at
           the end of the prior main program loop.
         current_connection_id: The NetworkManager display names of the active connections at
@@ -574,24 +571,39 @@ class NetCheck(object):
         """
         prior_connection_set = set(prior_connection_ids)
         current_connection_set = set(current_connection_ids)
+
+        if loop_time > self.next_log_time:
+            current_connections_string = "None"
+            if current_connection_set:
+                current_connections_string = 'Current connections: "%s"' \
+                    % '", "'.join(current_connection_set)
+            self.logger.info('Still running. %s', current_connections_string)
+            self.next_log_time = self._calculate_next_log_time(loop_time)
+
         if prior_connection_set != current_connection_set:
+
             if not current_connection_set:
                 self.logger.error('Connection change: No connections are active!')
             else:
                 connections_deactivated = prior_connection_set - current_connection_set
                 connections_activated = current_connection_set - prior_connection_set
 
+                connections_activated_string = ''
                 if connections_activated:
-                    connections_activated_string = '\n  Newly activated connections "%s"' % \
-                        '", "'.join(connections_activated)
+                    connections_activated_string = '\n  Newly activated connections: "%s"' \
+                        % '", "'.join(connections_activated)
 
                 if connections_deactivated:
                     if connections_deactivated:
                         connections_deactivated_string = \
-                            '\n  Newly deactivated connection: "%s"' % \
-                            '", "'.join(connections_deactivated)
+                            '\n  Newly deactivated connections: "%s"' \
+                            % '", "'.join(connections_deactivated)
 
                     self.logger.warn('Connection change: %s%s', connections_activated_string,
                                      connections_deactivated_string)
                 else:
                     self.logger.info('Connection change: %s', connections_activated_string)
+
+    def _calculate_next_log_time(self, loop_time):
+        """ TODO: """
+        return loop_time + datetime.timedelta(seconds=self.config['periodic_status_delay'])

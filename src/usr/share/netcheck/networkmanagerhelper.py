@@ -23,12 +23,18 @@ __version__ = '0.8'
 
 import logging
 import random
+import re
+import datetime
 import time
 import traceback
 from dbus import DBusException
 import netaddr
 import numpy
 import NetworkManager
+from NetworkManager import ObjectVanished
+
+OBJECT_VANISHED_MAX_DELAY = .1  # In seconds.
+SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
@@ -36,12 +42,87 @@ NM_CONNECTION_ACTIVATING = "NM_CONNECTION_ACTIVATED"
 NM_CONNECTION_ACTIVATED = "NM_CONNECTION_ACTIVATED"
 NM_CONNECTION_DISCONNECTED = "NM_CONNECTION_DISCONNECTED"
 
+SERVICE_UNKNOWN_PATTERN = re.compile(
+    r'^org\.freedesktop\.DBus\.Error\.ServiceUnknown:')
+
+logger = logging.getLogger(__name__)
+
+# TODO: Currently not used.
 class DeviceNotFoundException(Exception):
     """Raised when an interface name passed to NetworkManagerHelper is not found."""
 
 # TODO: Make sure this is still used somewhere.
 class UnknownConnectionIdException(Exception):
     """Raised when a connection ID is requested, but it is not known."""
+
+def reiterative(method):
+    """ TODO: """
+    def wrapped_method(self, *args, **kwargs):
+        """ TODO: """
+        stack_trace = traceback.extract_stack()
+        current_frame = stack_trace[-1]
+        in_decorator = False
+        method_start_time = datetime.datetime.now()
+        for frame in stack_trace[:-1]:
+            if frame[0] == current_frame[0] and frame[3] == current_frame[3]:
+                in_decorator = True
+
+        return_value = None
+        if in_decorator:
+            method(self, *args, **kwargs)
+        else:
+            delay_from_service_unknown = 0
+            delay_from_object_vanished = 0
+            finished = False
+            while not finished:
+                try:
+                    return_value = method(self, *args, **kwargs)
+                    finished = True
+                except DBusException as exception:
+                    if not SERVICE_UNKNOWN_PATTERN.match(str(exception)):
+                        raise exception
+                    else:
+                        if delay_from_service_unknown == 0:
+                            logger.warning(
+                                'ServiceUnknown exception detected. NetworkManager might be '
+                                'restarting. Will retry for %s seconds. %s: %s',
+                                SERVICE_UNKNOWN_MAX_DELAY, type(exception).__name__,
+                                str(exception))
+
+                        NetworkManager.SignalDispatcher.handle_restart(
+                            'org.freedesktop.NetworkManager', 'please', 'work')
+                        new_method_start_time = datetime.datetime.now()
+                        delay_from_service_unknown += new_method_start_time \
+                            - datetime.timedelta(seconds=method_start_time)
+                        method_start_time = new_method_start_time
+                        if delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
+                            time.sleep(.1)
+                        else:
+                            logger.error('Service unknown for too long. %s: %s',
+                                         type(exception).__name__, str(exception))
+                            raise exception
+
+                except ObjectVanished as exception:
+                    if delay_from_object_vanished == 0:
+                        logger.debug(
+                            'ObjectVanished exception detected. Will retry for %s seconds. '
+                            '%s: %s', OBJECT_VANISHED_MAX_DELAY, type(exception).__name__,
+                            str(exception))
+
+                    new_method_start_time = datetime.datetime.now()
+                    delay_from_object_vanished += new_method_start_time \
+                        - datetime.timedelta(seconds=method_start_time)
+                    method_start_time = new_method_start_time
+                    if delay_from_object_vanished < OBJECT_VANISHED_MAX_DELAY:
+                        time.sleep(.01)
+                    else:
+                        logger.error('Object vanished for too long. %s: %s',
+                                     type(exception).__name__, str(exception))
+                        raise exception
+
+        return return_value
+
+    return wrapped_method
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
@@ -61,6 +142,7 @@ class NetworkManagerHelper(object):
 
         self.random = random.SystemRandom()
 
+    @reiterative
     def update_available_connections(self):
         """ TODO: """
         for device in NetworkManager.NetworkManager.GetDevices():
@@ -75,6 +157,7 @@ class NetworkManagerHelper(object):
                         device.Interface, type(exception).__name__, str(exception))
                     self.logger.debug(traceback.format_exc())
 
+    @reiterative
     def activate_connections_quickly(self, connection_ids):
         """ TODO: 
         Remember, the big difference here is we aren't waiting to see if the connection
@@ -91,25 +174,27 @@ class NetworkManagerHelper(object):
                 for connection in device.AvailableConnections:
                     available_connection_id = connection.GetSettings()['connection']['id']
                     if available_connection_id in connection_ids:
-                        if connection_devices_dict[available_connection_id] is None:
-                            connection_devices_dict[available_connection_id] = []
+                        if connection_devices_dict.get(connection, None) \
+                                is None:
+                            connection_devices_dict[connection] = []
                         connection_devices_dict[connection].append(device)
 
-        used_device_set = set()
+        used_devices = []
         for connection in connection_devices_dict:
 
             # Try to activate the connection with a random available device.
-            connection_device_set = set(connection_devices_dict[connection])
-            available_device_set = connection_device_set.difference(used_device_set)
-            random_index = self.random.randint(0, len(available_device_set))
-            device = available_device_set[random_index]
+            connection_devices = numpy.asarray(connection_devices_dict[connection])
+            for used_device in used_devices:
+                connection_devices.remove(used_device)
+            device = connection_devices[self.random.randint(0, len(connection_devices) - 1)]
 
             # '/' means pick an access point automatically (if applicable).
-            NetworkManager.NetworkManager.ActivateConnection(
-                connection, device, '/')
+            NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
 
-            used_device_set.add(device)
+            used_devices.append(device)
 
+    # TODO: Prefer devices that don't have a connection.
+    @reiterative
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
         """ TODO:
@@ -141,16 +226,16 @@ class NetworkManagerHelper(object):
                             applied_connection['connection']['id'] if applied_connection \
                             else None
 
-        stolen_connection_id = None
+        stolen_connection_ids = []
         if connection is None:
             self.logger.debug('Connection %s is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
             success = False
-            available_devices = numpy.asarray(available_device_connection_dict.keys)
+            available_devices = numpy.asarray(available_device_connection_dict.keys())
             devices_left = len(available_devices)
             while not success and devices_left:
-                random_index = self.random.randint(0, devices_left)
+                random_index = self.random.randint(0, devices_left - 1)
                 available_device = available_devices[random_index]
                 available_devices[random_index] = available_devices[devices_left - 1]
                 devices_left -= 1
@@ -161,13 +246,13 @@ class NetworkManagerHelper(object):
                 # TODO: Do we need to run the proxy call? Is it appropriate to raise an
                 #   exception?
                 self._run_proxy_call(networkmanager_output)
+                stolen_connection_ids.append(
+                    available_device_connection_dict[available_device])
                 success = self._wait_for_connection(connection)
 
-                if success:
-                    stolen_connection_id = available_device_connection_dict[available_device]
+        return success, stolen_connection_ids
 
-        return success, stolen_connection_id
-
+    @reiterative
     def activate_connection_with_available_device(self, connection_id):
         """Tells NetworkManager to activate a connection with the supplied connection ID.
 
@@ -203,7 +288,7 @@ class NetworkManagerHelper(object):
             success = False
             devices_left = len(available_devices)
             while not success and devices_left:
-                random_index = self.random.randint(0, devices_left)
+                random_index = self.random.randint(0, devices_left - 1)
                 available_device = available_devices[random_index]
                 available_devices[random_index] = available_devices[devices_left - 1]
                 devices_left -= 1
@@ -218,27 +303,24 @@ class NetworkManagerHelper(object):
 
         return success
 
+    @reiterative
     def deactivate_connection(self, connection_id):
         """ TODO: """
-        connection = None
+        active_connection = None
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
-            applied_connection = self._get_applied_connection(device)
-            if applied_connection \
-                    and applied_connection['connection']['id'] == connection_id:
-                connection = applied_connection
-                # I do hate multiple returns but this does seem the most Pythonic.
+            # TODO: if device.State == NetworkManager.NM_DEVICE_STATE_ACTIVATED:
+            if device.ActiveConnection and device.ActiveConnection.Id == connection_id:
+                active_connection = device.ActiveConnection
                 break
 
-        # TODO: Is it really worth returning a status?
-        success = False
-        if connection:
-            NetworkManager.NetworkManager.DeactivateConnection(connection_id)
+        if not active_connection:
+            self.logger.warning('Could not find active connection %s.', connection_id)
+        else:
+            NetworkManager.NetworkManager.DeactivateConnection(active_connection)
             # TODO: Call proxy object?
-            success = True
 
-        return success
-
+    @reiterative
     def get_all_connection_ids(self):
         """ TODO: """
         connection_ids = []
@@ -248,6 +330,7 @@ class NetworkManagerHelper(object):
 
         return connection_ids
 
+    @reiterative
     def get_connection_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given connection's
         gateway.  If the IP address is unable to be retrieved, None is returned.
@@ -274,7 +357,7 @@ class NetworkManagerHelper(object):
                     break
 
             if connection_device is None:
-                self.logger.warning('Connection %s is no longer active.', connection_id)
+                self.logger.debug('Connection %s has no ip.', connection_id)
             else:
                 gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 
@@ -296,6 +379,7 @@ class NetworkManagerHelper(object):
 
         return ip_address
 
+    @reiterative
     def connection_is_activated(self, connection_id):
         """Check whether the connection with the given connection ID is activated.
 
@@ -343,9 +427,11 @@ class NetworkManagerHelper(object):
         while not success and not give_up:
 
             connection_state = self._get_connection_state(connection_id)
+            connection_ip = self.get_connection_ip(connection_id)
 
-            if connection_state is NM_CONNECTION_ACTIVATED:
-                self.logger.debug('Connection %s successful.', connection_id)
+            if not connection_ip:
+                self.logger.debug('Connection %s assigned IP %s.', connection_id,
+                                  connection_ip)
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
