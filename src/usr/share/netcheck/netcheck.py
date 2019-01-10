@@ -261,15 +261,8 @@ class NetCheck(object):
                                   'failed.', connection_context['id'])
 
                 connection_context['activated'] = False
-                deactivation_successful = self.network_helper. \
-                    deactivate_connection(connection_context['id'])
+                self.network_helper.deactivate_connection(connection_context['id'])
 
-                if deactivation_successful:
-                    self.logger.info(
-                        'Deactivated connection "%s".', connection_context['id'])
-                else:
-                    self.logger.error('Deactivation failed for connection "%s".',
-                                      connection_context['id'])
             else:
                 self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
                                   'successful.', connection_context['id'])
@@ -306,15 +299,7 @@ class NetCheck(object):
                     connection_context['id'])
                 connection_context['activated'] = False
 
-                deactivation_successful = self.network_helper. \
-                    deactivate_connection(connection_context['id'])
-
-                if deactivation_successful:
-                    self.logger.info(
-                        'Deactivated connection "%s".', connection_context['id'])
-                else:
-                    self.logger.error('Deactivation failed for connection '
-                                      '"%s".', connection_context['id'])
+                self.network_helper.deactivate_connection(connection_context['id'])
 
             else:
                 self.logger.trace(
@@ -423,8 +408,8 @@ class NetCheck(object):
             if connection_context['is_required_usage_connection']:
                 activation_successful = False
                 try:
-                    activation_successful = \
-                        self._steal_device_and_check_dns(init_time, connection_context)
+                    activation_successful = self._steal_device_and_check_dns(
+                        init_time, connection_context)
                 except Exception as exception:
                     connection_context['activated'] = False
                     self.logger.error(
@@ -573,7 +558,7 @@ class NetCheck(object):
         current_connection_set = set(current_connection_ids)
 
         if loop_time > self.next_log_time:
-            current_connections_string = "None"
+            current_connections_string = "Current connections: None"
             if current_connection_set:
                 current_connections_string = 'Current connections: "%s"' \
                     % '", "'.join(current_connection_set)

@@ -69,7 +69,7 @@ def reiterative(method):
 
         return_value = None
         if in_decorator:
-            method(self, *args, **kwargs)
+            return_value = method(self, *args, **kwargs)
         else:
             delay_from_service_unknown = 0
             delay_from_object_vanished = 0
@@ -92,8 +92,8 @@ def reiterative(method):
                         NetworkManager.SignalDispatcher.handle_restart(
                             'org.freedesktop.NetworkManager', 'please', 'work')
                         new_method_start_time = datetime.datetime.now()
-                        delay_from_service_unknown += new_method_start_time \
-                            - datetime.timedelta(seconds=method_start_time)
+                        delay_from_service_unknown += (
+                            new_method_start_time - method_start_time).total_seconds()
                         method_start_time = new_method_start_time
                         if delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
                             time.sleep(.1)
@@ -110,8 +110,8 @@ def reiterative(method):
                             str(exception))
 
                     new_method_start_time = datetime.datetime.now()
-                    delay_from_object_vanished += new_method_start_time \
-                        - datetime.timedelta(seconds=method_start_time)
+                    delay_from_object_vanished += (
+                        new_method_start_time - method_start_time).total_seconds()
                     method_start_time = new_method_start_time
                     if delay_from_object_vanished < OBJECT_VANISHED_MAX_DELAY:
                         time.sleep(.01)
@@ -136,7 +136,7 @@ class NetworkManagerHelper(object):
         config: The configuration dictionary constructed during program initialization.
         """
 
-        self.logger = logging.getLogger(__name__)
+        self.logger = logging.getLogger()  # TODO: Using __name__ does not appear to work.
         self.connection_activation_timeout = config['connection_activation_timeout']
         self.connection_ids = config['connection_ids']
 
@@ -215,7 +215,7 @@ class NetworkManagerHelper(object):
                     and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
-                return True, None
+                return True, []
             elif excluded_connection_ids is None or applied_connection is None \
                     or applied_connection['connection']['id'] not in excluded_connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -246,8 +246,9 @@ class NetworkManagerHelper(object):
                 # TODO: Do we need to run the proxy call? Is it appropriate to raise an
                 #   exception?
                 self._run_proxy_call(networkmanager_output)
-                stolen_connection_ids.append(
-                    available_device_connection_dict[available_device])
+                stolen_connection_id = available_device_connection_dict[available_device]
+                if stolen_connection_id:
+                    stolen_connection_ids.append(stolen_connection_id)
                 success = self._wait_for_connection(connection)
 
         return success, stolen_connection_ids
@@ -310,7 +311,8 @@ class NetworkManagerHelper(object):
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             # TODO: if device.State == NetworkManager.NM_DEVICE_STATE_ACTIVATED:
-            if device.ActiveConnection and device.ActiveConnection.Id == connection_id:
+            if device.ActiveConnection and device.ActiveConnection.Connection.GetSettings()[
+                    'connection']['id'] == connection_id:
                 active_connection = device.ActiveConnection
                 break
 
@@ -491,7 +493,8 @@ class NetworkManagerHelper(object):
         self._run_proxy_call(active_connections)
 
         for active_connection in active_connections:
-            if active_connection.Id == connection_id:
+            if active_connection.Connection.GetSettings()[
+                    'connection']['id'] == connection_id:
                 self.logger.trace('Found that connection %s is active.',
                                   connection_id)
                 matched_active_connection = active_connection
