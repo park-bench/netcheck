@@ -103,4 +103,4 @@ try:
 except Exception as exception:
     logger.critical('%s: %s\n', type(exception).__name__, str(exception))
     logger.critical(traceback.format_exc())
-    raise exception
+    raise

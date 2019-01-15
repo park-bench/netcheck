@@ -17,7 +17,7 @@
 python-networkmanager class.
 """
 
-__all__ = ['DeviceNotFoundException', 'UnknownConnectionIdException', 'NetworkManagerHelper']
+__all__ = ['NetworkManagerHelper']
 __author__ = 'Andrew Klapp and Joel Allen Luellwitz'
 __version__ = '0.8'
 
@@ -33,8 +33,10 @@ import numpy
 import NetworkManager
 from NetworkManager import ObjectVanished
 
-OBJECT_VANISHED_MAX_DELAY = .1  # In seconds.
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
+SERVICE_UNKNOWN_MAX_ATTEMPTS = 3
+UNKNOWN_METHOD_MAX_ATTEMPTS = 3
+OBJECT_VANISHED_MAX_ATTEMPTS = 3
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
@@ -44,16 +46,9 @@ NM_CONNECTION_DISCONNECTED = "NM_CONNECTION_DISCONNECTED"
 
 SERVICE_UNKNOWN_PATTERN = re.compile(
     r'^org\.freedesktop\.DBus\.Error\.ServiceUnknown:')
-
-logger = logging.getLogger(__name__)
-
-# TODO: Currently not used.
-class DeviceNotFoundException(Exception):
-    """Raised when an interface name passed to NetworkManagerHelper is not found."""
-
-# TODO: Make sure this is still used somewhere.
-class UnknownConnectionIdException(Exception):
-    """Raised when a connection ID is requested, but it is not known."""
+UNKNOWN_METHOD_PATTERN = re.compile(
+    r'org.freedesktop.DBus.Error.UnknownMethod: No such interface '
+    r"'org.freedesktop.DBus.Properties' on object at path ")
 
 def reiterative(method):
     """ TODO: """
@@ -72,53 +67,61 @@ def reiterative(method):
             return_value = method(self, *args, **kwargs)
         else:
             delay_from_service_unknown = 0
-            delay_from_object_vanished = 0
+            service_unknown_count = 0
+            unknown_method_count = 0
+            object_vanished_count = 0
             finished = False
             while not finished:
                 try:
                     return_value = method(self, *args, **kwargs)
                     finished = True
                 except DBusException as exception:
-                    if not SERVICE_UNKNOWN_PATTERN.match(str(exception)):
-                        raise exception
-                    else:
-                        if delay_from_service_unknown == 0:
-                            logger.warning(
+                    if SERVICE_UNKNOWN_PATTERN.match(str(exception)):
+                        if service_unknown_count == 0:
+                            self.logger.warning(
                                 'ServiceUnknown exception detected. NetworkManager might be '
                                 'restarting. Will retry for %s seconds. %s: %s',
                                 SERVICE_UNKNOWN_MAX_DELAY, type(exception).__name__,
                                 str(exception))
 
+                        service_unknown_count += 1
                         NetworkManager.SignalDispatcher.handle_restart(
                             'org.freedesktop.NetworkManager', 'please', 'work')
                         new_method_start_time = datetime.datetime.now()
-                        delay_from_service_unknown += (
+                        delay_since_last_attempt = (
                             new_method_start_time - method_start_time).total_seconds()
+                        delay_from_service_unknown += delay_since_last_attempt
                         method_start_time = new_method_start_time
-                        if delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
-                            time.sleep(.1)
+                        if service_unknown_count < SERVICE_UNKNOWN_MAX_ATTEMPTS \
+                                or delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
+                            time.sleep(max(.1 - delay_since_last_attempt, 0))
                         else:
-                            logger.error('Service unknown for too long. %s: %s',
-                                         type(exception).__name__, str(exception))
-                            raise exception
+                            self.logger.error(
+                                'Service unknown after %d attempts and %f seconds. %s: %s',
+                                service_unknown_count, delay_from_service_unknown,
+                                type(exception).__name__, str(exception))
+                            raise
+
+                    elif UNKNOWN_METHOD_PATTERN.match(str(exception)):
+                        unknown_method_count += 1
+                        if unknown_method_count >= UNKNOWN_METHOD_MAX_ATTEMPTS:
+                            self.logger.error(
+                                'Method was unknown after %d attempts. %s: %s',
+                                unknown_method_count, type(exception).__name__,
+                                str(exception))
+                            raise
+                    else:
+                        raise
 
                 except ObjectVanished as exception:
-                    if delay_from_object_vanished == 0:
-                        logger.debug(
-                            'ObjectVanished exception detected. Will retry for %s seconds. '
-                            '%s: %s', OBJECT_VANISHED_MAX_DELAY, type(exception).__name__,
-                            str(exception))
+                    object_vanished_count += 1
 
-                    new_method_start_time = datetime.datetime.now()
-                    delay_from_object_vanished += (
-                        new_method_start_time - method_start_time).total_seconds()
-                    method_start_time = new_method_start_time
-                    if delay_from_object_vanished < OBJECT_VANISHED_MAX_DELAY:
-                        time.sleep(.01)
-                    else:
-                        logger.error('Object vanished for too long. %s: %s',
-                                     type(exception).__name__, str(exception))
-                        raise exception
+                    if object_vanished_count >= OBJECT_VANISHED_MAX_ATTEMPTS:
+                        self.logger.error(
+                            'Object vanished after %d attempts. %s: %s',
+                            object_vanished_count, type(exception).__name__,
+                            str(exception))
+                        raise
 
         return return_value
 
@@ -136,7 +139,7 @@ class NetworkManagerHelper(object):
         config: The configuration dictionary constructed during program initialization.
         """
 
-        self.logger = logging.getLogger()  # TODO: Using __name__ does not appear to work.
+        self.logger = logging.getLogger(__name__)
         self.connection_activation_timeout = config['connection_activation_timeout']
         self.connection_ids = config['connection_ids']
 
@@ -146,7 +149,6 @@ class NetworkManagerHelper(object):
     def update_available_connections(self):
         """ TODO: """
         for device in NetworkManager.NetworkManager.GetDevices():
-            # TODO: See if we even need hasattr.
             if hasattr(device.SpecificDevice(), "RequestScan") and callable(
                     device.SpecificDevice().RequestScan):
                 try:
@@ -194,6 +196,7 @@ class NetworkManagerHelper(object):
             used_devices.append(device)
 
     # TODO: Prefer devices that don't have a connection.
+    # TODO: A connection should remain stolen even on later failure.
     @reiterative
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
@@ -207,7 +210,6 @@ class NetworkManagerHelper(object):
         # Get a list of all devices this connection can be applied to.
         available_device_connection_dict = {}
         connection = None
-        # TODO: Do we need to do the proxy call after calling GetDevices?
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             applied_connection = self._get_applied_connection(device)
@@ -243,9 +245,6 @@ class NetworkManagerHelper(object):
                 # '/' means pick an access point automatically (if applicable).
                 networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
-                # TODO: Do we need to run the proxy call? Is it appropriate to raise an
-                #   exception?
-                self._run_proxy_call(networkmanager_output)
                 stolen_connection_id = available_device_connection_dict[available_device]
                 if stolen_connection_id:
                     stolen_connection_ids.append(stolen_connection_id)
@@ -265,7 +264,6 @@ class NetworkManagerHelper(object):
         # Get a list of all devices this connection can be applied to.
         available_devices = []
         connection = None
-        # TODO: Do we need to do the proxy call after calling GetDevices?
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             applied_connection = self._get_applied_connection(device)
@@ -297,9 +295,6 @@ class NetworkManagerHelper(object):
                 # '/' means pick an access point automatically (if applicable).
                 networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
-                # TODO: Do we need to run the proxy call? Is is propriate to raise an
-                #   exception?
-                self._run_proxy_call(networkmanager_output)
                 success = self._wait_for_connection(connection)
 
         return success
@@ -310,7 +305,6 @@ class NetworkManagerHelper(object):
         active_connection = None
         for device in NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
-            # TODO: if device.State == NetworkManager.NM_DEVICE_STATE_ACTIVATED:
             if device.ActiveConnection and device.ActiveConnection.Connection.GetSettings()[
                     'connection']['id'] == connection_id:
                 active_connection = device.ActiveConnection
@@ -320,13 +314,11 @@ class NetworkManagerHelper(object):
             self.logger.warning('Could not find active connection %s.', connection_id)
         else:
             NetworkManager.NetworkManager.DeactivateConnection(active_connection)
-            # TODO: Call proxy object?
 
     @reiterative
     def get_all_connection_ids(self):
         """ TODO: """
         connection_ids = []
-        # TODO: Do proxy call?
         for connection in NetworkManager.Settings.ListConnections():
             connection_ids.append(connection.GetSettings()['connection']['id'])
 
@@ -364,8 +356,8 @@ class NetworkManagerHelper(object):
                 gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 
                 for address_data in connection_device.Ip4Config.AddressData:
-                    # TODO: Verify this bad CIDR notation works. (The IP portion should be
-                    #   the first address in the CIDR.)
+                    # Technically, according to the RFC, the IP portion of a CIDR should be
+                    #   the first address in the CIDR. We'll ignore this.
                     address_cidr = '%s/%s' % (
                         address_data['address'], address_data['prefix'])
                     address_network = netaddr.IPNetwork(address_cidr)
@@ -490,7 +482,6 @@ class NetworkManagerHelper(object):
         matched_active_connection = None
 
         active_connections = NetworkManager.NetworkManager.ActiveConnections
-        self._run_proxy_call(active_connections)
 
         for active_connection in active_connections:
             if active_connection.Connection.GetSettings()[
@@ -501,16 +492,3 @@ class NetworkManagerHelper(object):
                 break
 
         return matched_active_connection
-
-    # TODO: Make sure this is really needed.
-    def _run_proxy_call(self, proxy_call):
-        """If proxy_call is callable, call it.
-
-        Sometimes if NetworkManager enounters a critical error, it will return a callable
-        that will raise an exception if called.  This error information is valuable, so
-        raising this exception allows this program to get access to the error details.
-
-        proxy_call: The output of a NetworkManager D-Bus call.
-        """
-        if callable(proxy_call):
-            proxy_call()
