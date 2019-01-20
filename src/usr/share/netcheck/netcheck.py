@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from __future__ import division
+
 __all__ = ['NetCheck']
 __author__ = 'Joel Luellwitz and Andrew Klapp'
 __version__ = '0.8'
@@ -85,6 +87,7 @@ class NetCheck(object):
             connection_context['last_check_time'] = None
             connection_context['is_required_usage_connection'] = False
             connection_context['next_required_usage_check'] = None
+            connection_context['failed_required_usage_check_time'] = None
             self.connection_contexts[connection_id] = connection_context
 
         for connection_id in required_usage_connection_set:
@@ -224,6 +227,7 @@ class NetCheck(object):
                 connection_context['activated'] = True
                 connection_context['last_check_time'] = loop_time
                 connection_context['next_check'] = self._calculate_periodic_check_time()
+                connection_context['failed_required_usage_check_time'] = None
 
         return connection_context['activated']
 
@@ -269,6 +273,7 @@ class NetCheck(object):
                 connection_context['activated'] = True
                 connection_context['last_check_time'] = loop_time
                 connection_context['next_check'] = self._calculate_periodic_check_time()
+                connection_context['failed_required_usage_check_time'] = None
 
         return connection_context['activated']
 
@@ -311,9 +316,6 @@ class NetCheck(object):
 
     # TODO: Consider downloading a small file upon successful connection so we are sure
     #   FreedomPop considers this connection used. (issue 11)
-    # TODO: The random interval should probably be applied after the last DNS check on the
-    #   backup connection. (We might have used the backup connection since the last check or
-    #   the backup connection might even be currently activated.) (issue 12)
     def _activate_required_usage_connections(self, loop_time):
         """Activate the 'required usage' connections randomly between zero and a
         user-specified number of days.  Recalculate the activation check interval for each
@@ -326,8 +328,12 @@ class NetCheck(object):
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
-                if loop_time < connection_context['last_check_time'] \
-                        + connection_context['next_required_usage_check']:
+                if (not connection_context['failed_required_usage_check_time']
+                        or loop_time < connection_context[
+                            'failed_required_usage_check_time']) \
+                    and (not connection_context['next_required_usage_check']
+                         or loop_time < connection_context['last_check_time']
+                         + connection_context['next_required_usage_check']):
                     self.logger.trace(
                         "_use_required_usage_connections: Skipping 'required usage'"
                         ' connection check for "%s" because it is not time yet.',
@@ -343,7 +349,7 @@ class NetCheck(object):
 
                     if connection_is_active:
                         self._update_required_check_time_on_success(
-                            loop_time, connection_context)
+                            connection_context)
                     else:
                         self.logger.debug("Trying to activate and use 'required usage' "
                                           'connection "%s".', connection_context['id'])
@@ -352,37 +358,35 @@ class NetCheck(object):
 
                         if activation_successful:
                             self._update_required_check_time_on_success(
-                                loop_time, connection_context)
+                                connection_context)
                         else:
                             self._update_required_check_time_on_failure(
                                 loop_time, connection_context)
 
-    def _update_required_check_time_on_success(self, loop_time, connection_context):
+    def _update_required_check_time_on_success(self, connection_context):
         """Determine the next time the 'required usage' connection should be activated
         after a successful use.
 
         connection_context: TODO:
         """
         # Convert days to seconds.
-        delay_range_in_seconds = self.config['required_usage_max_delay'] * 24 * 60 * 60
+        delay_in_seconds = random.uniform(
+            0, self.config['required_usage_max_delay'] * 24 * 60 * 60)
 
-        connection_context['last_check_time'] = loop_time
         connection_context['next_required_usage_check'] = datetime.timedelta(
-            seconds=random.uniform(0, delay_range_in_seconds))
+            seconds=delay_in_seconds)
         self.logger.info(
-            'Will attempt \'required usage\' connection "%s" on %s.',
-            connection_context['id'], connection_context['last_check_time']
-            + connection_context['next_required_usage_check'])
+            'Used \'required usage\' connection "%s". Will try again after %f days of '
+            'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
 
     def _update_required_check_time_on_failure(self, loop_time, connection_context):
         """ TODO: """
-        connection_context['last_check_time'] = loop_time
-        connection_context['next_required_usage_check'] = datetime.timedelta(
-            seconds=random.uniform(0, self.config['required_usage_failed_retry_delay']))
-        self.logger.debug(
+        connection_context['failed_required_usage_check_time'] = loop_time + \
+            datetime.timedelta(seconds=random.uniform(
+                0, self.config['required_usage_failed_retry_delay']))
+        self.logger.warning(
             'Failed to use \'required usage\' connection "%s". Will try again on %s.',
-            connection_context['id'], connection_context['last_check_time']
-            + connection_context['next_required_usage_check'])
+            connection_context['id'], connection_context['failed_required_usage_check_time'])
 
     # TODO: Put this at the begining fo the class and put internal methods in calling order.
     def start(self):
@@ -419,7 +423,7 @@ class NetCheck(object):
                     self.logger.error(traceback.format_exc())
                 if activation_successful:
                     self._update_required_check_time_on_success(
-                        init_time, connection_context)
+                        connection_context)
                 else:
                     self._update_required_check_time_on_failure(
                         init_time, connection_context)
@@ -474,6 +478,7 @@ class NetCheck(object):
                 # Periodically activates the main backup connection because the carrier
                 #   requires this.
                 # TODO: Eventually store the last required usage access times under var.
+                #   (issue 48)
                 self._activate_required_usage_connections(loop_time)
 
                 for connection_id in self.connection_contexts:
