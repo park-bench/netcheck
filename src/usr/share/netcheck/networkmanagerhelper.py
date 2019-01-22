@@ -84,7 +84,7 @@ def reiterative(method):
                                 str(exception))
 
                         service_unknown_count += 1
-                        NetworkManager.SignalDispatcher.handle_restart(
+                        NetworkManagerHelper.NetworkManager.SignalDispatcher.handle_restart(
                             'org.freedesktop.NetworkManager', 'please', 'work')
                         new_method_start_time = datetime.datetime.now()
                         delay_since_last_attempt = (
@@ -112,7 +112,7 @@ def reiterative(method):
                     else:
                         raise
 
-                except ObjectVanished as exception:
+                except NetworkManagerHelper.ObjectVanished as exception:
                     object_vanished_count += 1
 
                     if object_vanished_count >= OBJECT_VANISHED_MAX_ATTEMPTS:
@@ -130,6 +130,10 @@ class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
     D-Bus API.
     """
+    # TODO: Remove this non-sense once we implement propper logging. (Yes, this is all to
+    #   support our logger as an instance variable.) (gpgmailer issue 18)
+    NetworkManager = None
+    ObjectVanished = None
 
     def __init__(self, config):
         """Initializes the module by storing references to device objects and assembling a
@@ -150,7 +154,9 @@ class NetworkManagerHelper(object):
         """ TODO: """
         try:
             import NetworkManager
+            NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
             from NetworkManager import ObjectVanished
+            NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
         except Exception as exception:
             self.logger.error(
                 'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
@@ -159,7 +165,9 @@ class NetworkManagerHelper(object):
             time.sleep(10)
             try:
                 import NetworkManager
+                NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
                 from NetworkManager import ObjectVanished
+                NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
             except Exception as exception2:
                 self.logger.error(
                     'Failed again to import NetworkManager or ObjectVanished. Will retry '
@@ -169,7 +177,9 @@ class NetworkManagerHelper(object):
                 time.sleep(30)
                 try:
                     import NetworkManager
+                    NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
                     from NetworkManager import ObjectVanished
+                    NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
                 except Exception as exception3:
                     self.logger.error(
                         'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
@@ -180,7 +190,7 @@ class NetworkManagerHelper(object):
     @reiterative
     def update_available_connections(self):
         """ TODO: """
-        for device in NetworkManager.NetworkManager.GetDevices():
+        for device in self.NetworkManager.NetworkManager.GetDevices():
             if hasattr(device.SpecificDevice(), "RequestScan") and callable(
                     device.SpecificDevice().RequestScan):
                 try:
@@ -200,7 +210,7 @@ class NetworkManagerHelper(object):
 
         # Create a connection to device multi-map.
         connection_devices_dict = {}
-        for device in NetworkManager.NetworkManager.GetDevices():
+        for device in self.NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             applied_connection = self._get_applied_connection(device)
             if not applied_connection \
@@ -223,7 +233,7 @@ class NetworkManagerHelper(object):
             device = connection_devices[self.random.randint(0, len(connection_devices) - 1)]
 
             # '/' means pick an access point automatically (if applicable).
-            NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
+            self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
 
             used_devices.append(device)
 
@@ -249,7 +259,7 @@ class NetworkManagerHelper(object):
         available_devices = []
         used_device_connection_dict = {}
         connection = None
-        for device in NetworkManager.NetworkManager.GetDevices():
+        for device in self.NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             applied_connection = self._get_applied_connection(device)
             if applied_connection \
@@ -282,7 +292,7 @@ class NetworkManagerHelper(object):
                 devices_left -= 1
 
                 # '/' means pick an access point automatically (if applicable).
-                NetworkManager.NetworkManager.ActivateConnection(
+                self.NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
                 success = self._wait_for_connection(connection.GetSettings())
 
@@ -298,7 +308,7 @@ class NetworkManagerHelper(object):
 
                     # '/' means pick an access point automatically (if applicable).
                     stolen_connection_ids.add(used_device_connection_dict[used_device])
-                    NetworkManager.NetworkManager.ActivateConnection(
+                    self.NetworkManager.NetworkManager.ActivateConnection(
                         connection, used_device, '/')
                     success = self._wait_for_connection(connection.GetSettings())
 
@@ -316,7 +326,7 @@ class NetworkManagerHelper(object):
         # Get a list of all devices this connection can be applied to.
         available_devices = []
         connection = None
-        for device in NetworkManager.NetworkManager.GetDevices():
+        for device in self.NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             applied_connection = self._get_applied_connection(device)
             if applied_connection \
@@ -345,7 +355,7 @@ class NetworkManagerHelper(object):
                 devices_left -= 1
 
                 # '/' means pick an access point automatically (if applicable).
-                networkmanager_output = NetworkManager.NetworkManager.ActivateConnection(
+                networkmanager_output = self.NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
                 success = self._wait_for_connection(connection.GetSettings())
 
@@ -355,7 +365,7 @@ class NetworkManagerHelper(object):
     def deactivate_connection(self, connection_id):
         """ TODO: """
         active_connection = None
-        for device in NetworkManager.NetworkManager.GetDevices():
+        for device in self.NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
             if device.ActiveConnection and device.ActiveConnection.Connection.GetSettings()[
                     'connection']['id'] == connection_id:
@@ -365,13 +375,13 @@ class NetworkManagerHelper(object):
         if not active_connection:
             self.logger.warning('Could not find active connection %s.', connection_id)
         else:
-            NetworkManager.NetworkManager.DeactivateConnection(active_connection)
+            self.NetworkManager.NetworkManager.DeactivateConnection(active_connection)
 
     @reiterative
     def get_all_connection_ids(self):
         """ TODO: """
         connection_ids = []
-        for connection in NetworkManager.Settings.ListConnections():
+        for connection in self.NetworkManager.Settings.ListConnections():
             connection_ids.append(connection.GetSettings()['connection']['id'])
 
         return connection_ids
@@ -395,7 +405,7 @@ class NetworkManagerHelper(object):
 
         else:
             connection_device = None
-            for device in NetworkManager.NetworkManager.GetDevices():
+            for device in self.NetworkManager.NetworkManager.GetDevices():
                 applied_connection = self._get_applied_connection(device)
                 if applied_connection is not None \
                         and applied_connection['connection']['id'] == connection_id:
@@ -445,7 +455,7 @@ class NetworkManagerHelper(object):
     def _get_applied_connection(self, device):
         """ TOOD: """
         applied_connection = None
-        if device.State == NetworkManager.NM_DEVICE_STATE_ACTIVATED:
+        if device.State == self.NetworkManager.NM_DEVICE_STATE_ACTIVATED:
             try:
                 # 0 means no flags
                 applied_connection, _ = device.GetAppliedConnection(0)
@@ -512,10 +522,10 @@ class NetworkManagerHelper(object):
         else:
             if hasattr(active_connection, 'State'):
                 if active_connection.State \
-                        is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
+                        is self.NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATING:
                     state = NM_CONNECTION_ACTIVATING
                 if active_connection.State \
-                        is NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
+                        is self.NetworkManager.NM_ACTIVE_CONNECTION_STATE_ACTIVATED:
                     state = NM_CONNECTION_ACTIVATED
 
             else:
@@ -533,7 +543,7 @@ class NetworkManagerHelper(object):
         """
         matched_active_connection = None
 
-        active_connections = NetworkManager.NetworkManager.ActiveConnections
+        active_connections = self.NetworkManager.NetworkManager.ActiveConnections
 
         for active_connection in active_connections:
             if active_connection.Connection.GetSettings()[
