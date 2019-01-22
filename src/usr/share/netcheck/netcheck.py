@@ -418,6 +418,13 @@ class NetCheck(object):
     # TODO: Put this at the begining fo the class and put internal methods in calling order.
     def start(self):
         """ TODO: """
+        try:
+            self.network_helper.update_available_connections()
+        except Exception as exception:
+            self.logger.error(
+                'Error occurred while trying to initially update available connections. '
+                'Ignoring. %s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
 
         # Quickly connect to connections in priority order.
         try:
