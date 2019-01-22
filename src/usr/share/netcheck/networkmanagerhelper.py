@@ -30,8 +30,6 @@ import traceback
 from dbus import DBusException
 import netaddr
 import numpy
-import NetworkManager
-from NetworkManager import ObjectVanished
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
 SERVICE_UNKNOWN_MAX_ATTEMPTS = 3
@@ -145,6 +143,39 @@ class NetworkManagerHelper(object):
         self.connection_ids = config['connection_ids']
 
         self.random = random.SystemRandom()
+
+        self._import_network_manager()
+
+    def _import_network_manager(self):
+        """ TODO: """
+        try:
+            import NetworkManager
+            from NetworkManager import ObjectVanished
+        except Exception as exception:
+            self.logger.error(
+                'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
+                'seconds. %s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
+            time.sleep(10)
+            try:
+                import NetworkManager
+                from NetworkManager import ObjectVanished
+            except Exception as exception2:
+                self.logger.error(
+                    'Failed again to import NetworkManager or ObjectVanished. Will retry '
+                    'one again in 30 seconds. %s: %s', type(exception2).__name__,
+                    str(exception2))
+                self.logger.error(traceback.format_exc())
+                time.sleep(30)
+                try:
+                    import NetworkManager
+                    from NetworkManager import ObjectVanished
+                except Exception as exception3:
+                    self.logger.error(
+                        'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
+                        'This probably means the NetworkManager daemon failed to start. '
+                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
+                    raise
 
     @reiterative
     def update_available_connections(self):

@@ -62,7 +62,34 @@ class NetCheck(object):
         self.next_log_time = self._calculate_next_log_time(datetime.datetime.now())
 
         # Verify each connection is known to NetworkManager.
-        nm_connection_set = set(self.network_helper.get_all_connection_ids())
+        # TODO: This retry logic should probably be removed when we move to systemd.
+        #   (issue 23)
+        nm_connection_set = None
+        try:
+            nm_connection_set = set(self.network_helper.get_all_connection_ids())
+        except Exception as exception:
+            self.logger.error(
+                'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
+                '%s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
+            time.sleep(10)
+            try:
+                nm_connection_set = set(self.network_helper.get_all_connection_ids())
+            except Exception as exception2:
+                self.logger.error(
+                    'Failed again to retrieve a list of all connection IDs. Will retry one '
+                    'last time in retry in 30 seconds. %s: %s', type(exception2).__name__,
+                    str(exception2))
+                self.logger.error(traceback.format_exc())
+                time.sleep(30)
+                try:
+                    nm_connection_set = set(self.network_helper.get_all_connection_ids())
+                except Exception as exception3:
+                    self.logger.error(
+                        'Failed 3 times to retrieve a list of all connection IDs. '
+                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
+                    raise
+
         known_connection_set = set(self.config['connection_ids'])
         missing_connections = known_connection_set - nm_connection_set
         if missing_connections:
@@ -393,7 +420,13 @@ class NetCheck(object):
         """ TODO: """
 
         # Quickly connect to connections in priority order.
-        self.network_helper.activate_connections_quickly(self.config['connection_ids'])
+        try:
+            self.network_helper.activate_connections_quickly(self.config['connection_ids'])
+        except Exception as exception:
+            self.logger.error(
+                'Error occurred while trying to establish connections quickly. Ignoring. '
+                '%s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
 
         init_time = datetime.datetime.now()
 
@@ -478,7 +511,7 @@ class NetCheck(object):
                 # Periodically activates the main backup connection because the carrier
                 #   requires this.
                 # TODO: Eventually store the last required usage access times under var.
-                #   (issue 48)
+                #   (issue 22)
                 self._activate_required_usage_connections(loop_time)
 
                 for connection_id in self.connection_contexts:
