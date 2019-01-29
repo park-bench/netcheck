@@ -150,42 +150,14 @@ class NetworkManagerHelper(object):
 
         self._import_network_manager()
 
-    def _import_network_manager(self):
+    @reiterative
+    def get_all_connection_ids(self):
         """ TODO: """
-        try:
-            import NetworkManager
-            NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
-            from NetworkManager import ObjectVanished
-            NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-        except Exception as exception:
-            self.logger.error(
-                'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
-                'seconds. %s: %s', type(exception).__name__, str(exception))
-            self.logger.error(traceback.format_exc())
-            time.sleep(10)
-            try:
-                import NetworkManager
-                NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
-                from NetworkManager import ObjectVanished
-                NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-            except Exception as exception2:
-                self.logger.error(
-                    'Failed again to import NetworkManager or ObjectVanished. Will retry '
-                    'one again in 30 seconds. %s: %s', type(exception2).__name__,
-                    str(exception2))
-                self.logger.error(traceback.format_exc())
-                time.sleep(30)
-                try:
-                    import NetworkManager
-                    NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
-                    from NetworkManager import ObjectVanished
-                    NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-                except Exception as exception3:
-                    self.logger.error(
-                        'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
-                        'This probably means the NetworkManager daemon failed to start. '
-                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
-                    raise
+        connection_ids = []
+        for connection in self.NetworkManager.Settings.ListConnections():
+            connection_ids.append(connection.GetSettings()['connection']['id'])
+
+        return connection_ids
 
     @reiterative
     def update_available_connections(self):
@@ -237,6 +209,7 @@ class NetworkManagerHelper(object):
 
             used_devices.append(device)
 
+    # Note: A helper method is reiterative.
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
         """ TODO:
@@ -245,74 +218,9 @@ class NetworkManagerHelper(object):
           was stolen. None is returned for the second value if no connection was stolen.
         """
         stolen_connection_ids = set()
-        success = self._activate_connection_and_steal_device(
+        success = self._reiterative_activate_connection_and_steal_device(
             connection_id, stolen_connection_ids, excluded_connection_ids)
         return success, list(stolen_connection_ids)
-
-    @reiterative
-    def _activate_connection_and_steal_device(self, connection_id, stolen_connection_ids,
-                                              excluded_connection_ids):
-        """ TODO: """
-        success = False
-
-        # Get a list of all devices this connection can be applied to.
-        available_devices = []
-        used_device_connection_dict = {}
-        connection = None
-        for device in self.NetworkManager.NetworkManager.GetDevices():
-            # See if the connection is already activated.
-            applied_connection = self._get_applied_connection(device)
-            if applied_connection \
-                    and applied_connection['connection']['id'] == connection_id:
-                # The connection is already activated.
-                # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_connection(applied_connection), []
-            elif excluded_connection_ids is None or applied_connection is None \
-                    or applied_connection['connection']['id'] not in excluded_connection_ids:
-                for available_connection in device.AvailableConnections:
-                    if available_connection.GetSettings()['connection']['id'] \
-                            == connection_id:
-                        connection = available_connection
-                        if not applied_connection:
-                            available_devices.append(device)
-                        else:
-                            used_device_connection_dict[device] = applied_connection[
-                                'connection']['id']
-
-        if connection is None:
-            self.logger.debug('Connection %s is not available.', connection_id)
-        else:
-            # Try to activate the connection with a random available device.
-            success = False
-            devices_left = len(available_devices)
-            while not success and devices_left:
-                random_index = self.random.randint(0, devices_left - 1)
-                available_device = available_devices[random_index]
-                available_devices[random_index] = available_devices[devices_left - 1]
-                devices_left -= 1
-
-                # '/' means pick an access point automatically (if applicable).
-                self.NetworkManager.NetworkManager.ActivateConnection(
-                    connection, available_device, '/')
-                success = self._wait_for_connection(connection.GetSettings())
-
-            if not success:
-                # Try to activate the connection with a random available device.
-                used_devices = numpy.asarray(used_device_connection_dict.keys())
-                devices_left = len(used_devices)
-                while not success and devices_left:
-                    random_index = self.random.randint(0, devices_left - 1)
-                    used_device = used_devices[random_index]
-                    used_devices[random_index] = used_devices[devices_left - 1]
-                    devices_left -= 1
-
-                    # '/' means pick an access point automatically (if applicable).
-                    stolen_connection_ids.add(used_device_connection_dict[used_device])
-                    self.NetworkManager.NetworkManager.ActivateConnection(
-                        connection, used_device, '/')
-                    success = self._wait_for_connection(connection.GetSettings())
-
-        return success
 
     @reiterative
     def activate_connection_with_available_device(self, connection_id):
@@ -376,15 +284,6 @@ class NetworkManagerHelper(object):
             self.logger.warning('Could not find active connection %s.', connection_id)
         else:
             self.NetworkManager.NetworkManager.DeactivateConnection(active_connection)
-
-    @reiterative
-    def get_all_connection_ids(self):
-        """ TODO: """
-        connection_ids = []
-        for connection in self.NetworkManager.Settings.ListConnections():
-            connection_ids.append(connection.GetSettings()['connection']['id'])
-
-        return connection_ids
 
     @reiterative
     def get_connection_ip(self, connection_id):
@@ -451,6 +350,108 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
+
+    def _import_network_manager(self):
+        """ TODO: """
+        try:
+            import NetworkManager
+            NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
+            from NetworkManager import ObjectVanished
+            NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
+        except Exception as exception:
+            self.logger.error(
+                'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
+                'seconds. %s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
+            time.sleep(10)
+            try:
+                import NetworkManager
+                NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
+                from NetworkManager import ObjectVanished
+                NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
+            except Exception as exception2:
+                self.logger.error(
+                    'Failed again to import NetworkManager or ObjectVanished. Will retry '
+                    'one again in 30 seconds. %s: %s', type(exception2).__name__,
+                    str(exception2))
+                self.logger.error(traceback.format_exc())
+                time.sleep(30)
+                try:
+                    import NetworkManager
+                    NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
+                    from NetworkManager import ObjectVanished
+                    NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
+                except Exception as exception3:
+                    self.logger.error(
+                        'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
+                        'This probably means the NetworkManager daemon failed to start. '
+                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
+                    raise
+
+    @reiterative
+    def _reiterative_activate_connection_and_steal_device(self, connection_id, stolen_connection_ids,
+                                              excluded_connection_ids):
+        """ TODO: """
+        success = False
+
+        # Get a list of all devices this connection can be applied to.
+        available_devices = []
+        used_device_connection_dict = {}
+        connection = None
+        for device in self.NetworkManager.NetworkManager.GetDevices():
+            # See if the connection is already activated.
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
+                # The connection is already activated.
+                # I do hate multiple returns but this does seem the most Pythonic.
+                return self._wait_for_connection(applied_connection), []
+            elif excluded_connection_ids is None or applied_connection is None \
+                    or applied_connection['connection']['id'] not in excluded_connection_ids:
+                for available_connection in device.AvailableConnections:
+                    if available_connection.GetSettings()['connection']['id'] \
+                            == connection_id:
+                        connection = available_connection
+                        if not applied_connection:
+                            available_devices.append(device)
+                        else:
+                            used_device_connection_dict[device] = applied_connection[
+                                'connection']['id']
+
+        if connection is None:
+            self.logger.debug('Connection %s is not available.', connection_id)
+        else:
+            # Try to activate the connection with a random available device.
+            success = False
+            devices_left = len(available_devices)
+            while not success and devices_left:
+                random_index = self.random.randint(0, devices_left - 1)
+                available_device = available_devices[random_index]
+                available_devices[random_index] = available_devices[devices_left - 1]
+                devices_left -= 1
+
+                # '/' means pick an access point automatically (if applicable).
+                self.NetworkManager.NetworkManager.ActivateConnection(
+                    connection, available_device, '/')
+                success = self._wait_for_connection(connection.GetSettings())
+
+            if not success:
+                # Try to activate the connection with a random available device.
+                used_devices = numpy.asarray(used_device_connection_dict.keys())
+                devices_left = len(used_devices)
+                while not success and devices_left:
+                    random_index = self.random.randint(0, devices_left - 1)
+                    used_device = used_devices[random_index]
+                    used_devices[random_index] = used_devices[devices_left - 1]
+                    devices_left -= 1
+
+                    # '/' means pick an access point automatically (if applicable).
+                    stolen_connection_ids.add(used_device_connection_dict[used_device])
+                    self.NetworkManager.NetworkManager.ActivateConnection(
+                        connection, used_device, '/')
+                    success = self._wait_for_connection(connection.GetSettings())
+
+        return success
 
     def _get_applied_connection(self, device):
         """ TOOD: """

@@ -124,297 +124,6 @@ class NetCheck(object):
 
         self.logger.info('NetCheck initialized.')
 
-    def _dns_query(self, connection_id, nameserver, query_name):
-        """Attempts a DNS query for query_name on 'nameserver' via 'connection_id'.
-
-        connection_id: The name of the connection as displayed in NetworkManager.
-        nameserver: The IP address of the name server to use in the query.
-        query_name: The DNS name to query.
-        Returns True if successful, False otherwise.
-        """
-        # TODO: Use something more secure than unauthenticated plaintext DNS requests.
-        #   (issue 5)
-
-        self.logger.trace('Querying %s for %s on connection %s.', nameserver, query_name,
-                          connection_id)
-        success = False
-
-        interface_ip = self.network_helper.get_connection_ip(connection_id)
-
-        if interface_ip is not None:
-            self.resolver.nameservers = [nameserver]
-            try:
-                self.resolver.query(query_name, source=interface_ip)
-                success = True
-
-            except dns.resolver.Timeout as exception:
-                # Connection is probably deactivated.
-                self.logger.error(
-                    'DNS query for %s from nameserver %s on connection %s timed out. %s: '
-                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
-                    str(exception))
-
-            except dns.resolver.NXDOMAIN as exception:
-                # Could be either a config error or malicious DNS
-                self.logger.error(
-                    'DNS query for %s from nameserver %s on connection %s was successful,'
-                    ' but the provided domain was not found. %s: %s', query_name,
-                    nameserver, connection_id, type(exception).__name__, str(exception))
-
-            except dns.resolver.NoNameservers as exception:
-                # Probably a config error, but chosen DNS could be down or blocked.
-                self.logger.error(
-                    'Could not access nameserver %s on connection %s. %s: %s',
-                    nameserver, connection_id, type(exception).__name__, str(exception))
-
-            except Exception as exception:
-                # Something happened that is outside of Netcheck's scope.
-                self.logger.error(
-                    'Unexpected error querying %s from nameserver %s on connection %s. %s: '
-                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
-                    str(exception))
-
-        return success
-
-    def _dns_works(self, connection_id):
-        """Runs up to two DNS queries over the given connection using two random nameservers
-        for two random domains from the config file's list of DNS servers and domains.
-
-        connection_id: The name of the connection as displayed in NetworkManager.
-        Returns True if either DNS query succeeds.  False otherwise.
-        """
-
-        # Picks two exclusive-random choices from the nameserver and domain name lists.
-        nameservers = random.sample(self.config['nameservers'], 2)
-        query_names = random.sample(self.config['dns_queries'], 2)
-
-        dns_works = False
-
-        self.logger.trace(
-            '_dns_works: Attempting first DNS query for %s on connection %s '
-            'using name server %s.', query_names[0], connection_id, nameservers[0])
-        if self._dns_query(connection_id, nameservers[0], query_names[0]):
-            dns_works = True
-            self.logger.trace('_dns_works: First DNS query on connection %s successful.',
-                              connection_id)
-        else:
-            self.logger.debug(
-                '_dns_works: First DNS query for %s failed on connection %s using '
-                'name server %s. Attempting second query.', query_names[0], connection_id,
-                nameservers[0])
-            self.logger.trace(
-                '_dns_works: Attempting second DNS query for %s on connection %s '
-                'using name server %s.', query_names[1], connection_id, nameservers[1])
-            if self._dns_query(connection_id, nameservers[1], query_names[1]):
-                dns_works = True
-                self.logger.trace(
-                    '_dns_works: Second DNS query on connection %s successful.',
-                    connection_id)
-            else:
-                self.logger.debug(
-                    '_dns_works: Second DNS query for %s failed on connection %s using name '
-                    'server %s. Assuming connection is down.', query_names[1],
-                    connection_id, nameservers[1])
-
-        return dns_works
-
-    def _activate_with_free_device_and_check_dns(self, loop_time, connection_context):
-        """ TODO: Update.
-        Activates a connection and checks DNS availability if the activation was
-        successful.
-
-        connection_context: TODO: The name of the connection as displayed in NetworkManager.
-        Returns True on successful DNS lookup, False otherwise.
-        """
-
-        self.logger.trace('_activate_connection_and_check_dns: Attempting to activate and '
-                          'reach the Internet over connection %s.', connection_context['id'])
-
-        activation_successful = self.network_helper. \
-            activate_connection_with_available_device(connection_context['id'])
-        if not activation_successful:
-            self.logger.debug('_activate_connection_and_check_dns: Could not activate '
-                              'connection %s.', connection_context['id'])
-            connection_context['activated'] = False
-        else:
-            self.logger.trace('_activate_connection_and_check_dns: Connection %s activated.',
-                              connection_context['id'])
-            dns_successful = self._dns_works(connection_context['id'])
-            if not dns_successful:
-                self.logger.debug('_activate_connection_and_check_dns: DNS on connection %s '
-                                  'failed.', connection_context['id'])
-
-                connection_context['activated'] = False
-                deactivation_successful = self.network_helper. \
-                    deactivate_connection(connection_context['id'])
-
-            else:
-                self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
-                                  'successful.', connection_context['id'])
-                connection_context['activated'] = True
-                connection_context['last_check_time'] = loop_time
-                connection_context['next_check'] = self._calculate_periodic_check_time()
-                connection_context['failed_required_usage_check_time'] = None
-
-        return connection_context['activated']
-
-    def _steal_device_and_check_dns(self, loop_time, connection_context,
-                                    excluded_connection_ids=None):
-        """ TODO: Update.
-        Activates a connection and checks DNS availability if the activation was
-        successful.
-
-        connection_context: TODO: The name of the connection as displayed in NetworkManager.
-        excluded_connection_ids:
-        Returns True on successful DNS lookup, False otherwise.
-        """
-
-        self.logger.trace('_activate_connection_and_check_dns: Attempting to activate and '
-                          'reach the Internet over connection %s.', connection_context['id'])
-
-        activation_successful, deactivated_connection_ids = self.network_helper. \
-            activate_connection_and_steal_device(
-                connection_context['id'], excluded_connection_ids)
-
-        for deactivated_connection_id in deactivated_connection_ids:
-            self.connection_contexts[deactivated_connection_id]['activated'] = False
-
-        if not activation_successful:
-            self.logger.debug('_activate_connection_and_check_dns: Could not activate '
-                              'connection %s.', connection_context['id'])
-            connection_context['activated'] = False
-        else:
-            self.logger.trace('_activate_connection_and_check_dns: Connection %s activated.',
-                              connection_context['id'])
-            dns_successful = self._dns_works(connection_context['id'])
-            if not dns_successful:
-                self.logger.debug('_activate_connection_and_check_dns: DNS on connection %s '
-                                  'failed.', connection_context['id'])
-
-                connection_context['activated'] = False
-                self.network_helper.deactivate_connection(connection_context['id'])
-
-            else:
-                self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
-                                  'successful.', connection_context['id'])
-                connection_context['activated'] = True
-                connection_context['last_check_time'] = loop_time
-                connection_context['next_check'] = self._calculate_periodic_check_time()
-                connection_context['failed_required_usage_check_time'] = None
-
-        return connection_context['activated']
-
-    def _check_connection_and_check_dns(self, connection_context):
-        """Checks if a connection is active and if successful, checks DNS availability.
-
-        connection_context: TODO: The name of the connection as displayed in NetworkManager.
-        Returns True on successful DNS lookup, False otherwise.
-        """
-        self.logger.trace('_check_connection_and_check_dns: Attempting to reach the '
-                          'Internet over connection %s.', connection_context['id'])
-
-        overall_success = False
-        connection_active = self.network_helper.connection_is_activated(
-            connection_context['id'])
-        if not connection_active:
-            self.logger.debug(
-                '_check_connection_and_check_dns: Connection %s not activated.',
-                connection_context['id'])
-            connection_context['activated'] = False
-        else:
-            self.logger.trace('_check_connection_and_check_dns: Connection %s activated.',
-                              connection_context['id'])
-            dns_successful = self._dns_works(connection_context['id'])
-            if not dns_successful:
-                self.logger.debug(
-                    '_check_connection_and_check_dns: DNS on connection %s failed.',
-                    connection_context['id'])
-                connection_context['activated'] = False
-
-                self.network_helper.deactivate_connection(connection_context['id'])
-
-            else:
-                self.logger.trace(
-                    '_check_connection_and_check_dns: DNS on connection %s successful.',
-                    connection_context['id'])
-                overall_success = True
-
-        return overall_success
-
-    # TODO: Consider downloading a small file upon successful connection so we are sure
-    #   FreedomPop considers this connection used. (issue 11)
-    def _activate_required_usage_connections(self, loop_time):
-        """Activate the 'required usage' connections randomly between zero and a
-        user-specified number of days.  Recalculate the activation check interval for each
-        connection after every activation attempt.
-        """
-        self.logger.trace(
-            "_use_required_usage_connections: Determining if a 'required usage' connection "
-            'attempt should be made.')
-
-        for connection_id in self.connection_contexts:
-            connection_context = self.connection_contexts[connection_id]
-            if connection_context['is_required_usage_connection']:
-                if (not connection_context['failed_required_usage_check_time']
-                        or loop_time < connection_context[
-                            'failed_required_usage_check_time']) \
-                    and (not connection_context['next_required_usage_check']
-                         or loop_time < connection_context['last_check_time']
-                         + connection_context['next_required_usage_check']):
-                    self.logger.trace(
-                        "_use_required_usage_connections: Skipping 'required usage'"
-                        ' connection check for "%s" because it is not time yet.',
-                        connection_context['id'])
-                else:
-                    self.logger.debug("Trying to use 'required usage' connection "
-                                      '"%s".', connection_context['id'])
-
-                    connection_is_active = False
-                    if connection_context['activated']:
-                        connection_is_active = self._check_connection_and_check_dns(
-                            connection_context)
-
-                    if connection_is_active:
-                        self._update_required_check_time_on_success(
-                            connection_context)
-                    else:
-                        self.logger.debug("Trying to activate and use 'required usage' "
-                                          'connection "%s".', connection_context['id'])
-                        activation_successful = self._steal_device_and_check_dns(
-                            loop_time, connection_context)
-
-                        if activation_successful:
-                            self._update_required_check_time_on_success(
-                                connection_context)
-                        else:
-                            self._update_required_check_time_on_failure(
-                                loop_time, connection_context)
-
-    def _update_required_check_time_on_success(self, connection_context):
-        """Determine the next time the 'required usage' connection should be activated
-        after a successful use.
-
-        connection_context: TODO:
-        """
-        # Convert days to seconds.
-        delay_in_seconds = random.uniform(
-            0, self.config['required_usage_max_delay'] * 24 * 60 * 60)
-
-        connection_context['next_required_usage_check'] = datetime.timedelta(
-            seconds=delay_in_seconds)
-        self.logger.info(
-            'Used \'required usage\' connection "%s". Will try again after %f days of '
-            'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
-
-    def _update_required_check_time_on_failure(self, loop_time, connection_context):
-        """ TODO: """
-        connection_context['failed_required_usage_check_time'] = loop_time + \
-            datetime.timedelta(seconds=random.uniform(
-                0, self.config['required_usage_failed_retry_delay']))
-        self.logger.warning(
-            'Failed to use \'required usage\' connection "%s". Will try again on %s.',
-            connection_context['id'], connection_context['failed_required_usage_check_time'])
-
     # TODO: Put this at the begining fo the class and put internal methods in calling order.
     def start(self):
         """ TODO: """
@@ -438,14 +147,14 @@ class NetCheck(object):
         init_time = datetime.datetime.now()
 
         # Go through all required usage connections.
-        self._cycle_through_required_usage_connections(init_time)
+        self._on_start_cycle_through_required_usage_connections(init_time)
 
         # Connect back to connections in priority order.
-        self._activate_and_check_connections_in_priority_order(init_time)
+        self._on_start_activate_and_check_connections_in_priority_order(init_time)
 
         self._main_loop()
 
-    def _cycle_through_required_usage_connections(self, init_time):
+    def _on_start_cycle_through_required_usage_connections(self, init_time):
         """ TODO: """
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
@@ -468,7 +177,7 @@ class NetCheck(object):
                     self._update_required_check_time_on_failure(
                         init_time, connection_context)
 
-    def _activate_and_check_connections_in_priority_order(self, init_time):
+    def _on_start_activate_and_check_connections_in_priority_order(self, init_time):
         """ TODO: """
         for connection_id in self.config['connection_ids']:
             connection_context = self.connection_contexts[connection_id]
@@ -497,10 +206,6 @@ class NetCheck(object):
         else:
             self.logger.info('Initial connection state: Activated connections: "%s".',
                              '", "'.join(self.prior_connection_ids))
-
-    def _calculate_periodic_check_time(self):
-        return datetime.timedelta(seconds=random.uniform(
-            0, self.config['connection_periodic_check_time']))
 
     def _main_loop(self):
         """ TODO: Update:
@@ -584,6 +289,301 @@ class NetCheck(object):
                 self.logger.error(traceback.format_exc())
 
             time.sleep(.1)
+
+    # TODO: Consider downloading a small file upon successful connection so we are sure
+    #   FreedomPop considers this connection used. (issue 11)
+    def _activate_required_usage_connections(self, loop_time):
+        """Activate the 'required usage' connections randomly between zero and a
+        user-specified number of days.  Recalculate the activation check interval for each
+        connection after every activation attempt.
+        """
+        self.logger.trace(
+            "_use_required_usage_connections: Determining if a 'required usage' connection "
+            'attempt should be made.')
+
+        for connection_id in self.connection_contexts:
+            connection_context = self.connection_contexts[connection_id]
+            if connection_context['is_required_usage_connection']:
+                if (not connection_context['failed_required_usage_check_time']
+                        or loop_time < connection_context[
+                            'failed_required_usage_check_time']) \
+                    and (not connection_context['next_required_usage_check']
+                         or loop_time < connection_context['last_check_time']
+                         + connection_context['next_required_usage_check']):
+                    self.logger.trace(
+                        "_use_required_usage_connections: Skipping 'required usage'"
+                        ' connection check for "%s" because it is not time yet.',
+                        connection_context['id'])
+                else:
+                    self.logger.debug("Trying to use 'required usage' connection "
+                                      '"%s".', connection_context['id'])
+
+                    connection_is_active = False
+                    if connection_context['activated']:
+                        connection_is_active = self._check_connection_and_check_dns(
+                            connection_context)
+
+                    if connection_is_active:
+                        self._update_required_check_time_on_success(
+                            connection_context)
+                    else:
+                        self.logger.debug("Trying to activate and use 'required usage' "
+                                          'connection "%s".', connection_context['id'])
+                        activation_successful = self._steal_device_and_check_dns(
+                            loop_time, connection_context)
+
+                        if activation_successful:
+                            self._update_required_check_time_on_success(
+                                connection_context)
+                        else:
+                            self._update_required_check_time_on_failure(
+                                loop_time, connection_context)
+
+    def _update_required_check_time_on_success(self, connection_context):
+        """Determine the next time the 'required usage' connection should be activated
+        after a successful use.
+
+        connection_context: TODO:
+        """
+        # Convert days to seconds.
+        delay_in_seconds = random.uniform(
+            0, self.config['required_usage_max_delay'] * 24 * 60 * 60)
+
+        connection_context['next_required_usage_check'] = datetime.timedelta(
+            seconds=delay_in_seconds)
+        self.logger.info(
+            'Used \'required usage\' connection "%s". Will try again after %f days of '
+            'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
+
+    def _update_required_check_time_on_failure(self, loop_time, connection_context):
+        """ TODO: """
+        connection_context['failed_required_usage_check_time'] = loop_time + \
+            datetime.timedelta(seconds=random.uniform(
+                0, self.config['required_usage_failed_retry_delay']))
+        self.logger.warning(
+            'Failed to use \'required usage\' connection "%s". Will try again on %s.',
+            connection_context['id'], connection_context['failed_required_usage_check_time'])
+
+    def _steal_device_and_check_dns(self, loop_time, connection_context,
+                                    excluded_connection_ids=None):
+        """ TODO: Update.
+        Activates a connection and checks DNS availability if the activation was
+        successful.
+
+        connection_context: TODO: The name of the connection as displayed in NetworkManager.
+        excluded_connection_ids:
+        Returns True on successful DNS lookup, False otherwise.
+        """
+
+        self.logger.trace('_activate_connection_and_check_dns: Attempting to activate and '
+                          'reach the Internet over connection %s.', connection_context['id'])
+
+        activation_successful, deactivated_connection_ids = self.network_helper. \
+            activate_connection_and_steal_device(
+                connection_context['id'], excluded_connection_ids)
+
+        for deactivated_connection_id in deactivated_connection_ids:
+            self.connection_contexts[deactivated_connection_id]['activated'] = False
+
+        if not activation_successful:
+            self.logger.debug('_activate_connection_and_check_dns: Could not activate '
+                              'connection %s.', connection_context['id'])
+            connection_context['activated'] = False
+        else:
+            self.logger.trace('_activate_connection_and_check_dns: Connection %s activated.',
+                              connection_context['id'])
+            dns_successful = self._dns_works(connection_context['id'])
+            if not dns_successful:
+                self.logger.debug('_activate_connection_and_check_dns: DNS on connection %s '
+                                  'failed.', connection_context['id'])
+
+                connection_context['activated'] = False
+                self.network_helper.deactivate_connection(connection_context['id'])
+
+            else:
+                self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
+                                  'successful.', connection_context['id'])
+                connection_context['activated'] = True
+                connection_context['last_check_time'] = loop_time
+                connection_context['next_check'] = self._calculate_periodic_check_time()
+                connection_context['failed_required_usage_check_time'] = None
+
+        return connection_context['activated']
+
+    def _activate_with_free_device_and_check_dns(self, loop_time, connection_context):
+        """ TODO: Update.
+        Activates a connection and checks DNS availability if the activation was
+        successful.
+
+        connection_context: TODO: The name of the connection as displayed in NetworkManager.
+        Returns True on successful DNS lookup, False otherwise.
+        """
+
+        self.logger.trace('_activate_connection_and_check_dns: Attempting to activate and '
+                          'reach the Internet over connection %s.', connection_context['id'])
+
+        activation_successful = self.network_helper. \
+            activate_connection_with_available_device(connection_context['id'])
+        if not activation_successful:
+            self.logger.debug('_activate_connection_and_check_dns: Could not activate '
+                              'connection %s.', connection_context['id'])
+            connection_context['activated'] = False
+        else:
+            self.logger.trace('_activate_connection_and_check_dns: Connection %s activated.',
+                              connection_context['id'])
+            dns_successful = self._dns_works(connection_context['id'])
+            if not dns_successful:
+                self.logger.debug('_activate_connection_and_check_dns: DNS on connection %s '
+                                  'failed.', connection_context['id'])
+
+                connection_context['activated'] = False
+                deactivation_successful = self.network_helper. \
+                    deactivate_connection(connection_context['id'])
+
+            else:
+                self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
+                                  'successful.', connection_context['id'])
+                connection_context['activated'] = True
+                connection_context['last_check_time'] = loop_time
+                connection_context['next_check'] = self._calculate_periodic_check_time()
+                connection_context['failed_required_usage_check_time'] = None
+
+        return connection_context['activated']
+
+    def _check_connection_and_check_dns(self, connection_context):
+        """Checks if a connection is active and if successful, checks DNS availability.
+
+        connection_context: TODO: The name of the connection as displayed in NetworkManager.
+        Returns True on successful DNS lookup, False otherwise.
+        """
+        self.logger.trace('_check_connection_and_check_dns: Attempting to reach the '
+                          'Internet over connection %s.', connection_context['id'])
+
+        overall_success = False
+        connection_active = self.network_helper.connection_is_activated(
+            connection_context['id'])
+        if not connection_active:
+            self.logger.debug(
+                '_check_connection_and_check_dns: Connection %s not activated.',
+                connection_context['id'])
+            connection_context['activated'] = False
+        else:
+            self.logger.trace('_check_connection_and_check_dns: Connection %s activated.',
+                              connection_context['id'])
+            dns_successful = self._dns_works(connection_context['id'])
+            if not dns_successful:
+                self.logger.debug(
+                    '_check_connection_and_check_dns: DNS on connection %s failed.',
+                    connection_context['id'])
+                connection_context['activated'] = False
+
+                self.network_helper.deactivate_connection(connection_context['id'])
+
+            else:
+                self.logger.trace(
+                    '_check_connection_and_check_dns: DNS on connection %s successful.',
+                    connection_context['id'])
+                overall_success = True
+
+        return overall_success
+
+    def _dns_works(self, connection_id):
+        """Runs up to two DNS queries over the given connection using two random nameservers
+        for two random domains from the config file's list of DNS servers and domains.
+
+        connection_id: The name of the connection as displayed in NetworkManager.
+        Returns True if either DNS query succeeds.  False otherwise.
+        """
+
+        # Picks two exclusive-random choices from the nameserver and domain name lists.
+        nameservers = random.sample(self.config['nameservers'], 2)
+        query_names = random.sample(self.config['dns_queries'], 2)
+
+        dns_works = False
+
+        self.logger.trace(
+            '_dns_works: Attempting first DNS query for %s on connection %s '
+            'using name server %s.', query_names[0], connection_id, nameservers[0])
+        if self._dns_query(connection_id, nameservers[0], query_names[0]):
+            dns_works = True
+            self.logger.trace('_dns_works: First DNS query on connection %s successful.',
+                              connection_id)
+        else:
+            self.logger.debug(
+                '_dns_works: First DNS query for %s failed on connection %s using '
+                'name server %s. Attempting second query.', query_names[0], connection_id,
+                nameservers[0])
+            self.logger.trace(
+                '_dns_works: Attempting second DNS query for %s on connection %s '
+                'using name server %s.', query_names[1], connection_id, nameservers[1])
+            if self._dns_query(connection_id, nameservers[1], query_names[1]):
+                dns_works = True
+                self.logger.trace(
+                    '_dns_works: Second DNS query on connection %s successful.',
+                    connection_id)
+            else:
+                self.logger.debug(
+                    '_dns_works: Second DNS query for %s failed on connection %s using name '
+                    'server %s. Assuming connection is down.', query_names[1],
+                    connection_id, nameservers[1])
+
+        return dns_works
+
+    def _dns_query(self, connection_id, nameserver, query_name):
+        """Attempts a DNS query for query_name on 'nameserver' via 'connection_id'.
+
+        connection_id: The name of the connection as displayed in NetworkManager.
+        nameserver: The IP address of the name server to use in the query.
+        query_name: The DNS name to query.
+        Returns True if successful, False otherwise.
+        """
+        # TODO: Use something more secure than unauthenticated plaintext DNS requests.
+        #   (issue 5)
+
+        self.logger.trace('Querying %s for %s on connection %s.', nameserver, query_name,
+                          connection_id)
+        success = False
+
+        interface_ip = self.network_helper.get_connection_ip(connection_id)
+
+        if interface_ip is not None:
+            self.resolver.nameservers = [nameserver]
+            try:
+                self.resolver.query(query_name, source=interface_ip)
+                success = True
+
+            except dns.resolver.Timeout as exception:
+                # Connection is probably deactivated.
+                self.logger.error(
+                    'DNS query for %s from nameserver %s on connection %s timed out. %s: '
+                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
+                    str(exception))
+
+            except dns.resolver.NXDOMAIN as exception:
+                # Could be either a config error or malicious DNS
+                self.logger.error(
+                    'DNS query for %s from nameserver %s on connection %s was successful,'
+                    ' but the provided domain was not found. %s: %s', query_name,
+                    nameserver, connection_id, type(exception).__name__, str(exception))
+
+            except dns.resolver.NoNameservers as exception:
+                # Probably a config error, but chosen DNS could be down or blocked.
+                self.logger.error(
+                    'Could not access nameserver %s on connection %s. %s: %s',
+                    nameserver, connection_id, type(exception).__name__, str(exception))
+
+            except Exception as exception:
+                # Something happened that is outside of Netcheck's scope.
+                self.logger.error(
+                    'Unexpected error querying %s from nameserver %s on connection %s. %s: '
+                    '%s', query_name, nameserver, connection_id, type(exception).__name__,
+                    str(exception))
+
+        return success
+
+    def _calculate_periodic_check_time(self):
+        return datetime.timedelta(seconds=random.uniform(
+            0, self.config['connection_periodic_check_time']))
 
     def _calculate_available_connections_check_time(self, loop_time):
         """ TODO: """
