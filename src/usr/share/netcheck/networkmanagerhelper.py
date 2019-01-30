@@ -263,7 +263,7 @@ class NetworkManagerHelper(object):
                 devices_left -= 1
 
                 # '/' means pick an access point automatically (if applicable).
-                networkmanager_output = self.NetworkManager.NetworkManager.ActivateConnection(
+                self.NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
                 success = self._wait_for_connection(connection.GetSettings())
 
@@ -389,8 +389,8 @@ class NetworkManagerHelper(object):
                     raise
 
     @reiterative
-    def _reiterative_activate_connection_and_steal_device(self, connection_id, stolen_connection_ids,
-                                              excluded_connection_ids):
+    def _reiterative_activate_connection_and_steal_device(
+            self, connection_id, stolen_connection_ids, excluded_connection_ids):
         """ TODO: """
         success = False
 
@@ -422,34 +422,37 @@ class NetworkManagerHelper(object):
             self.logger.debug('Connection %s is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
-            success = False
-            devices_left = len(available_devices)
-            while not success and devices_left:
-                random_index = self.random.randint(0, devices_left - 1)
-                available_device = available_devices[random_index]
-                available_devices[random_index] = available_devices[devices_left - 1]
-                devices_left -= 1
-
-                # '/' means pick an access point automatically (if applicable).
-                self.NetworkManager.NetworkManager.ActivateConnection(
-                    connection, available_device, '/')
-                success = self._wait_for_connection(connection.GetSettings())
-
+            success = self._activate_with_random_devices(
+                connection=connection, devices=available_devices,
+                stolen_connection_ids=stolen_connection_ids,
+                used_device_connection_dict=used_device_connection_dict)
             if not success:
-                # Try to activate the connection with a random available device.
+                # Try to activate the connection with a random used device.
                 used_devices = numpy.asarray(used_device_connection_dict.keys())
-                devices_left = len(used_devices)
-                while not success and devices_left:
-                    random_index = self.random.randint(0, devices_left - 1)
-                    used_device = used_devices[random_index]
-                    used_devices[random_index] = used_devices[devices_left - 1]
-                    devices_left -= 1
+                success = self._activate_with_random_devices(
+                    connection=connection, devices=used_devices,
+                    stolen_connection_ids=stolen_connection_ids,
+                    used_device_connection_dict=used_device_connection_dict)
 
-                    # '/' means pick an access point automatically (if applicable).
-                    stolen_connection_ids.add(used_device_connection_dict[used_device])
-                    self.NetworkManager.NetworkManager.ActivateConnection(
-                        connection, used_device, '/')
-                    success = self._wait_for_connection(connection.GetSettings())
+        return success
+
+    def _activate_with_random_devices(
+            self, connection, devices, stolen_connection_ids, used_device_connection_dict):
+        """ TODO: """
+        success = False
+        devices_left = len(devices)
+        while not success and devices_left:
+            random_index = self.random.randint(0, devices_left - 1)
+            device = devices[random_index]
+            devices[random_index] = devices[devices_left - 1]
+            devices_left -= 1
+
+            if used_device_connection_dict[device]:
+                stolen_connection_ids.add(used_device_connection_dict[device])
+
+            # '/' means pick an access point automatically (if applicable).
+            self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
+            success = self._wait_for_connection(connection.GetSettings())
 
         return success
 

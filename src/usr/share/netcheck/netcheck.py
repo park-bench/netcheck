@@ -62,33 +62,7 @@ class NetCheck(object):
         self.next_log_time = self._calculate_next_log_time(datetime.datetime.now())
 
         # Verify each connection is known to NetworkManager.
-        # TODO: This retry logic should probably be removed when we move to systemd.
-        #   (issue 23)
-        nm_connection_set = None
-        try:
-            nm_connection_set = set(self.network_helper.get_all_connection_ids())
-        except Exception as exception:
-            self.logger.error(
-                'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
-                '%s: %s', type(exception).__name__, str(exception))
-            self.logger.error(traceback.format_exc())
-            time.sleep(10)
-            try:
-                nm_connection_set = set(self.network_helper.get_all_connection_ids())
-            except Exception as exception2:
-                self.logger.error(
-                    'Failed again to retrieve a list of all connection IDs. Will retry one '
-                    'last time in retry in 30 seconds. %s: %s', type(exception2).__name__,
-                    str(exception2))
-                self.logger.error(traceback.format_exc())
-                time.sleep(30)
-                try:
-                    nm_connection_set = set(self.network_helper.get_all_connection_ids())
-                except Exception as exception3:
-                    self.logger.error(
-                        'Failed 3 times to retrieve a list of all connection IDs. '
-                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
-                    raise
+        nm_connection_set = self._get_all_connection_ids_with_retries()
 
         known_connection_set = set(self.config['connection_ids'])
         missing_connections = known_connection_set - nm_connection_set
@@ -153,6 +127,38 @@ class NetCheck(object):
         self._on_start_activate_and_check_connections_in_priority_order(init_time)
 
         self._main_loop()
+
+    def _get_all_connection_ids_with_retries(self):
+        """ TODO: """
+        # TODO: This retry logic should probably be removed when we move to systemd.
+        #   (issue 23)
+        nm_connection_set = None
+        try:
+            nm_connection_set = set(self.network_helper.get_all_connection_ids())
+        except Exception as exception:
+            self.logger.error(
+                'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
+                '%s: %s', type(exception).__name__, str(exception))
+            self.logger.error(traceback.format_exc())
+            time.sleep(10)
+            try:
+                nm_connection_set = set(self.network_helper.get_all_connection_ids())
+            except Exception as exception2:
+                self.logger.error(
+                    'Failed again to retrieve a list of all connection IDs. Will retry one '
+                    'last time in retry in 30 seconds. %s: %s', type(exception2).__name__,
+                    str(exception2))
+                self.logger.error(traceback.format_exc())
+                time.sleep(30)
+                try:
+                    nm_connection_set = set(self.network_helper.get_all_connection_ids())
+                except Exception as exception3:
+                    self.logger.error(
+                        'Failed 3 times to retrieve a list of all connection IDs. '
+                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
+                    raise
+
+        return nm_connection_set
 
     def _on_start_cycle_through_required_usage_connections(self, init_time):
         """ TODO: """
@@ -222,56 +228,12 @@ class NetCheck(object):
 
                 # Periodically activates the main backup connection because the carrier
                 #   requires this.
-                # TODO: Eventually store the last required usage access times under var.
-                #   (issue 22)
                 self._activate_required_usage_connections(loop_time)
 
-                for connection_id in self.connection_contexts:
-                    try:
-                        connection_context = self.connection_contexts[connection_id]
-                        if connection_context['activated'] and \
-                                connection_context['last_check_time'] \
-                                + connection_context['next_check'] < loop_time:
+                self._periodically_check_that_connections_are_working(loop_time)
 
-                            connection_is_activated = self._check_connection_and_check_dns(
-                                connection_context)
-
-                            if connection_is_activated:
-                                self.logger.debug(
-                                    'check_loop: Connection %s still active.',
-                                    connection_id)
-                            else:
-                                self.logger.debug(
-                                    'check_loop: Connection %s is no longer active.',
-                                    connection_id)
-
-                    except Exception as exception:
-                        self.logger.error('Unexpected error while checking if connection is '
-                                          'active %s: %s\n',
-                                          type(exception).__name__, str(exception))
-                        self.logger.error(traceback.format_exc())
-
-                    connection_context['next_check'] = self._calculate_periodic_check_time()
-
-                current_connection_ids = []
-                for connection_id in self.connection_contexts:
-                    try:
-                        connection_context = self.connection_contexts[connection_id]
-                        if not self.network_helper.connection_is_activated(
-                                connection_context['id']):
-                            connection_context['activated'] = False
-                        elif not connection_context['activated']:
-                            self.network_helper.deactivate_connection(
-                                connection_context['id'])
-                        self._activate_with_free_device_and_check_dns(
-                            loop_time, connection_context)
-                        if connection_context['activated']:
-                            current_connection_ids.append(connection_context['id'])
-                    except Exception as exception:
-                        self.logger.error('Unexpected error while attepting to activate '
-                                          'free devices %s: %s\n',
-                                          type(exception).__name__, str(exception))
-                        self.logger.error(traceback.format_exc())
+                current_connection_ids = \
+                    self._fix_connection_statuses_and_activate_unused_connections(loop_time)
 
                 self._log_connections(
                     loop_time, self.prior_connection_ids, current_connection_ids)
@@ -288,10 +250,12 @@ class NetCheck(object):
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
+            # TODO: Check if this sleep time is appropriate.
             time.sleep(.1)
 
     # TODO: Consider downloading a small file upon successful connection so we are sure
     #   FreedomPop considers this connection used. (issue 11)
+    # TODO: Eventually store the last required usage access times under var. (issue 22)
     def _activate_required_usage_connections(self, loop_time):
         """Activate the 'required usage' connections randomly between zero and a
         user-specified number of days.  Recalculate the activation check interval for each
@@ -315,8 +279,8 @@ class NetCheck(object):
                         ' connection check for "%s" because it is not time yet.',
                         connection_context['id'])
                 else:
-                    self.logger.debug("Trying to use 'required usage' connection "
-                                      '"%s".', connection_context['id'])
+                    self.logger.debug("Trying to use 'required usage' connection \"%s\".",
+                                      connection_context['id'])
 
                     connection_is_active = False
                     if connection_context['activated']:
@@ -324,8 +288,7 @@ class NetCheck(object):
                             connection_context)
 
                     if connection_is_active:
-                        self._update_required_check_time_on_success(
-                            connection_context)
+                        self._update_required_check_time_on_success(connection_context)
                     else:
                         self.logger.debug("Trying to activate and use 'required usage' "
                                           'connection "%s".', connection_context['id'])
@@ -333,8 +296,7 @@ class NetCheck(object):
                             loop_time, connection_context)
 
                         if activation_successful:
-                            self._update_required_check_time_on_success(
-                                connection_context)
+                            self._update_required_check_time_on_success(connection_context)
                         else:
                             self._update_required_check_time_on_failure(
                                 loop_time, connection_context)
@@ -363,6 +325,52 @@ class NetCheck(object):
         self.logger.warning(
             'Failed to use \'required usage\' connection "%s". Will try again on %s.',
             connection_context['id'], connection_context['failed_required_usage_check_time'])
+
+    def _periodically_check_that_connections_are_working(self, loop_time):
+        """ TODO: """
+        for connection_id in self.connection_contexts:
+            try:
+                connection_context = self.connection_contexts[connection_id]
+                if connection_context['activated'] and \
+                        connection_context['last_check_time'] \
+                        + connection_context['next_check'] < loop_time:
+
+                    connection_is_activated = self._check_connection_and_check_dns(
+                        connection_context)
+
+                    if connection_is_activated:
+                        self.logger.debug(
+                            'check_loop: Connection %s still active.', connection_id)
+                    else:
+                        self.logger.debug(
+                            'check_loop: Connection %s is no longer active.', connection_id)
+
+            except Exception as exception:
+                self.logger.error('Unexpected error while checking if connection is active '
+                                  '%s: %s\n', type(exception).__name__, str(exception))
+                self.logger.error(traceback.format_exc())
+
+            connection_context['next_check'] = self._calculate_periodic_check_time()
+
+    def _fix_connection_statuses_and_activate_unused_connections(self, loop_time):
+        current_connection_ids = []
+        for connection_id in self.connection_contexts:
+            try:
+                connection_context = self.connection_contexts[connection_id]
+                if not self.network_helper.connection_is_activated(connection_context['id']):
+                    connection_context['activated'] = False
+                elif not connection_context['activated']:
+                    self.network_helper.deactivate_connection(connection_context['id'])
+                self._activate_with_free_device_and_check_dns(loop_time, connection_context)
+                if connection_context['activated']:
+                    current_connection_ids.append(connection_context['id'])
+            except Exception as exception:
+                self.logger.error('Unexpected error while attepting to activate '
+                                  'free devices %s: %s\n',
+                                  type(exception).__name__, str(exception))
+                self.logger.error(traceback.format_exc())
+
+        return current_connection_ids
 
     def _steal_device_and_check_dns(self, loop_time, connection_context,
                                     excluded_connection_ids=None):
@@ -437,8 +445,7 @@ class NetCheck(object):
                                   'failed.', connection_context['id'])
 
                 connection_context['activated'] = False
-                deactivation_successful = self.network_helper. \
-                    deactivate_connection(connection_context['id'])
+                self.network_helper.deactivate_connection(connection_context['id'])
 
             else:
                 self.logger.trace('_activate_connection_and_check_dns: DNS on connection %s '
