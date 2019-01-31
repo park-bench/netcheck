@@ -1,4 +1,4 @@
-# Copyright 2015-2018 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2019 Joel Allen Luellwitz and Andrew Klapp
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,9 +33,7 @@ import numpy
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
 SERVICE_UNKNOWN_MAX_ATTEMPTS = 3
-# TODO: Combine unknown method and object vanished attempts.
-UNKNOWN_METHOD_MAX_ATTEMPTS = 3
-OBJECT_VANISHED_MAX_ATTEMPTS = 3
+VANISHED_SYMBOL_MAX_ATTEMPTS = 3
 
 NETWORKMANAGER_ACTIVATION_CHECK_DELAY = 0.1
 
@@ -51,12 +49,11 @@ UNKNOWN_METHOD_PATTERN = re.compile(
 
 def reiterative(method):
     """ TODO: """
-    def wrapped_method(self, *args, **kwargs):
+    def passthrough_on_reentry(self, *args, **kwargs):
         """ TODO: """
         stack_trace = traceback.extract_stack()
         current_frame = stack_trace[-1]
         in_decorator = False
-        method_start_time = datetime.datetime.now()
         for frame in stack_trace[:-1]:
             if frame[0] == current_frame[0] and frame[3] == current_frame[3]:
                 in_decorator = True
@@ -65,66 +62,71 @@ def reiterative(method):
         if in_decorator:
             return_value = method(self, *args, **kwargs)
         else:
-            delay_from_service_unknown = 0
-            service_unknown_count = 0
-            unknown_method_count = 0
-            object_vanished_count = 0
-            finished = False
-            while not finished:
-                try:
-                    return_value = method(self, *args, **kwargs)
-                    finished = True
-                except DBusException as exception:
-                    if SERVICE_UNKNOWN_PATTERN.match(str(exception)):
-                        if service_unknown_count == 0:
-                            self.logger.warning(
-                                'ServiceUnknown exception detected. NetworkManager might be '
-                                'restarting. Will retry for %s seconds. %s: %s',
-                                SERVICE_UNKNOWN_MAX_DELAY, type(exception).__name__,
-                                str(exception))
-
-                        service_unknown_count += 1
-                        NetworkManagerHelper.NetworkManager.SignalDispatcher.handle_restart(
-                            'org.freedesktop.NetworkManager', 'please', 'work')
-                        new_method_start_time = datetime.datetime.now()
-                        delay_since_last_attempt = (
-                            new_method_start_time - method_start_time).total_seconds()
-                        delay_from_service_unknown += delay_since_last_attempt
-                        method_start_time = new_method_start_time
-                        if service_unknown_count < SERVICE_UNKNOWN_MAX_ATTEMPTS \
-                                or delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
-                            time.sleep(max(.1 - delay_since_last_attempt, 0))
-                        else:
-                            self.logger.error(
-                                'Service unknown after %d attempts and %f seconds. %s: %s',
-                                service_unknown_count, delay_from_service_unknown,
-                                type(exception).__name__, str(exception))
-                            raise
-
-                    elif UNKNOWN_METHOD_PATTERN.match(str(exception)):
-                        unknown_method_count += 1
-                        if unknown_method_count >= UNKNOWN_METHOD_MAX_ATTEMPTS:
-                            self.logger.error(
-                                'Method was unknown after %d attempts. %s: %s',
-                                unknown_method_count, type(exception).__name__,
-                                str(exception))
-                            raise
-                    else:
-                        raise
-
-                except NetworkManagerHelper.ObjectVanished as exception:
-                    object_vanished_count += 1
-
-                    if object_vanished_count >= OBJECT_VANISHED_MAX_ATTEMPTS:
-                        self.logger.error(
-                            'Object vanished after %d attempts. %s: %s',
-                            object_vanished_count, type(exception).__name__,
-                            str(exception))
-                        raise
+            return_value = _retry_on_exceptions(self, *args, **kwargs)
 
         return return_value
 
-    return wrapped_method
+    def _retry_on_exceptions(self, *args, **kwargs):
+        """ TODO: """
+        method_start_time = datetime.datetime.now()
+        delay_from_service_unknown = 0
+        service_unknown_count = 0
+        vanished_symbol_count = 0
+        finished = False
+        return_value = None
+        while not finished:
+            try:
+                return_value = method(self, *args, **kwargs)
+                finished = True
+            except DBusException as exception:
+                if SERVICE_UNKNOWN_PATTERN.match(str(exception)):
+                    if service_unknown_count == 0:
+                        self.logger.warning(
+                            'ServiceUnknown exception detected. NetworkManager might be '
+                            'restarting. Will retry for %s seconds. %s: %s',
+                            SERVICE_UNKNOWN_MAX_DELAY, type(exception).__name__,
+                            str(exception))
+
+                    service_unknown_count += 1
+                    NetworkManagerHelper.NetworkManager.SignalDispatcher.handle_restart(
+                        'org.freedesktop.NetworkManager', 'please', 'work')
+                    new_method_start_time = datetime.datetime.now()
+                    delay_since_last_attempt = (
+                        new_method_start_time - method_start_time).total_seconds()
+                    delay_from_service_unknown += delay_since_last_attempt
+                    method_start_time = new_method_start_time
+                    if service_unknown_count < SERVICE_UNKNOWN_MAX_ATTEMPTS \
+                            or delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
+                        time.sleep(max(.1 - delay_since_last_attempt, 0))
+                    else:
+                        self.logger.error(
+                            'Service unknown after %d attempts and %f seconds. %s: %s',
+                            service_unknown_count, delay_from_service_unknown,
+                            type(exception).__name__, str(exception))
+                        raise
+
+                elif UNKNOWN_METHOD_PATTERN.match(str(exception)):
+                    vanished_symbol_count += 1
+                    if vanished_symbol_count >= VANISHED_SYMBOL_MAX_ATTEMPTS:
+                        self.logger.error(
+                            'Method was unknown after %d retry attempts. %s: %s',
+                            vanished_symbol_count, type(exception).__name__,
+                            str(exception))
+                        raise
+                else:
+                    raise
+
+            except NetworkManagerHelper.ObjectVanished as exception:
+                vanished_symbol_count += 1
+                if vanished_symbol_count >= VANISHED_SYMBOL_MAX_ATTEMPTS:
+                    self.logger.error(
+                        'Object vanished after %d retry attempts. %s: %s',
+                        vanished_symbol_count, type(exception).__name__, str(exception))
+                    raise
+
+        return return_value
+
+    return passthrough_on_reentry
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
