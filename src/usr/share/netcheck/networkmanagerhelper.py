@@ -48,7 +48,21 @@ UNKNOWN_METHOD_PATTERN = re.compile(
     r"'org.freedesktop.DBus.Properties' on object at path ")
 
 def reiterative(method):
-    """ TODO: """
+    """Repeatedly retries a method if it throws certain types of exceptions. Specifically,
+    will retry if it is detected that NetworkManager is not running or if a NetworkManager
+    method or property is temporarily not available. If NetworkManger is not running, this
+    decorator will retry the method until a specified period of time has elapsed AND a
+    minimum number of attempts have been made. (Waiting for NetworkManager to restart.) For
+    missing NetworkManager methods or properties, this decorator will retry the method until
+    a minimum number of attempts have been made. (Waiting for method or property to
+    reappear.) When this decorator stops retrying a method and the last invocation fails,
+    this decorator allows the last exception raised to pass through to the caller.
+
+    The retry mechanism is only applied on the first instance of this decorator on the call
+    stack. Subsequent instances simply pass through to the called method.
+
+    method: A reference to the method being decorated.
+    """
     def passthrough_on_reentry(self, *args, **kwargs):
         """ TODO: """
         stack_trace = traceback.extract_stack()
@@ -67,7 +81,13 @@ def reiterative(method):
         return return_value
 
     def _retry_on_exceptions(self, *args, **kwargs):
-        """ TODO: """
+        """Repeatedly retries 'method' if it throws certain types of exceptions. See the
+        decorator documentation for specific behavior.
+
+        self: A reference to a class instance (the object).
+        args: A tuple of the method's positional arguments.
+        kwargs: A dictionary of the method's keyword arguments.
+        """
         method_start_time = datetime.datetime.now()
         delay_from_service_unknown = 0
         service_unknown_count = 0
