@@ -64,7 +64,13 @@ def reiterative(method):
     method: A reference to the method being decorated.
     """
     def passthrough_on_reentry(self, *args, **kwargs):
-        """ TODO: """
+        """Ensures this decorator is only applied on the first instance of this decorator on
+        the call stack. Subsequent instances simply pass through to the called method.
+
+        self: A reference to a class instance (the object).
+        args: A tuple of the method's positional arguments.
+        kwargs: A dictionary of the method's keyword arguments.
+        """
         stack_trace = traceback.extract_stack()
         current_frame = stack_trace[-1]
         in_decorator = False
@@ -150,16 +156,16 @@ def reiterative(method):
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
-    D-Bus API.
+    D-Bus API. All methods will retry for a bit when encounting exceptions that the
+    NetworkManager API frequently throws.
     """
-    # TODO: Remove this non-sense once we implement propper logging. (Yes, this is all to
-    #   support our logger as an instance variable.) (gpgmailer issue 18)
+    # TODO: Eventually remove this non-sense once we implement propper logging. (Yes, this is
+    #   all to support our logger as an instance variable.) (gpgmailer issue 18)
     NetworkManager = None
     ObjectVanished = None
 
     def __init__(self, config):
-        """Initializes the module by storing references to device objects and assembling a
-        dict of connection IDs.
+        """Constructor.
 
         config: The configuration dictionary constructed during program initialization.
         """
@@ -174,7 +180,7 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def get_all_connection_ids(self):
-        """ TODO: """
+        """Returns all connection IDs known to NetworkManager."""
         connection_ids = []
         for connection in self.NetworkManager.Settings.ListConnections():
             connection_ids.append(connection.GetSettings()['connection']['id'])
@@ -183,7 +189,9 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def update_available_connections(self):
-        """ TODO: """
+        """Updates the list of connections that NetworkManager can activate. Currently,
+        this is implemented by doing a WiFi scan.
+        """
         for device in self.NetworkManager.NetworkManager.GetDevices():
             if hasattr(device.SpecificDevice(), "RequestScan") and callable(
                     device.SpecificDevice().RequestScan):
@@ -197,9 +205,15 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def activate_connections_quickly(self, connection_ids):
-        """ TODO: 
-        Remember, the big difference here is we aren't waiting to see if the connection
-        succeeded.
+        """Activates a list of connections in order without waiting to see if each activation
+        was successful (obtains an IP address in the subnet of the gateway). The method
+        returns once an activation attempt has been made with each network device or when
+        there are no more connection IDs left to process. This method is intended to be used
+        when the program first starts to ensure access to the Internet is established as
+        quickly as possible.
+
+        connection_ids: A list of NetworkManager connection IDs to activate in preferred
+          order.
         """
 
         # Create a connection to device multi-map.
@@ -224,17 +238,26 @@ class NetworkManagerHelper(object):
             connection_devices = numpy.asarray(connection_devices_dict[connection])
             for used_device in used_devices:
                 connection_devices.remove(used_device)
-            device = connection_devices[self.random.randint(0, len(connection_devices) - 1)]
+            if connection_devices:
+                device = connection_devices[self.random.randint(
+                    0, len(connection_devices) - 1)]
 
-            # '/' means pick an access point automatically (if applicable).
-            self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
+                # '/' means pick an access point automatically (if applicable).
+                self.NetworkManager.NetworkManager.ActivateConnection(
+                    connection, device, '/')
 
-            used_devices.append(device)
+                used_devices.append(device)
 
-    # Note: A helper method is reiterative.
+    # Note: A helper method is reiterative instead.
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
-        """ TODO:
+        """Activates a specific connection, stealing network devices from other connections
+        if no network device is available. An activation is only considered successful if it
+        is assigned an IP that is associated with a gateway.
+
+        connection_id: The displayed name of the connection in NetworkManager to activate.
+        excluded_connection_ids: A list of NetworkManager connection IDs that the specified
+          connection cannot steal a network device from.
         Returns a tuple. The first value is either true or false indicating whether the
           connection was successful. The second value is a String indicating which connection
           was stolen. None is returned for the second value if no connection was stolen.
@@ -246,9 +269,11 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def activate_connection_with_available_device(self, connection_id):
-        """Tells NetworkManager to activate a connection with the supplied connection ID.
+        """Activates a specific connection if an associated network device is available. If
+        more than one network device is available, one is randomly chosen. An activation is
+        only considered successful if it is assigned an IP that is associated with a gateway.
 
-        connection_id: The displayed name of the connection in NetworkManager.
+        connection_id: The displayed name of the connection in NetworkManager to activate.
         Returns True if the connection is activated, False otherwise.
         """
         success = False
@@ -293,7 +318,10 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def deactivate_connection(self, connection_id):
-        """ TODO: """
+        """Deactivates the specified connection.
+
+        connection_id: The displayed name of the connection in NetworkManager to deactivate.
+        """
         active_connection = None
         for device in self.NetworkManager.NetworkManager.GetDevices():
             # See if the connection is already activated.
@@ -310,10 +338,10 @@ class NetworkManagerHelper(object):
     @reiterative
     def get_connection_ip(self, connection_id):
         """Attempts to retrieve the IP address associated with the given connection's
-        gateway.  If the IP address is unable to be retrieved, None is returned.
+        gateway. If the IP address is unable to be retrieved, None is returned.
 
         connection_id: The displayed name of the connection in NetworkManager.
-        Returns the IP address as a string if it can be retrieved.  Returns None otherwise.
+        Returns the IP address as a string if it can be retrieved. Returns None otherwise.
         """
 
         # TODO: Add IPv6 support. (issue 19)
@@ -358,7 +386,7 @@ class NetworkManagerHelper(object):
 
     @reiterative
     def connection_is_activated(self, connection_id):
-        """Check whether the connection with the given connection ID is activated.
+        """Checks whether the connection with the given connection ID is activated.
 
         connection_id: The displayed name of the connection in NetworkManager.
         Returns True if the connection is activated, False otherwise.
@@ -373,8 +401,11 @@ class NetworkManagerHelper(object):
 
         return connection_is_activated
 
+    # TODO: Remove this method after we move to systemd. (issue 23)
     def _import_network_manager(self):
-        """ TODO: """
+        """Imports the NetworkManager module and related modules with retry support. Retry
+        support was added in case NetworkManager is restarting when this program starts.
+        """
         try:
             import NetworkManager
             NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
@@ -413,7 +444,17 @@ class NetworkManagerHelper(object):
     @reiterative
     def _reiterative_activate_connection_and_steal_device(
             self, connection_id, stolen_connection_ids, excluded_connection_ids):
-        """ TODO: """
+        """Helper method that performs most of the functionality of
+        activate_connection_and_steal_device. See activate_connection_and_steal_device for a
+        general description.
+
+        connection_id: The displayed name of the connection in NetworkManager to activate.
+        stolen_connection_ids: A list of NetworkManager connection IDs that network devices
+          were stolen from. This parameter is used to return information to the caller.
+        excluded_connection_ids: A list of NetworkManager connection IDs that the specified
+          connection cannot steal a network device from.
+        Returns True if the connection is activated, False otherwise.
+        """
         success = False
 
         # Get a list of all devices this connection can be applied to.
@@ -460,7 +501,17 @@ class NetworkManagerHelper(object):
 
     def _activate_with_random_devices(
             self, connection, devices, stolen_connection_ids, used_device_connection_dict):
-        """ TODO: """
+        """Activates a connection with a random device until successful or there are no
+        more devices left.
+
+        connection: A NetworkManager API object representing a connection settings profile.
+        devices: A list of NetworkManager API objects representing devices that can be
+          activated with the connection.
+        stolen_connection_ids: A list of NetworkManager connection IDs that network devices
+          were stolen from. This parameter is used to return information to the caller.
+        used_device_connection_dict: A mapping of NetworkManager devices to connection IDs
+          representing which connection is associated with an active device.
+        """
         success = False
         devices_left = len(devices)
         while not success and devices_left:
