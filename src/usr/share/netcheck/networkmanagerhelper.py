@@ -206,11 +206,11 @@ class NetworkManagerHelper(object):
     @reiterative
     def activate_connections_quickly(self, connection_ids):
         """Activates a list of connections in order without waiting to see if each activation
-        was successful (obtains an IP address in the subnet of the gateway). The method
-        returns once an activation attempt has been made with each network device or when
-        there are no more connection IDs left to process. This method is intended to be used
-        when the program first starts to ensure access to the Internet is established as
-        quickly as possible.
+        was successful (obtains an IP address in the subnet of a gateway). The method returns
+        once an activation attempt has been made with each network device or when there are
+        no more connection IDs left to process. This method is intended to be used when the
+        program first starts to ensure access to the Internet is established as quickly as
+        possible.
 
         connection_ids: A list of NetworkManager connection IDs to activate in preferred
           order.
@@ -288,7 +288,7 @@ class NetworkManagerHelper(object):
                     and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_connection(applied_connection)
+                return self._wait_for_gateway_ip(applied_connection)
             elif not applied_connection \
                     or applied_connection['connection']['id'] not in self.connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -312,7 +312,7 @@ class NetworkManagerHelper(object):
                 # '/' means pick an access point automatically (if applicable).
                 self.NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
-                success = self._wait_for_connection(connection.GetSettings())
+                success = self._wait_for_gateway_ip(connection.GetSettings())
 
         return success
 
@@ -394,7 +394,7 @@ class NetworkManagerHelper(object):
 
         connection_is_activated = False
 
-        connection_state = self._get_connection_state(connection_id)
+        connection_state = self._get_connection_activation_state(connection_id)
 
         if connection_state is NM_CONNECTION_ACTIVATED:
             connection_is_activated = True
@@ -468,7 +468,7 @@ class NetworkManagerHelper(object):
                     and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_connection(applied_connection), []
+                return self._wait_for_gateway_ip(applied_connection), []
             elif excluded_connection_ids is None or applied_connection is None \
                     or applied_connection['connection']['id'] not in excluded_connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -525,12 +525,17 @@ class NetworkManagerHelper(object):
 
             # '/' means pick an access point automatically (if applicable).
             self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
-            success = self._wait_for_connection(connection.GetSettings())
+            success = self._wait_for_gateway_ip(connection.GetSettings())
 
         return success
 
     def _get_applied_connection(self, device):
-        """ TOOD: """
+        """Returns the NetworkManager.Connection that is currently 'applied' to the supplied
+        network device.
+
+        device: A NetworkManager API object representing a device.
+        Returns the applied connection or None if the device has no applied connection.
+        """
         applied_connection = None
         if device.State == self.NetworkManager.NM_DEVICE_STATE_ACTIVATED:
             try:
@@ -544,12 +549,14 @@ class NetworkManagerHelper(object):
 
         return applied_connection
 
-    def _wait_for_connection(self, connection):
-        """Wait for the configured number of seconds for the specified active connection to
-        finish activation.
+    def _wait_for_gateway_ip(self, connection):
+        """Wait for the configured number of seconds for the supplied connection to obtain an
+        IP that is associated with a gatway.
 
-        connection: The NetworkManager.Connection object to watch for connectivity.
-        Return True if the connection is activated, False otherwise.
+        connection: A NetworkManager.Connection object that is expected to be assigned an
+          Internet accessible IP.
+        Returns True if the connection is assigned an IP that is associated with a gateway.
+          False otherwise.
         """
         success = False
         give_up = False
@@ -559,7 +566,7 @@ class NetworkManagerHelper(object):
         self.logger.debug('Waiting for connection %s...', connection_id)
         while not success and not give_up:
 
-            connection_state = self._get_connection_state(connection_id)
+            connection_state = self._get_connection_activation_state(connection_id)
             connection_ip = self.get_connection_ip(connection_id)
 
             if connection_ip:
@@ -582,12 +589,12 @@ class NetworkManagerHelper(object):
 
         return success
 
-    def _get_connection_state(self, connection_id):
-        """Reads the current state of the connection identified by the connection ID.
+    def _get_connection_activation_state(self, connection_id):
+        """Reads the activation state of the connection identified by connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-        Returns a constant representing the current connection state.  Possible values are:
-          NM_CONNECTION_ACTIVATING, NM_CONNECTION_ACTIVATED, and NM_CONNECTION_DISCONNECTED
+        Returns a constant representing the current connection state. Possible values are:
+          NM_CONNECTION_ACTIVATING, NM_CONNECTION_ACTIVATED, and NM_CONNECTION_DISCONNECTED.
         """
         state = NM_CONNECTION_DISCONNECTED
 
@@ -615,7 +622,7 @@ class NetworkManagerHelper(object):
         """Finds the active connection object for a given connection ID.
 
         connection_id: The displayed name of the connection in NetworkManager.
-        Returns a NetworkManager.ActiveConnection object.  If no matching object exists, None
+        Returns a NetworkManager.ActiveConnection object. If no matching object exists, None
           is returned.
         """
         matched_active_connection = None
