@@ -87,8 +87,8 @@ class NetCheck(object):
             connection_context['next_check'] = None
             connection_context['last_check_time'] = None
             connection_context['is_required_usage_connection'] = False
-            connection_context['next_required_usage_check'] = None
-            connection_context['failed_required_usage_check_time'] = None
+            connection_context['next_required_usage_activation'] = None
+            connection_context['failed_required_usage_activation_time'] = None
             self.connection_contexts[connection_id] = connection_context
 
         for connection_id in required_usage_connection_set:
@@ -194,10 +194,10 @@ class NetCheck(object):
                         type(exception).__name__, str(exception))
                     self.logger.error(traceback.format_exc())
                 if activation_successful:
-                    self._update_required_check_time_on_success(
+                    self._update_required_activation_time_on_success(
                         connection_context)
                 else:
-                    self._update_required_check_time_on_failure(
+                    self._update_required_activation_time_on_failure(
                         start_time, connection_context)
 
     def _on_start_activate_and_check_connections_in_priority_order(self, start_time):
@@ -240,10 +240,10 @@ class NetCheck(object):
         periodically checks to make sure connections can still access the Internet, activates
         connections if network devices are avaiable, and scans for available connections.
         """
-        self.logger.info('Check loop starting.')
+        self.logger.info('Main loop starting.')
 
         while True:
-            self.logger.debug('check_loop: Check loop iteration starting.')
+            self.logger.debug('_main_loop: Main loop iteration starting.')
             try:
                 loop_time = datetime.datetime.now()
 
@@ -292,15 +292,15 @@ class NetCheck(object):
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
-                if (not connection_context['failed_required_usage_check_time']
+                if (not connection_context['failed_required_usage_activation_time']
                         or loop_time < connection_context[
-                            'failed_required_usage_check_time']) \
-                    and (not connection_context['next_required_usage_check']
+                            'failed_required_usage_activation_time']) \
+                    and (not connection_context['next_required_usage_activation']
                          or loop_time < connection_context['last_check_time']
-                         + connection_context['next_required_usage_check']):
+                         + connection_context['next_required_usage_activation']):
                     self.logger.trace(
                         "_use_required_usage_connections: Skipping 'required usage'"
-                        ' connection check for "%s" because it is not time yet.',
+                        ' connection activation for "%s" because it is not time yet.',
                         connection_context['id'])
                 else:
                     self.logger.debug("Trying to use 'required usage' connection \"%s\".",
@@ -312,7 +312,7 @@ class NetCheck(object):
                             connection_context)
 
                     if connection_is_active:
-                        self._update_required_check_time_on_success(connection_context)
+                        self._update_required_activation_time_on_success(connection_context)
                     else:
                         self.logger.debug("Trying to activate and use 'required usage' "
                                           'connection "%s".', connection_context['id'])
@@ -320,44 +320,46 @@ class NetCheck(object):
                             loop_time, connection_context)
 
                         if activation_successful:
-                            self._update_required_check_time_on_success(connection_context)
+                            self._update_required_activation_time_on_success(
+                                connection_context)
                         else:
-                            self._update_required_check_time_on_failure(
+                            self._update_required_activation_time_on_failure(
                                 loop_time, connection_context)
 
-    def _update_required_check_time_on_success(self, connection_context):
+    def _update_required_activation_time_on_success(self, connection_context):
         """Determines the next activation delay of a 'required usage' connection. The delay
         is only applied once the connection is no longer active.
 
         connection_context: Contains stateful information for a connection. Used to store the
-          delay of the next required usage check.
+          delay of the next required usage activation.
         """
         # Convert days to seconds.
         delay_in_seconds = random.uniform(
             0, self.config['required_usage_max_delay'] * 24 * 60 * 60)
 
-        connection_context['next_required_usage_check'] = datetime.timedelta(
+        connection_context['next_required_usage_activation'] = datetime.timedelta(
             seconds=delay_in_seconds)
         self.logger.info(
             'Used \'required usage\' connection "%s". Will try again after %f days of '
             'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
 
-    def _update_required_check_time_on_failure(self, loop_time, connection_context):
+    def _update_required_activation_time_on_failure(self, loop_time, connection_context):
         """Determines the time of the next 'required usage' activation following a required
         usage activation failure. The calculated time is disregarded if a successful
         activation occurs.
 
         loop_time: The datetime representing when the current program loop began.
         connection_context: Contains stateful information for a connection. Used to store the
-          time of the next required usage check following a required usage activation
+          time of the next required usage activation following a required usage activation
           failure.
         """
-        connection_context['failed_required_usage_check_time'] = loop_time + \
+        connection_context['failed_required_usage_activation_time'] = loop_time + \
             datetime.timedelta(seconds=random.uniform(
                 0, self.config['required_usage_failed_retry_delay']))
         self.logger.warning(
             'Failed to use \'required usage\' connection "%s". Will try again on %s.',
-            connection_context['id'], connection_context['failed_required_usage_check_time'])
+            connection_context['id'],
+            connection_context['failed_required_usage_activation_time'])
 
     def _periodically_check_that_connections_are_working(self, loop_time):
         """ TODO: """
@@ -373,10 +375,12 @@ class NetCheck(object):
 
                     if connection_is_activated:
                         self.logger.debug(
-                            'check_loop: Connection %s still active.', connection_id)
+                            '_periodically_check_that_connections_are_working: '
+                            'Connection %s still active.', connection_id)
                     else:
                         self.logger.debug(
-                            'check_loop: Connection %s is no longer active.', connection_id)
+                            '_periodically_check_that_connections_are_working: '
+                            'Connection %s is no longer active.', connection_id)
 
             except Exception as exception:
                 self.logger.error('Unexpected error while checking if connection is active '
@@ -448,7 +452,7 @@ class NetCheck(object):
                 connection_context['activated'] = True
                 connection_context['last_check_time'] = loop_time
                 connection_context['next_check'] = self._calculate_periodic_check_time()
-                connection_context['failed_required_usage_check_time'] = None
+                connection_context['failed_required_usage_activation_time'] = None
 
         return connection_context['activated']
 
@@ -487,7 +491,7 @@ class NetCheck(object):
                 connection_context['activated'] = True
                 connection_context['last_check_time'] = loop_time
                 connection_context['next_check'] = self._calculate_periodic_check_time()
-                connection_context['failed_required_usage_check_time'] = None
+                connection_context['failed_required_usage_activation_time'] = None
 
         return connection_context['activated']
 
