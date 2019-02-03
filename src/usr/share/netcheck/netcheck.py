@@ -42,7 +42,7 @@ class NetCheck(object):
     """
 
     def __init__(self, config):
-        """Instantiates the class.
+        """Constructor.
 
         config: The program configuration dictionary.
         """
@@ -98,9 +98,14 @@ class NetCheck(object):
 
         self.logger.info('NetCheck initialized.')
 
-    # TODO: Put this at the begining fo the class and put internal methods in calling order.
     def start(self):
-        """ TODO: """
+        """Starts the main program loop after performing some initialization that is not
+        appropriate for the constructor. Specifically, the initialization includes updating
+        the list of connections available for activation (essentially WiFi scanning),
+        attempting to activate as many connections as possible as quickly as possible,
+        ensuring all required usage connections are used, and finally, activating connections
+        in priority order.
+        """
         try:
             self.network_helper.update_available_connections()
         except Exception as exception:
@@ -118,18 +123,24 @@ class NetCheck(object):
                 '%s: %s', type(exception).__name__, str(exception))
             self.logger.error(traceback.format_exc())
 
-        init_time = datetime.datetime.now()
+        start_time = datetime.datetime.now()
 
         # Go through all required usage connections.
-        self._on_start_cycle_through_required_usage_connections(init_time)
+        self._on_start_cycle_through_required_usage_connections(start_time)
 
         # Connect back to connections in priority order.
-        self._on_start_activate_and_check_connections_in_priority_order(init_time)
+        self._on_start_activate_and_check_connections_in_priority_order(start_time)
 
         self._main_loop()
 
     def _get_all_connection_ids_with_retries(self):
-        """ TODO: """
+        """Retrieves the list of all connection IDs known to NetworkManager. If an exception
+        is thrown, this method will retry the retrival operation several more times before
+        letting the exception bubble up to the caller. This retry logic exists in case
+        NetworkManager is retarting when netcheck is initialized.
+
+        Returns the list of all connection IDs known to NetworkManager.
+        """
         # TODO: This retry logic should probably be removed when we move to systemd.
         #   (issue 23)
         nm_connection_set = None
@@ -160,15 +171,21 @@ class NetCheck(object):
 
         return nm_connection_set
 
-    def _on_start_cycle_through_required_usage_connections(self, init_time):
-        """ TODO: """
+    def _on_start_cycle_through_required_usage_connections(self, start_time):
+        """Attempts to activate each required usage connection. This is done when the program
+        starts because it is not known when the last time each required usage connection was
+        used. See the configuration file for more information about required usage
+        connections.
+
+        start_time: The datetime that represents when netcheck 'start'ed.
+        """
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
                 activation_successful = False
                 try:
                     activation_successful = self._steal_device_and_check_dns(
-                        init_time, connection_context)
+                        start_time, connection_context)
                 except Exception as exception:
                     connection_context['activated'] = False
                     self.logger.error(
@@ -181,10 +198,15 @@ class NetCheck(object):
                         connection_context)
                 else:
                     self._update_required_check_time_on_failure(
-                        init_time, connection_context)
+                        start_time, connection_context)
 
-    def _on_start_activate_and_check_connections_in_priority_order(self, init_time):
-        """ TODO: """
+    def _on_start_activate_and_check_connections_in_priority_order(self, start_time):
+        """Activates connections based on the priority order specified in the configuration
+        file. Other connections will be deactivated if they use a network device required by
+        a higher priority connection.
+
+        start_time: The datetime that represents when netcheck 'start'ed.
+        """
         for connection_id in self.config['connection_ids']:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['activated']:
@@ -193,7 +215,7 @@ class NetCheck(object):
                 activation_successful = False
                 try:
                     activation_successful = self._steal_device_and_check_dns(
-                        loop_time=init_time,
+                        loop_time=start_time,
                         connection_context=connection_context,
                         excluded_connection_ids=self.prior_connection_ids)
                 except Exception as exception:
@@ -214,10 +236,9 @@ class NetCheck(object):
                              '", "'.join(self.prior_connection_ids))
 
     def _main_loop(self):
-        """ TODO: Update:
-        Attempts to activate the wired connection and falls back to wireless connections
-        in a specified priority order. Also, activates the main backup wireless connection
-        periodically to comply with carrier requirements.
+        """The main program loop which periodically activates required usage connections,
+        periodically checks to make sure connections can still access the Internet, activates
+        connections if network devices are avaiable, and scans for available connections.
         """
         self.logger.info('Check loop starting.')
 
@@ -226,8 +247,8 @@ class NetCheck(object):
             try:
                 loop_time = datetime.datetime.now()
 
-                # Periodically activates the main backup connection because the carrier
-                #   requires this.
+                # Periodically activates the required usage connections to maintain active
+                #   accounts with ISPs.
                 self._activate_required_usage_connections(loop_time)
 
                 self._periodically_check_that_connections_are_working(loop_time)
@@ -239,7 +260,7 @@ class NetCheck(object):
                     loop_time, self.prior_connection_ids, current_connection_ids)
                 self.prior_connection_ids = current_connection_ids
 
-                # Scan wireless devices.
+                # Essentially this scans for available WiFi connections.
                 if self.next_available_connections_check_time < loop_time:
                     self.network_helper.update_available_connections()
                     self.next_available_connections_check_time = \
@@ -255,11 +276,14 @@ class NetCheck(object):
 
     # TODO: Consider downloading a small file upon successful connection so we are sure
     #   FreedomPop considers this connection used. (issue 11)
-    # TODO: Eventually store the last required usage access times under var. (issue 22)
+    # TODO: Eventually store the last required usage access times under /var. (issue 22)
     def _activate_required_usage_connections(self, loop_time):
-        """Activate the 'required usage' connections randomly between zero and a
-        user-specified number of days.  Recalculate the activation check interval for each
-        connection after every activation attempt.
+        """Activates the 'required usage' connections randomly between zero and a
+        user-specified number of days following their last use. If an activation is not
+        successful, the activation is retried randomly between zero and a user-specified
+        number of seconds.
+
+        loop_time: The datetime representing when the current program loop began.
         """
         self.logger.trace(
             "_use_required_usage_connections: Determining if a 'required usage' connection "
@@ -302,10 +326,11 @@ class NetCheck(object):
                                 loop_time, connection_context)
 
     def _update_required_check_time_on_success(self, connection_context):
-        """Determine the next time the 'required usage' connection should be activated
-        after a successful use.
+        """Determines the next activation delay of a 'required usage' connection. The delay
+        is only applied once the connection is no longer active.
 
-        connection_context: TODO:
+        connection_context: Contains stateful information for a connection. Used to store the
+          delay of the next required usage check.
         """
         # Convert days to seconds.
         delay_in_seconds = random.uniform(
@@ -318,7 +343,15 @@ class NetCheck(object):
             'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
 
     def _update_required_check_time_on_failure(self, loop_time, connection_context):
-        """ TODO: """
+        """Determines the time of the next 'required usage' activation following a required
+        usage activation failure. The calculated time is disregarded if a successful
+        activation occurs.
+
+        loop_time: The datetime representing when the current program loop began.
+        connection_context: Contains stateful information for a connection. Used to store the
+          time of the next required usage check following a required usage activation
+          failure.
+        """
         connection_context['failed_required_usage_check_time'] = loop_time + \
             datetime.timedelta(seconds=random.uniform(
                 0, self.config['required_usage_failed_retry_delay']))
@@ -353,6 +386,7 @@ class NetCheck(object):
             connection_context['next_check'] = self._calculate_periodic_check_time()
 
     def _fix_connection_statuses_and_activate_unused_connections(self, loop_time):
+        """ TODO: """
         current_connection_ids = []
         for connection_id in self.connection_contexts:
             try:
