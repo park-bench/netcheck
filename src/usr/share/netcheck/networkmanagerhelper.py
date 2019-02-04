@@ -198,9 +198,11 @@ class NetworkManagerHelper(object):
                 try:
                     device.SpecificDevice().RequestScan({})
                 except DBusException as exception:
+                    # This is logged as debug because it occurs so frequently.
                     self.logger.debug(
-                        "An error occurred while requesting scan from device %s. %s: %s",
-                        device.Interface, type(exception).__name__, str(exception))
+                        'update_available_connections: An error occurred while requesting '
+                        'scan from device %s. %s: %s', device.Interface,
+                        type(exception).__name__, str(exception))
                     self.logger.debug(traceback.format_exc())
 
     @reiterative
@@ -298,7 +300,8 @@ class NetworkManagerHelper(object):
                         available_devices.append(device)
 
         if connection is None:
-            self.logger.debug('Connection %s is not available.', connection_id)
+            self.logger.debug('activate_connection_with_available_device: Connection "%s" '
+                              'is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
             success = False
@@ -362,7 +365,8 @@ class NetworkManagerHelper(object):
                     break
 
             if connection_device is None:
-                self.logger.debug('Connection %s has no ip.', connection_id)
+                self.logger.debug('get_connection_ip: Connection "%s" has no IP.',
+                                  connection_id)
             else:
                 gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 
@@ -482,7 +486,8 @@ class NetworkManagerHelper(object):
                                 'connection']['id']
 
         if connection is None:
-            self.logger.debug('Connection %s is not available.', connection_id)
+            self.logger.debug('_reiterative_activate_connection_and_steal_device: '
+                              'Connection "%s" is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
             success = self._activate_with_random_devices(
@@ -563,15 +568,16 @@ class NetworkManagerHelper(object):
         connection_id = connection['connection']['id']
         time_to_give_up = time.time() + self.connection_activation_timeout
 
-        self.logger.debug('Waiting for connection %s...', connection_id)
+        self.logger.debug('_wait_for_gateway_ip: Waiting for connection "%s"...',
+                          connection_id)
         while not success and not give_up:
 
             connection_state = self._get_connection_activation_state(connection_id)
             connection_ip = self.get_connection_ip(connection_id)
 
             if connection_ip:
-                self.logger.debug('Connection %s assigned IP %s.', connection_id,
-                                  connection_ip)
+                self.logger.debug('_wait_for_gateway_ip: Connection "%s" assigned IP %s.',
+                                  connection_id, connection_ip)
                 success = True
 
             elif connection_state is NM_CONNECTION_DISCONNECTED:
@@ -601,7 +607,8 @@ class NetworkManagerHelper(object):
         active_connection = self._get_active_connection(connection_id)
 
         if active_connection is None:
-            self.logger.debug('Connection %s is not activated.', connection_id)
+            self.logger.debug('_get_connection_activation_state: Connection "%s" is not '
+                              'activated.', connection_id)
 
         else:
             if hasattr(active_connection, 'State'):
@@ -632,8 +639,8 @@ class NetworkManagerHelper(object):
         for active_connection in active_connections:
             if active_connection.Connection.GetSettings()[
                     'connection']['id'] == connection_id:
-                self.logger.trace('Found that connection %s is active.',
-                                  connection_id)
+                self.logger.trace('_get_active_connection: Found that connection "%s" is '
+                                  'active.', connection_id)
                 matched_active_connection = active_connection
                 break
 

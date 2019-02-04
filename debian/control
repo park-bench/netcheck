@@ -8,4 +8,4 @@ Standards-Version: 3.9.6.1
 Package: netcheck
 Architecture: all
 Depends: confighelper (>=0.8),network-manager,python-dnspython,python-netaddr,python-networkmanager,python-numpy
-Description: Finds the best network with access to the Internet.
+Description: Finds the best network connection with access to the Internet.

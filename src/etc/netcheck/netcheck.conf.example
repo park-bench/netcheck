@@ -9,25 +9,27 @@ log_level=info
 # Comma delimited list of NetworkManager connection names listed in priority order.
 connection_ids=
 
-# Comma delimited list of DNS servers to use. Pick your own servers here to help
-#   prevent fingerprinting of this application.
+# Comma delimited list of DNS servers to use. Pick your own servers here to help prevent
+#   fingerprinting of this application.
 nameservers=
 
-# Comma delimited list of domains to query for. Again, pick your own domains here
-#   to help prevent fingerprinting of this application.
+# Comma delimited list of domains to query for. Again, pick your own domains here to help
+#   prevent fingerprinting of this application.
 dns_queries=
 
-# Maximum amount of time in seconds for a DNS query lookup.
+# Maximum amount of time in seconds for a DNS query lookup. (Cannot be negative.)
 dns_timeout=2
 
-# Maximum amount of time in seconds to wait to activate a connection.
+# Maximum amount of time in seconds to wait to activate a connection. (Cannot be negative.)
 connection_activation_timeout=15
 
-# Maximum sleep time between each loop iteration. (Cannot be negative.)
-# TODO: Update description.
+# Maximum amount of time in seconds that can elapse between checks to see if a connection
+#   still has access to the Internet. (Cannot be negative.)
 connection_periodic_check_time=5
 
-# TODO: This is essentially the wireless connections refresh.
+# Maximum amount of time in seconds that can elapse between attempts to refresh the list of
+#   available connections. (Effectively, this is the maximum delay between WiFi scan
+#   attempts.) (Cannot be negative.)
 available_connections_check_time=5
 
 # Some ISPs have minimum usage requirements (like FreedomPop). This is a comma delimited list
@@ -40,5 +42,9 @@ required_usage_connection_ids=
 required_usage_max_delay=14
 
 # Maximum delay in seconds before attempting to retry the 'required usage' connections if
-#   prior attempts failed. (Cannot be negative.)
+#   prior activation attempts fail. (Cannot be negative.)
 required_usage_failed_retry_delay=3600
+
+# How often to log the list of activated NetworkManager connection names in seconds. (Cannot
+#   be negative.)
+periodic_status_delay=900

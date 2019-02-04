@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# Copyright 2015-2018 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2019 Joel Allen Luellwitz and Andrew Klapp
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,29 +23,22 @@ __author__ = 'Joel Luellwitz and Andrew Klapp'
 __version__ = '0.8'
 
 import logging
+import confighelper
 import networkmanagerhelper
 
-WIRED_TEST_CONNECTION_NAME = 'ens3'
+TEST_CONNECTION_NAME = 'ens3'
 MISSING_TEST_CONNECTION_NAME = 'please-dont-have-a-connection-with-this-name'
 
 config = {}
-
-config['wired_interface_name'] = 'ens3'
-config['wireless_interface_name'] = 'ens3'
+config['connection_ids'] = TEST_CONNECTION_NAME
 config['connection_activation_timeout'] = 15
 
-config['wired_connection_id'] = WIRED_TEST_CONNECTION_NAME
-config['wireless_connection_ids'] = []
-
-logging.basicConfig(level=logging.DEBUG)
+config_helper = confighelper.ConfigHelper()
+config_helper.configure_logger('/dev/stdout', 'DEBUG')
 logger = logging.getLogger()
 
 nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
-nmh.activate_connection(WIRED_TEST_CONNECTION_NAME)
-print(nmh.get_connection_ip(WIRED_TEST_CONNECTION_NAME))
-print(nmh.connection_is_activated(WIRED_TEST_CONNECTION_NAME))
-
-#device = nmh._get_device_for_connection(
-#    nmh.connection_id_to_connection_dict[WIRED_TEST_CONNECTION_NAME])
-#print(device.GetAppliedConnection(0))
+nmh.activate_connection_with_available_device(TEST_CONNECTION_NAME)
+print(nmh.get_connection_ip(TEST_CONNECTION_NAME))
+print(nmh.connection_is_activated(TEST_CONNECTION_NAME))

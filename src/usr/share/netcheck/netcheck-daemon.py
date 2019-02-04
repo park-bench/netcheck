@@ -47,12 +47,12 @@ logger = logging.getLogger()
 # Now read the rest of them.
 config = {}
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
-config['connection_activation_timeout'] = config_helper.verify_number_exists(
-    config_file, 'connection_activation_timeout')
-config['connection_periodic_check_time'] = config_helper.verify_number_exists(
-    config_file, 'connection_periodic_check_time')
-config['available_connections_check_time'] = config_helper.verify_number_exists(
-    config_file, 'available_connections_check_time')
+config['connection_activation_timeout'] = config_helper.verify_number_within_range(
+    config_file, 'connection_activation_timeout', lower_bound=0)
+config['connection_periodic_check_time'] = config_helper.verify_number_within_range(
+    config_file, 'connection_periodic_check_time', lower_bound=0)
+config['available_connections_check_time'] = config_helper.verify_number_within_range(
+    config_file, 'available_connections_check_time', lower_bound=0)
 
 config['connection_ids'] = config_helper.verify_string_list_exists(
     config_file, 'connection_ids')
@@ -63,10 +63,10 @@ config['dns_queries'] = config_helper.verify_string_list_exists(
 
 config['required_usage_connection_ids'] = config_helper.get_string_list_if_exists(
     config_file, 'required_usage_connection_ids')
-config['required_usage_max_delay'] = config_helper.verify_number_exists(
-    config_file, 'required_usage_max_delay')
-config['required_usage_failed_retry_delay'] = config_helper.verify_number_exists(
-    config_file, 'required_usage_failed_retry_delay')
+config['required_usage_max_delay'] = config_helper.verify_number_within_range(
+    config_file, 'required_usage_max_delay', lower_bound=0)
+config['required_usage_failed_retry_delay'] = config_helper.verify_number_within_range(
+    config_file, 'required_usage_failed_retry_delay', lower_bound=0)
 
 config['periodic_status_delay'] = config_helper.verify_number_within_range(
     config_file, 'periodic_status_delay', lower_bound=0)
