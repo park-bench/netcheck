@@ -271,8 +271,9 @@ class NetCheck(object):
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
-            # TODO: Check if this sleep time is appropriate.
-            time.sleep(.1)
+            # This loop takes a rather long time (about a second). Give some other processes
+            #   time to do stuff.
+            time.sleep(self.config['main_loop_delay'])
 
     # TODO: Consider downloading a small file upon successful connection so we are sure
     #   FreedomPop considers this connection used. (issue 11)

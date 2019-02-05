@@ -46,6 +46,13 @@ logger = logging.getLogger()
 
 # Now read the rest of them.
 config = {}
+config['connection_ids'] = config_helper.verify_string_list_exists(
+    config_file, 'connection_ids')
+config['nameservers'] = config_helper.verify_string_list_exists(
+    config_file, 'nameservers')
+config['dns_queries'] = config_helper.verify_string_list_exists(
+    config_file, 'dns_queries')
+
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(
     config_file, 'connection_activation_timeout', lower_bound=0)
@@ -54,13 +61,6 @@ config['connection_periodic_check_time'] = config_helper.verify_number_within_ra
 config['available_connections_check_time'] = config_helper.verify_number_within_range(
     config_file, 'available_connections_check_time', lower_bound=0)
 
-config['connection_ids'] = config_helper.verify_string_list_exists(
-    config_file, 'connection_ids')
-config['nameservers'] = config_helper.verify_string_list_exists(
-    config_file, 'nameservers')
-config['dns_queries'] = config_helper.verify_string_list_exists(
-    config_file, 'dns_queries')
-
 config['required_usage_connection_ids'] = config_helper.get_string_list_if_exists(
     config_file, 'required_usage_connection_ids')
 config['required_usage_max_delay'] = config_helper.verify_number_within_range(
@@ -68,6 +68,8 @@ config['required_usage_max_delay'] = config_helper.verify_number_within_range(
 config['required_usage_failed_retry_delay'] = config_helper.verify_number_within_range(
     config_file, 'required_usage_failed_retry_delay', lower_bound=0)
 
+config['main_loop_delay'] = config_helper.verify_number_within_range(
+    config_file, 'main_loop_delay', lower_bound=0)
 config['periodic_status_delay'] = config_helper.verify_number_within_range(
     config_file, 'periodic_status_delay', lower_bound=0)
 

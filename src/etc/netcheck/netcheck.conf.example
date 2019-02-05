@@ -45,6 +45,12 @@ required_usage_max_delay=14
 #   prior activation attempts fail. (Cannot be negative.)
 required_usage_failed_retry_delay=3600
 
+# The number of seconds between each main program loop iteration. This gives other programs
+#   some processing time to do stuff and helps keep your CPU from getting too hot. From the
+#   developers' testing, the main loop takes about one second to run, so consider keeping this
+#   value relatively high. (Cannot be negative.)
+main_loop_delay=.5
+
 # How often to log the list of activated NetworkManager connection names in seconds. (Cannot
 #   be negative.)
 periodic_status_delay=900
