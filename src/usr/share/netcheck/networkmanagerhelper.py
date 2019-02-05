@@ -525,7 +525,7 @@ class NetworkManagerHelper(object):
             devices[random_index] = devices[devices_left - 1]
             devices_left -= 1
 
-            if used_device_connection_dict[device]:
+            if device in used_device_connection_dict:
                 stolen_connection_ids.add(used_device_connection_dict[device])
 
             # '/' means pick an access point automatically (if applicable).

@@ -87,7 +87,7 @@ class NetCheck(object):
             connection_context['next_check'] = None
             connection_context['last_check_time'] = None
             connection_context['is_required_usage_connection'] = False
-            connection_context['next_required_usage_activation'] = None
+            connection_context['required_usage_activation_delay'] = None
             connection_context['failed_required_usage_activation_time'] = None
             self.connection_contexts[connection_id] = connection_context
 
@@ -182,6 +182,7 @@ class NetCheck(object):
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
+                self._update_required_activation_delay(connection_context)
                 activation_successful = False
                 try:
                     activation_successful = self._steal_device_and_check_dns(
@@ -194,8 +195,7 @@ class NetCheck(object):
                         type(exception).__name__, str(exception))
                     self.logger.error(traceback.format_exc())
                 if activation_successful:
-                    self._update_required_activation_time_on_success(
-                        connection_context)
+                    self._log_required_usage_activation(connection_context)
                 else:
                     self._update_required_activation_time_on_failure(
                         start_time, connection_context)
@@ -294,11 +294,12 @@ class NetCheck(object):
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
                 if (not connection_context['failed_required_usage_activation_time']
-                        or loop_time < connection_context[
-                            'failed_required_usage_activation_time']) \
-                    and (not connection_context['next_required_usage_activation']
-                         or loop_time < connection_context['last_check_time']
-                         + connection_context['next_required_usage_activation']):
+                        and loop_time < connection_context['last_check_time']
+                        + datetime.timedelta(
+                            seconds=connection_context['required_usage_activation_delay'])) \
+                        or (connection_context['failed_required_usage_activation_time']
+                            and loop_time < connection_context[
+                                'failed_required_usage_activation_time']):
                     self.logger.trace(
                         "_activate_required_usage_connections: Skipping 'required usage' "
                         'activation for connection "%s" because not enough time passed yet.',
@@ -308,13 +309,14 @@ class NetCheck(object):
                         "_activate_required_usage_connections: Trying to activate 'required "
                         "usage' connection \"%s\".", connection_context['id'])
 
+                    self._update_required_activation_delay(connection_context)
                     connection_is_active = False
                     if connection_context['activated']:
                         connection_is_active = self._check_connection_and_check_dns(
                             connection_context)
 
-                    if connection_is_active:
-                        self._update_required_activation_time_on_success(connection_context)
+                    if not connection_is_active:
+                        self._log_required_usage_activation(connection_context)
                     else:
                         self.logger.debug(
                             '_activate_required_usage_connections: Trying to activate '
@@ -323,28 +325,32 @@ class NetCheck(object):
                             loop_time, connection_context)
 
                         if activation_successful:
-                            self._update_required_activation_time_on_success(
-                                connection_context)
+                            self._log_required_usage_activation(connection_context)
                         else:
                             self._update_required_activation_time_on_failure(
                                 loop_time, connection_context)
 
-    def _update_required_activation_time_on_success(self, connection_context):
-        """Determines the next activation delay of a 'required usage' connection. The delay
-        is only applied once the connection is no longer active.
+    def _update_required_activation_delay(self, connection_context):
+        """Determines the next activation delay of a 'required usage' connection after a
+        successful use. The delay is only applied once the connection is no longer active.
 
         connection_context: Contains stateful information for a connection. Used to store the
           delay of the next required usage activation.
         """
         # Convert days to seconds.
-        delay_in_seconds = random.uniform(
+        connection_context['required_usage_activation_delay'] = random.uniform(
             0, self.config['required_usage_max_delay'] * 24 * 60 * 60)
 
-        connection_context['next_required_usage_activation'] = datetime.timedelta(
-            seconds=delay_in_seconds)
+    def _log_required_usage_activation(self, connection_context):
+        """Logs a required usage activation.
+
+        connection_context: Contains stateful information for a connection. Used to retrieve
+          the delay of the next required usage activation.
+        """
         self.logger.info(
             'Used \'required usage\' connection "%s". Will try again after %f days of '
-            'inactivity.', connection_context['id'], delay_in_seconds / 60 / 60 / 24)
+            'inactivity.', connection_context['id'],
+            connection_context['required_usage_activation_delay'] / 60 / 60 / 24)
 
     def _update_required_activation_time_on_failure(self, loop_time, connection_context):
         """Determines the time of the next 'required usage' activation following a required
