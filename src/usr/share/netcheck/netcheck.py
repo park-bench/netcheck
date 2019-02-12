@@ -583,7 +583,7 @@ class NetCheck(object):
                 'using name server %s.', query_names[1], connection_context['id'],
                 nameservers[1])
             if self._dns_query(
-                    connection_context, loop_time, nameservers[1], query_names[1]):
+                    loop_time, connection_context, nameservers[1], query_names[1]):
                 dns_works = True
                 self.logger.trace(
                     '_dns_works: Second DNS query on connection "%s" successful.',
