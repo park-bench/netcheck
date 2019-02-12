@@ -228,8 +228,7 @@ class NetworkManagerHelper(object):
                 for connection in device.AvailableConnections:
                     available_connection_id = connection.GetSettings()['connection']['id']
                     if available_connection_id in connection_ids:
-                        if connection_devices_dict.get(connection, None) \
-                                is None:
+                        if connection_devices_dict.get(connection, None) is None:
                             connection_devices_dict[connection] = []
                         connection_devices_dict[connection].append(device)
 
@@ -237,7 +236,7 @@ class NetworkManagerHelper(object):
         for connection in connection_devices_dict:
 
             # Try to activate the connection with a random available device.
-            connection_devices = numpy.asarray(connection_devices_dict[connection])
+            connection_devices = connection_devices_dict[connection]
             for used_device in used_devices:
                 connection_devices.remove(used_device)
             if connection_devices:
