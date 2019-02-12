@@ -414,7 +414,7 @@ class NetCheck(object):
         loop_time: The datetime representing when the current program loop began.
         """
         current_connection_ids = []
-        for connection_id in self.connection_contexts:
+        for connection_id in self.config['connection_ids']:
             try:
                 connection_context = self.connection_contexts[connection_id]
                 if not self.network_helper.connection_is_activated(connection_context['id']):
