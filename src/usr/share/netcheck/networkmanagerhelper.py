@@ -228,9 +228,7 @@ class NetworkManagerHelper(object):
                 for connection in device.AvailableConnections:
                     available_connection_id = connection.GetSettings()['connection']['id']
                     if available_connection_id in connection_ids:
-                        if connection_devices_dict.get(connection, None) is None:
-                            connection_devices_dict[connection] = []
-                        connection_devices_dict[connection].append(device)
+                        connection_devices_dict.setdefault(connection, []).append(device)
 
         used_devices = []
         for connection in connection_devices_dict:
@@ -249,7 +247,8 @@ class NetworkManagerHelper(object):
 
                 used_devices.append(device)
 
-    # Note: A helper method is reiterative instead.
+    # Note: A helper method is reiterative instead. See the helper method's description for
+    #   an explaination.
     def activate_connection_and_steal_device(self, connection_id,
                                              excluded_connection_ids=None):
         """Activates a specific connection, stealing network devices from other connections
@@ -450,6 +449,9 @@ class NetworkManagerHelper(object):
         """Helper method that performs most of the functionality of
         activate_connection_and_steal_device. See activate_connection_and_steal_device for a
         general description.
+
+        This helper method is reiterative instead of the public method so that
+        excluded_connection_ids is not reset across retry attempts.
 
         connection_id: The displayed name of the connection in NetworkManager to activate.
         stolen_connection_ids: A list of NetworkManager connection IDs that network devices
