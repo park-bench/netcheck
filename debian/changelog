@@ -3,7 +3,7 @@ netcheck (0.8) UNRELEASED; urgency=medium
   * Bumped version number to match compatible libraries in project.
   * Now uses NetworkManager API.
 
- -- Andrew Klapp <andklapp@null.net>  Mon, 27 Nov 2017 20:33:40 -0600
+ -- Emily Frost <emfrost@posteo.net>  Mon, 27 Nov 2017 20:33:40 -0600
 
 netcheck (0.5) stable; urgency=low
 

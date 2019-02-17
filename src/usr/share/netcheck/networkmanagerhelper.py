@@ -1,4 +1,4 @@
-# Copyright 2015-2019 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@ python-networkmanager class.
 """
 
 __all__ = ['NetworkManagerHelper']
-__author__ = 'Andrew Klapp and Joel Allen Luellwitz'
+__author__ = 'Emily Frost and Joel Allen Luellwitz'
 __version__ = '0.8'
 
 import logging
@@ -492,14 +492,16 @@ class NetworkManagerHelper(object):
         else:
             # Try to activate the connection with a random available device.
             success = self._activate_with_random_devices(
-                connection=connection, devices=available_devices,
+                connection=connection,
+                devices=available_devices,
                 stolen_connection_ids=stolen_connection_ids,
                 used_device_connection_dict=used_device_connection_dict)
             if not success:
                 # Try to activate the connection with a random used device.
                 used_devices = numpy.asarray(used_device_connection_dict.keys())
                 success = self._activate_with_random_devices(
-                    connection=connection, devices=used_devices,
+                    connection=connection,
+                    devices=used_devices,
                     stolen_connection_ids=stolen_connection_ids,
                     used_device_connection_dict=used_device_connection_dict)
 

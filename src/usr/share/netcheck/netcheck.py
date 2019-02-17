@@ -1,4 +1,4 @@
-# Copyright 2015-2019 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 from __future__ import division
 
 __all__ = ['NetCheck']
-__author__ = 'Joel Luellwitz and Andrew Klapp'
+__author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
 import datetime
@@ -68,8 +68,8 @@ class NetCheck(object):
         missing_connections = known_connection_set - nm_connection_set
         if missing_connections:
             raise UnknownConnectionException(
-                'Connection "%s" is not known to NetworkManager.'
-                % missing_connections.pop())
+                'Connection(s) "%s" is/are not known to NetworkManager.'
+                % missing_connections.join('", "'))
 
         required_usage_connection_set = set(self.config['required_usage_connection_ids'])
         missing_required_usage_connections = \
@@ -81,15 +81,14 @@ class NetCheck(object):
 
         self.connection_contexts = {}
         for connection_id in self.config['connection_ids']:
-            connection_context = {}
-            connection_context['id'] = connection_id
-            connection_context['activated'] = False
-            connection_context['next_periodic_check'] = \
-                self._calculate_periodic_check_delay()
-            connection_context['confirmed_activated_time'] = None
-            connection_context['is_required_usage_connection'] = False
-            connection_context['required_usage_activation_delay'] = None
-            connection_context['failed_required_usage_activation_time'] = None
+            connection_context = {
+                'id' : connection_id,
+                'activated' : False,
+                'next_periodic_check' : self._calculate_periodic_check_delay(),
+                'confirmed_activated_time' :  None,
+                'is_required_usage_connection' : False,
+                'required_usage_activation_delay' : None,
+                'failed_required_usage_activation_time' : None}
             self.connection_contexts[connection_id] = connection_context
 
         for connection_id in required_usage_connection_set:
@@ -127,10 +126,10 @@ class NetCheck(object):
         start_time = datetime.datetime.now()
 
         # Go through all required usage connections.
-        self._on_start_cycle_through_required_usage_connections(start_time)
+        self._initial_cycle_through_required_usage_connections(start_time)
 
         # Connect back to connections in priority order.
-        self._on_start_activate_and_check_connections_in_priority_order(start_time)
+        self._initial_activate_and_check_connections_in_priority_order(start_time)
 
         self._main_loop()
 
@@ -172,7 +171,7 @@ class NetCheck(object):
 
         return nm_connection_set
 
-    def _on_start_cycle_through_required_usage_connections(self, start_time):
+    def _initial_cycle_through_required_usage_connections(self, start_time):
         """Attempts to activate each required usage connection. This is done when the program
         starts because it is not known when the last time each required usage connection was
         used. See the configuration file for more information about required usage
@@ -201,7 +200,7 @@ class NetCheck(object):
                     self._update_required_activation_time_on_failure(
                         start_time, connection_context)
 
-    def _on_start_activate_and_check_connections_in_priority_order(self, start_time):
+    def _initial_activate_and_check_connections_in_priority_order(self, start_time):
         """Activates connections based on the priority order specified in the configuration
         file. Other connections will be deactivated if they use a network device required by
         a higher priority connection.
