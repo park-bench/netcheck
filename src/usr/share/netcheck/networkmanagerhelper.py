@@ -29,7 +29,6 @@ import time
 import traceback
 from dbus import DBusException
 import netaddr
-import numpy
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
 SERVICE_UNKNOWN_MAX_ATTEMPTS = 3
@@ -498,7 +497,7 @@ class NetworkManagerHelper(object):
                 used_device_connection_dict=used_device_connection_dict)
             if not success:
                 # Try to activate the connection with a random used device.
-                used_devices = numpy.asarray(used_device_connection_dict.keys())
+                used_devices = used_device_connection_dict.keys()
                 success = self._activate_with_random_devices(
                     connection=connection,
                     devices=used_devices,
