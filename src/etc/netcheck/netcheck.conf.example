@@ -37,12 +37,12 @@ available_connections_check_time=5
 #   ISP accounts do not become deactivated.
 required_usage_connection_ids=
 
-# Maximum delay in days before attempting to use the 'required usage' connections. (Cannot be
+# Maximum delay in days before attempting to use the required-usage connections. (Cannot be
 #   negative.)
 required_usage_max_delay=14
 
-# Maximum delay in seconds before attempting to retry the 'required usage' connections if
-#   prior activation attempts fail. (Cannot be negative.)
+# Maximum delay in seconds before attempting to retry the required-usage connections if prior
+#   activation attempts fail. (Cannot be negative.)
 required_usage_failed_retry_delay=3600
 
 # The number of seconds between each main program loop iteration. This gives other programs

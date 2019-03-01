@@ -251,7 +251,7 @@ class NetCheck(object):
                 #   accounts with ISPs.
                 self._activate_required_usage_connections(loop_time)
 
-                self._periodically_check_that_connections_are_working(loop_time)
+                self._periodic_connection_check(loop_time)
 
                 current_connection_ids = \
                     self._fix_connection_statuses_and_activate_unused_connections(loop_time)
@@ -279,7 +279,7 @@ class NetCheck(object):
     #   FreedomPop considers this connection used. (issue 11)
     # TODO: Eventually store the last required usage access times under /var. (issue 22)
     def _activate_required_usage_connections(self, loop_time):
-        """Activates the 'required usage' connections randomly between zero and a
+        """Activates the required-usage connections randomly between zero and a
         user-specified number of days following their last use. If an activation is not
         successful, the activation is retried randomly between zero and a user-specified
         number of seconds.
@@ -287,21 +287,15 @@ class NetCheck(object):
         loop_time: The datetime representing when the current program loop began.
         """
         self.logger.trace(
-            "_activate_required_usage_connections: Determining if a 'required usage' "
+            '_activate_required_usage_connections: Determining if a required-usage '
             'connection attempt should be made.')
 
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
-                if (not connection_context['failed_required_usage_activation_time']
-                        and loop_time < connection_context['confirmed_activated_time']
-                        + datetime.timedelta(
-                            seconds=connection_context['required_usage_activation_delay'])) \
-                        or (connection_context['failed_required_usage_activation_time']
-                            and loop_time < connection_context[
-                                'failed_required_usage_activation_time']):
+                if self._is_time_for_required_usage_check(loop_time, connection_context):
                     self.logger.trace(
-                        "_activate_required_usage_connections: Skipping 'required usage' "
+                        '_activate_required_usage_connections: Skipping required-usage '
                         'activation for connection "%s" because not enough time passed yet.',
                         connection_context['id'])
                 else:
@@ -320,7 +314,7 @@ class NetCheck(object):
                     else:
                         self.logger.debug(
                             '_activate_required_usage_connections: Trying to activate '
-                            "'required usage' connection \"%s\".", connection_context['id'])
+                            'required-usage connection "%s".', connection_context['id'])
                         activation_successful = self._steal_device_and_check_dns(
                             loop_time, connection_context)
 
@@ -330,8 +324,28 @@ class NetCheck(object):
                             self._update_required_activation_time_on_failure(
                                 loop_time, connection_context)
 
+    def _is_time_for_required_usage_check(self, loop_time, connection_context):
+        """Determines if it is time to do a required-usage check for a required-usage
+        connection.
+
+        loop_time: The datetime representing when the current program loop began.
+        connection_context: Contains stateful information for a connection. Used to obtain
+          various required-usage check delays.
+        """
+        do_required_usage_check = False
+        if connection_context['failed_required_usage_activation_time']:
+            if loop_time < connection_context['failed_required_usage_activation_time']:
+                do_required_usage_check = True
+        else:
+            delay_delta = datetime.timedelta(
+                seconds=connection_context['required_usage_activation_delay'])
+            if loop_time < connection_context['confirmed_activated_time'] + delay_delta:
+                do_required_usage_check = True
+
+        return do_required_usage_check
+
     def _update_required_activation_delay(self, connection_context):
-        """Determines the next activation delay of a 'required usage' connection after a
+        """Determines the next activation delay of a required-usage connection after a
         successful use. The delay is only applied once the connection is no longer active.
 
         connection_context: Contains stateful information for a connection. Used to store the
@@ -348,12 +362,12 @@ class NetCheck(object):
           the delay of the next required usage activation.
         """
         self.logger.info(
-            'Used \'required usage\' connection "%s". Will try again after %f days of '
+            'Used required-usage connection "%s". Will try again after %f days of '
             'inactivity.', connection_context['id'],
             connection_context['required_usage_activation_delay'] / 60 / 60 / 24)
 
     def _update_required_activation_time_on_failure(self, loop_time, connection_context):
-        """Determines the time of the next 'required usage' activation following a required
+        """Determines the time of the next required-usage activation following a required
         usage activation failure. The calculated time is disregarded if a successful
         activation occurs.
 
@@ -370,7 +384,7 @@ class NetCheck(object):
             connection_context['id'],
             connection_context['failed_required_usage_activation_time'])
 
-    def _periodically_check_that_connections_are_working(self, loop_time):
+    def _periodic_connection_check(self, loop_time):
         """At a random interval, checks that activated connections have access to the
         Internet. If a connection does not have access to the Internet, the connection is
         deactivated. Netcheck will attempt to activate the freed network device later in the
@@ -390,11 +404,11 @@ class NetCheck(object):
 
                     if connection_is_activated:
                         self.logger.debug(
-                            '_periodically_check_that_connections_are_working: '
+                            '_periodic_connection_check: '
                             'Connection "%s" still has Internet access.', connection_id)
                     else:
                         self.logger.debug(
-                            '_periodically_check_that_connections_are_working: '
+                            '_periodic_connection_check: '
                             'Connection "%s" no longer has Internet access.', connection_id)
 
             except Exception as exception:
