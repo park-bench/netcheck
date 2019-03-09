@@ -17,7 +17,7 @@
 python-networkmanager class.
 """
 
-__all__ = ['NetworkManagerHelper']
+__all__ = ['NetworkManagerHelper', 'NoGatewayException']
 __author__ = 'Emily Frost and Joel Allen Luellwitz'
 __version__ = '0.8'
 
@@ -152,6 +152,10 @@ def reiterative(method):
         return return_value
 
     return passthrough_on_reentry
+
+class NoGatewayException(Exception):
+    """Thrown when no Gateway is assigned to a connection and the connection has an IP
+    address. This might indicate two connections were assigned the same IP."""
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
@@ -364,6 +368,10 @@ class NetworkManagerHelper(object):
             if connection_device is None:
                 self.logger.debug('get_connection_ip: Connection "%s" has no IP.',
                                   connection_id)
+            # If two connections are assigned the same IP, one won't have a gateway.
+            elif not connection_device.Ip4Config.Gateway:
+                raise NoGatewayException(
+                    'Connection "%s" does not have a gateway.', connection_id)
             else:
                 gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
 

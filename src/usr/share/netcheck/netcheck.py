@@ -461,9 +461,15 @@ class NetCheck(object):
             '_steal_device_and_check_dns: Attempting to activate and reach the Internet '
             'over connection "%s".', connection_context['id'])
 
-        activation_successful, deactivated_connection_ids = self.network_helper. \
-            activate_connection_and_steal_device(
-                connection_context['id'], excluded_connection_ids)
+        activation_successful = False
+        deactivated_connection_ids = []
+        try:
+            activation_successful, deactivated_connection_ids = self.network_helper. \
+                activate_connection_and_steal_device(
+                    connection_context['id'], excluded_connection_ids)
+        except NoGatewayException as exception:
+            # TODO: How are you going to handle deactivated_connections_ids above?
+            self._handleNoGatewayException(exception)
 
         for deactivated_connection_id in deactivated_connection_ids:
             self.connection_contexts[deactivated_connection_id]['activated'] = False
@@ -501,8 +507,13 @@ class NetCheck(object):
             '_activate_with_free_device_and_check_dns: Attempting to activate and reach the '
             'Internet over connection "%s".', connection_context['id'])
 
-        activation_successful = self.network_helper. \
-            activate_connection_with_available_device(connection_context['id'])
+        activation_successful = False
+        try:
+            activation_successful = self.network_helper. \
+                activate_connection_with_available_device(connection_context['id'])
+        except NoGatewayException as exception:
+            self._handleNoGatewayException(exception)
+
         if not activation_successful:
             self.logger.debug('_activate_with_free_device_and_check_dns: Could not activate '
                               'connection "%s".', connection_context['id'])
@@ -625,7 +636,10 @@ class NetCheck(object):
                           query_name, connection_context['id'])
         success = False
 
-        interface_ip = self.network_helper.get_connection_ip(connection_context['id'])
+        try:
+            interface_ip = self.network_helper.get_connection_ip(connection_context['id'])
+        except NoGatewayException as exception:
+            self._handleNoGatewayException(exception)
 
         if interface_ip is not None:
             self.resolver.nameservers = [nameserver]
@@ -668,6 +682,10 @@ class NetCheck(object):
                 connection_context['failed_required_usage_activation_time'] = None
 
         return success
+
+    def _handleNoGatewayException(self, connection_context):
+        """ TODO: """
+        
 
     def _calculate_periodic_check_delay(self):
         """Returns a datetime delta representing the next delay that should occur between a
