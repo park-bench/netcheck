@@ -28,7 +28,6 @@ import datetime
 import time
 import traceback
 from dbus import DBusException
-import netaddr
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
 SERVICE_UNKNOWN_MAX_ATTEMPTS = 3
@@ -207,11 +206,10 @@ class NetworkManagerHelper(object):
     @reiterative
     def activate_connections_quickly(self, connection_ids):
         """Activates a list of connections in order without waiting to see if each activation
-        was successful (obtains an IP address in the subnet of a gateway). The method returns
-        once an activation attempt has been made with each network device or when there are
-        no more connection IDs left to process. This method is intended to be used when the
-        program first starts to ensure access to the Internet is established as quickly as
-        possible.
+        was successful (obtains a gateway IP). The method returns once an activation attempt
+        has been made with each network device or when there are no more connection IDs left
+        to process. This method is intended to be used when the program first starts to
+        ensure access to the Internet is established as quickly as possible.
 
         connection_ids: A list of NetworkManager connection IDs to activate in preferred
           order.
@@ -246,31 +244,74 @@ class NetworkManagerHelper(object):
 
                 used_devices.append(device)
 
-    # Note: A helper method is reiterative instead. See the helper method's description for
-    #   an explaination.
-    def activate_connection_and_steal_device(self, connection_id,
-                                             excluded_connection_ids=None):
+    @reiterative
+    def activate_connection_and_steal_device(
+            self, connection_id, stolen_connection_ids, excluded_connection_ids=None):
         """Activates a specific connection, stealing network devices from other connections
         if no network device is available. An activation is only considered successful if it
-        is assigned an IP that is associated with a gateway.
+        is assigned a gateway.
 
         connection_id: The displayed name of the connection in NetworkManager to activate.
+        stolen_connection_ids: A set of NetworkManager connection IDs that network devices
+          were stolen from. This parameter is used to return information to the caller even
+          in the case where a general Exception is raised. Note that this object MUST be a
+          'set'.
         excluded_connection_ids: A list of NetworkManager connection IDs that the specified
           connection cannot steal a network device from.
-        Returns a tuple. The first value is either true or false indicating whether the
-          connection was successful. The second value is a String indicating which connection
-          was stolen. None is returned for the second value if no connection was stolen.
+        Returns True if the connection is activated, False otherwise.
         """
-        stolen_connection_ids = set()
-        success = self._reiterative_activate_connection_and_steal_device(
-            connection_id, stolen_connection_ids, excluded_connection_ids)
-        return success, list(stolen_connection_ids)
+        success = False
+
+        # Get a list of all devices this connection can be applied to.
+        available_devices = []
+        used_device_connection_dict = {}
+        connection = None
+        for device in self.NetworkManager.NetworkManager.GetDevices():
+            # See if the connection is already activated.
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
+                # The connection is already activated.
+                # I do hate multiple returns but this does seem the most Pythonic.
+                return self._wait_for_gateway_ip(applied_connection)
+            elif excluded_connection_ids is None or applied_connection is None \
+                    or applied_connection['connection']['id'] not in excluded_connection_ids:
+                for available_connection in device.AvailableConnections:
+                    if available_connection.GetSettings()['connection']['id'] \
+                            == connection_id:
+                        connection = available_connection
+                        if not applied_connection:
+                            available_devices.append(device)
+                        else:
+                            used_device_connection_dict[device] = applied_connection[
+                                'connection']['id']
+
+        if connection is None:
+            self.logger.debug('_reiterative_activate_connection_and_steal_device: '
+                              'Connection "%s" is not available.', connection_id)
+        else:
+            # Try to activate the connection with a random available device.
+            success = self._activate_with_random_devices(
+                connection=connection,
+                devices=available_devices,
+                stolen_connection_ids=stolen_connection_ids,
+                used_device_connection_dict=used_device_connection_dict)
+            if not success:
+                # Try to activate the connection with a random used device.
+                used_devices = used_device_connection_dict.keys()
+                success = self._activate_with_random_devices(
+                    connection=connection,
+                    devices=used_devices,
+                    stolen_connection_ids=stolen_connection_ids,
+                    used_device_connection_dict=used_device_connection_dict)
+
+        return success
 
     @reiterative
     def activate_connection_with_available_device(self, connection_id):
         """Activates a specific connection if an associated network device is available. If
         more than one network device is available, one is randomly chosen. An activation is
-        only considered successful if it is assigned an IP that is associated with a gateway.
+        only considered successful if it is assigned a gateway.
 
         connection_id: The displayed name of the connection in NetworkManager to activate.
         Returns True if the connection is activated, False otherwise.
@@ -317,6 +358,26 @@ class NetworkManagerHelper(object):
         return success
 
     @reiterative
+    def get_connection_interface(self, connection_id):
+        """Returns the activated connection's network interface name.
+
+        connection_id: The displayed name of the connection in NetworkManager.
+        Returns the connection's network interface name or None if the connection is not
+          activated.
+        """
+        interface = None
+
+        for device in self.NetworkManager.NetworkManager.GetDevices():
+            # In this case, we only care about applied connections.
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection \
+                    and applied_connection['connection']['id'] == connection_id:
+                # Again, I hate multiple returns, but this is more efficient and pythonic.
+                return device.Interface
+
+        return None
+
+    @reiterative
     def deactivate_connection(self, connection_id):
         """Deactivates the specified connection.
 
@@ -334,56 +395,6 @@ class NetworkManagerHelper(object):
             self.logger.warning('Could not find active connection %s.', connection_id)
         else:
             self.NetworkManager.NetworkManager.DeactivateConnection(active_connection)
-
-    @reiterative
-    def get_connection_ip(self, connection_id):
-        """Attempts to retrieve the IP address associated with the given connection's
-        gateway. If the IP address is unable to be retrieved, None is returned.
-
-        connection_id: The displayed name of the connection in NetworkManager.
-        Returns the IP address as a string if it can be retrieved. Returns None otherwise.
-        """
-
-        # TODO: Add IPv6 support. (issue 19)
-        ip_address = None
-
-        if not self.connection_is_activated(connection_id):
-            self.logger.warning(
-                'Attempted to get IP address for connection %s, which is not connected.',
-                connection_id)
-
-        else:
-            connection_device = None
-            for device in self.NetworkManager.NetworkManager.GetDevices():
-                applied_connection = self._get_applied_connection(device)
-                if applied_connection is not None \
-                        and applied_connection['connection']['id'] == connection_id:
-                    connection_device = device
-                    break
-
-            if connection_device is None:
-                self.logger.debug('get_connection_ip: Connection "%s" has no IP.',
-                                  connection_id)
-            else:
-                gateway_address = netaddr.IPNetwork(connection_device.Ip4Config.Gateway)
-
-                for address_data in connection_device.Ip4Config.AddressData:
-                    # Technically, according to the RFC, the IP portion of a CIDR should be
-                    #   the first address in the CIDR. We'll ignore this.
-                    address_cidr = '%s/%s' % (
-                        address_data['address'], address_data['prefix'])
-                    address_network = netaddr.IPNetwork(address_cidr)
-
-                    if gateway_address in address_network:
-                        ip_address = address_data['address']
-                        break
-
-                if ip_address is None:
-                    self.logger.warning(
-                        'No IP addresses for connection %s associated with gateway %s.',
-                        connection_id, gateway_address)
-
-        return ip_address
 
     @reiterative
     def connection_is_activated(self, connection_id):
@@ -412,6 +423,7 @@ class NetworkManagerHelper(object):
             NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
             from NetworkManager import ObjectVanished
             NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
+        #pylint: disable=broad-except
         except Exception as exception:
             self.logger.error(
                 'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
@@ -423,6 +435,7 @@ class NetworkManagerHelper(object):
                 NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
                 from NetworkManager import ObjectVanished
                 NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
+            #pylint: disable=broad-except
             except Exception as exception2:
                 self.logger.error(
                     'Failed again to import NetworkManager or ObjectVanished. Will retry '
@@ -441,70 +454,6 @@ class NetworkManagerHelper(object):
                         'This probably means the NetworkManager daemon failed to start. '
                         'Giving up! %s: %s', type(exception3).__name__, str(exception3))
                     raise
-
-    @reiterative
-    def _reiterative_activate_connection_and_steal_device(
-            self, connection_id, stolen_connection_ids, excluded_connection_ids):
-        """Helper method that performs most of the functionality of
-        activate_connection_and_steal_device. See activate_connection_and_steal_device for a
-        general description.
-
-        This helper method is reiterative instead of the public method so that
-        excluded_connection_ids is not reset across retry attempts.
-
-        connection_id: The displayed name of the connection in NetworkManager to activate.
-        stolen_connection_ids: A list of NetworkManager connection IDs that network devices
-          were stolen from. This parameter is used to return information to the caller.
-        excluded_connection_ids: A list of NetworkManager connection IDs that the specified
-          connection cannot steal a network device from.
-        Returns True if the connection is activated, False otherwise.
-        """
-        success = False
-
-        # Get a list of all devices this connection can be applied to.
-        available_devices = []
-        used_device_connection_dict = {}
-        connection = None
-        for device in self.NetworkManager.NetworkManager.GetDevices():
-            # See if the connection is already activated.
-            applied_connection = self._get_applied_connection(device)
-            if applied_connection \
-                    and applied_connection['connection']['id'] == connection_id:
-                # The connection is already activated.
-                # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_gateway_ip(applied_connection), []
-            elif excluded_connection_ids is None or applied_connection is None \
-                    or applied_connection['connection']['id'] not in excluded_connection_ids:
-                for available_connection in device.AvailableConnections:
-                    if available_connection.GetSettings()['connection']['id'] \
-                            == connection_id:
-                        connection = available_connection
-                        if not applied_connection:
-                            available_devices.append(device)
-                        else:
-                            used_device_connection_dict[device] = applied_connection[
-                                'connection']['id']
-
-        if connection is None:
-            self.logger.debug('_reiterative_activate_connection_and_steal_device: '
-                              'Connection "%s" is not available.', connection_id)
-        else:
-            # Try to activate the connection with a random available device.
-            success = self._activate_with_random_devices(
-                connection=connection,
-                devices=available_devices,
-                stolen_connection_ids=stolen_connection_ids,
-                used_device_connection_dict=used_device_connection_dict)
-            if not success:
-                # Try to activate the connection with a random used device.
-                used_devices = used_device_connection_dict.keys()
-                success = self._activate_with_random_devices(
-                    connection=connection,
-                    devices=used_devices,
-                    stolen_connection_ids=stolen_connection_ids,
-                    used_device_connection_dict=used_device_connection_dict)
-
-        return success
 
     def _activate_with_random_devices(
             self, connection, devices, stolen_connection_ids, used_device_connection_dict):
@@ -536,6 +485,84 @@ class NetworkManagerHelper(object):
 
         return success
 
+    def _wait_for_gateway_ip(self, connection):
+        """Wait for the configured number of seconds for the supplied connection to obtain a
+        gateway IP.
+
+        connection: A NetworkManager.Connection object that is expected to be assigned a
+          gateway IP.
+        Returns True if the connection is assigned a gateway. False otherwise.
+        """
+        success = False
+        give_up = False
+        connection_id = connection['connection']['id']
+        time_to_give_up = time.time() + self.connection_activation_timeout
+
+        self.logger.debug('_wait_for_gateway_ip: Waiting for connection "%s"...',
+                          connection_id)
+        while not success and not give_up:
+
+            connection_state = self._get_connection_activation_state(connection_id)
+            gateway_ip = self._get_gateway_ip(connection_id)
+
+            if gateway_ip:
+                self.logger.debug('_wait_for_gateway_ip: Connection "%s" assigned gateway '
+                                  'IP %s.', connection_id, gateway_ip)
+                success = True
+
+            elif connection_state is NM_CONNECTION_DISCONNECTED:
+                self.logger.warning('Connection %s disconnected. Trying next connection.',
+                                    connection_id)
+                give_up = True
+
+            elif time.time() > time_to_give_up:
+                self.logger.warning('Connection %s timed out. Trying next connection.',
+                                    connection_id)
+                give_up = True
+
+            else:
+                time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
+
+        return success
+
+    def _get_gateway_ip(self, connection_id):
+        """Attempts to retrieve the gateway IP address of the given connection. If the
+        gateway IP address is not available, None is returned.
+
+        connection_id: The displayed name of the connection in NetworkManager.
+        Returns the gateway IP address as a string if it can be retrieved. Returns None
+          otherwise.
+        """
+
+        gateway_address = None
+
+        # TODO: Do we really need to check if the connection is activated? Do we need some of
+        #   these activation methods at all?
+        if not self.connection_is_activated(connection_id):
+            self.logger.warning('Attempted to get gateway IP address for connection "%s", '
+                                'which is not connected.', connection_id)
+
+        else:
+            connection_device = None
+            for device in self.NetworkManager.NetworkManager.GetDevices():
+                applied_connection = self._get_applied_connection(device)
+                if applied_connection is not None \
+                        and applied_connection['connection']['id'] == connection_id:
+                    connection_device = device
+                    break
+
+            if connection_device is None:
+                self.logger.debug('_get_gateway_ip: Connection "%s" has no IP.',
+                                  connection_id)
+            else:
+                gateway_address = connection_device.Ip4Config.Gateway
+
+                if gateway_address is None:
+                    self.logger.warning(
+                        'No gateway addresses for connection "%s".', connection_id)
+
+        return gateway_address
+
     def _get_applied_connection(self, device):
         """Returns the NetworkManager.Connection that is currently 'applied' to the supplied
         network device.
@@ -555,47 +582,6 @@ class NetworkManagerHelper(object):
                 self.logger.error(traceback.format_exc())
 
         return applied_connection
-
-    def _wait_for_gateway_ip(self, connection):
-        """Wait for the configured number of seconds for the supplied connection to obtain an
-        IP that is associated with a gatway.
-
-        connection: A NetworkManager.Connection object that is expected to be assigned an
-          Internet accessible IP.
-        Returns True if the connection is assigned an IP that is associated with a gateway.
-          False otherwise.
-        """
-        success = False
-        give_up = False
-        connection_id = connection['connection']['id']
-        time_to_give_up = time.time() + self.connection_activation_timeout
-
-        self.logger.debug('_wait_for_gateway_ip: Waiting for connection "%s"...',
-                          connection_id)
-        while not success and not give_up:
-
-            connection_state = self._get_connection_activation_state(connection_id)
-            connection_ip = self.get_connection_ip(connection_id)
-
-            if connection_ip:
-                self.logger.debug('_wait_for_gateway_ip: Connection "%s" assigned IP %s.',
-                                  connection_id, connection_ip)
-                success = True
-
-            elif connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected. Trying next connection.',
-                                    connection_id)
-                give_up = True
-
-            elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out. Trying next connection.',
-                                    connection_id)
-                give_up = True
-
-            else:
-                time.sleep(NETWORKMANAGER_ACTIVATION_CHECK_DELAY)
-
-        return success
 
     def _get_connection_activation_state(self, connection_id):
         """Reads the activation state of the connection identified by connection ID.

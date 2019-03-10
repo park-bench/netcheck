@@ -13,6 +13,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""NetCheck tries to maintain as many active connections to the Internet as possible."""
+
 from __future__ import division
 
 __all__ = ['NetCheck']
@@ -20,8 +22,10 @@ __author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
 import datetime
+import IN
 import logging
 import random
+import socket
 import time
 import traceback
 import dns.resolver
@@ -108,6 +112,7 @@ class NetCheck(object):
         """
         try:
             self.network_helper.update_available_connections()
+        #pylint: disable=broad-except
         except Exception as exception:
             self.logger.error(
                 'Error occurred while trying to initially update available connections. '
@@ -117,6 +122,7 @@ class NetCheck(object):
         # Quickly connect to connections in priority order.
         try:
             self.network_helper.activate_connections_quickly(self.config['connection_ids'])
+        #pylint: disable=broad-except
         except Exception as exception:
             self.logger.error(
                 'Error occurred while trying to establish connections quickly. Ignoring. '
@@ -146,6 +152,7 @@ class NetCheck(object):
         nm_connection_set = None
         try:
             nm_connection_set = set(self.network_helper.get_all_connection_ids())
+        #pylint: disable=broad-except
         except Exception as exception:
             self.logger.error(
                 'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
@@ -154,6 +161,7 @@ class NetCheck(object):
             time.sleep(10)
             try:
                 nm_connection_set = set(self.network_helper.get_all_connection_ids())
+            #pylint: disable=broad-except
             except Exception as exception2:
                 self.logger.error(
                     'Failed again to retrieve a list of all connection IDs. Will retry one '
@@ -187,6 +195,7 @@ class NetCheck(object):
                 try:
                     activation_successful = self._steal_device_and_check_dns(
                         start_time, connection_context)
+                #pylint: disable=broad-except
                 except Exception as exception:
                     connection_context['activated'] = False
                     self.logger.error(
@@ -218,6 +227,7 @@ class NetCheck(object):
                         loop_time=start_time,
                         connection_context=connection_context,
                         excluded_connection_ids=self.prior_connection_ids)
+                #pylint: disable=broad-except
                 except Exception as exception:
                     connection_context['activated'] = False
                     self.logger.error(
@@ -266,6 +276,7 @@ class NetCheck(object):
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
 
+            #pylint: disable=broad-except
             except Exception as exception:
                 self.logger.error('Unexpected error %s: %s\n',
                                   type(exception).__name__, str(exception))
@@ -324,6 +335,7 @@ class NetCheck(object):
                             self._update_required_activation_time_on_failure(
                                 loop_time, connection_context)
 
+    #pylint: disable=no-self-use
     def _is_time_for_required_usage_check(self, loop_time, connection_context):
         """Determines if it is time to do a required-usage check for a required-usage
         connection.
@@ -411,6 +423,7 @@ class NetCheck(object):
                             '_periodic_connection_check: '
                             'Connection "%s" no longer has Internet access.', connection_id)
 
+            #pylint: disable=broad-except
             except Exception as exception:
                 self.logger.error('Unexpected error while checking if connection is active '
                                   '%s: %s\n', type(exception).__name__, str(exception))
@@ -437,9 +450,10 @@ class NetCheck(object):
                 self._activate_with_free_device_and_check_dns(loop_time, connection_context)
                 if connection_context['activated']:
                     current_connection_ids.append(connection_context['id'])
+            #pylint: disable=broad-except
             except Exception as exception:
-                self.logger.error('Unexpected error while attepting to activate '
-                                  'free devices %s: %s\n',
+                self.logger.error('Unexpected error while attepting to fix connection '
+                                  'statuses or activate free devices %s: %s\n',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
@@ -461,9 +475,9 @@ class NetCheck(object):
             '_steal_device_and_check_dns: Attempting to activate and reach the Internet '
             'over connection "%s".', connection_context['id'])
 
-        activation_successful, deactivated_connection_ids = self.network_helper. \
-            activate_connection_and_steal_device(
-                connection_context['id'], excluded_connection_ids)
+        deactivated_connection_ids = set()
+        activation_successful = self.network_helper.activate_connection_and_steal_device(
+            connection_context['id'], deactivated_connection_ids, excluded_connection_ids)
 
         for deactivated_connection_id in deactivated_connection_ids:
             self.connection_contexts[deactivated_connection_id]['activated'] = False
@@ -624,13 +638,18 @@ class NetCheck(object):
         self.logger.trace('_dns_query: Querying %s for %s on connection "%s".', nameserver,
                           query_name, connection_context['id'])
         success = False
+        interface = self.network_helper.get_connection_interface(connection_context['id'])
 
-        interface_ip = self.network_helper.get_connection_ip(connection_context['id'])
-
-        if interface_ip is not None:
+        if not interface:
+            self.logger.error('Connection "%s" has no interface and does not appear to be '
+                              'activated.', connection_context['id'])
+        else:
+            # This is terrible if we ever want to go multithreaded, but this is the best work
+            #   around I could find. It will work for now.
+            dns.query.socket_factory = self._create_socket_factory(interface)
             self.resolver.nameservers = [nameserver]
             try:
-                self.resolver.query(query_name, source=interface_ip)
+                self.resolver.query(query_name)
                 success = True
 
             except dns.resolver.Timeout as exception:
@@ -655,6 +674,7 @@ class NetCheck(object):
                     nameserver, connection_context['id'], type(exception).__name__,
                     str(exception))
 
+            #pylint: disable=broad-except
             except Exception as exception:
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
@@ -668,6 +688,23 @@ class NetCheck(object):
                 connection_context['failed_required_usage_activation_time'] = None
 
         return success
+
+    #pylint: disable=no-self-use
+    def _create_socket_factory(self, interface):
+        """Creates a function that creates a socket that is bound to a network interface.
+
+        interface: The name of the network interface the socket should be bound to.
+        Returns a function that creates the socket.
+        """
+        def create_device_bound_socket(address_family, socket_type, protocol_number):
+            """Creates a socket that is bound to a network interface. See the Python socket
+            documentation for a description of the parameters and the return value.
+            """
+            device_bound_socket = socket.socket(address_family, socket_type, protocol_number)
+            device_bound_socket.setsockopt(socket.SOL_SOCKET, IN.SO_BINDTODEVICE, interface)
+            return device_bound_socket
+
+        return create_device_bound_socket
 
     def _calculate_periodic_check_delay(self):
         """Returns a datetime delta representing the next delay that should occur between a
