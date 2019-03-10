@@ -85,6 +85,7 @@ class NetCheck(object):
 
         self.connection_contexts = {}
         for connection_id in self.config['connection_ids']:
+            # TODO: Break netcheck.py's Logic Into Multilple Modules (issue 25)
             connection_context = {
                 'id' : connection_id,
                 'activated' : False,
@@ -252,6 +253,7 @@ class NetCheck(object):
         """
         self.logger.info('Main loop starting.')
 
+        # TODO: netcheck's Main Loop Runs Too Slowly (issue 26)
         while True:
             self.logger.debug('_main_loop: Main loop iteration starting.')
             try:
@@ -617,10 +619,11 @@ class NetCheck(object):
                     connection_context['id'])
             else:
                 connection_context['activated'] = False
-                self.logger.debug(
-                    '_dns_works: Second DNS query for %s failed on connection "%s" using '
-                    'name server %s. Assuming connection no longer has Internet access.',
-                    query_names[1], connection_context['id'], nameservers[1])
+                self.logger.warning(
+                    'Two DNS lookups failed for %s and %s using nameservers %s and %s '
+                    '(respectively) with connection "%s". Deactivating connection.',
+                    query_names[0], query_names[1], nameservers[0], nameservers[1],
+                    connection_context['id'])
 
         return dns_works
 
@@ -653,16 +656,17 @@ class NetCheck(object):
                 success = True
 
             except dns.resolver.Timeout as exception:
-                # Connection is probably deactivated.
-                self.logger.error(
-                    'DNS query for %s from nameserver %s on connection %s timed out. %s: '
-                    '%s', query_name, nameserver, connection_context['id'],
+                # Connection is probably deactivated. This message occurs often so it is
+                #   debug.
+                self.logger.debug(
+                    '_dns_query: DNS query for %s from nameserver %s on connection "%s" '
+                    'timed out. %s: %s', query_name, nameserver, connection_context['id'],
                     type(exception).__name__, str(exception))
 
             except dns.resolver.NXDOMAIN as exception:
                 # Could be either a config error or malicious DNS
                 self.logger.error(
-                    'DNS query for %s from nameserver %s on connection %s was successful, '
+                    'DNS query for %s from nameserver %s on connection "%s" was successful, '
                     'but the provided domain was not found. %s: %s', query_name,
                     nameserver, connection_context['id'], type(exception).__name__,
                     str(exception))
@@ -670,7 +674,7 @@ class NetCheck(object):
             except dns.resolver.NoNameservers as exception:
                 # Probably a config error, but chosen DNS could be down or blocked.
                 self.logger.error(
-                    'Could not access nameserver %s on connection %s. %s: %s',
+                    'Could not access nameserver %s on connection "%s". %s: %s',
                     nameserver, connection_context['id'], type(exception).__name__,
                     str(exception))
 
@@ -678,8 +682,8 @@ class NetCheck(object):
             except Exception as exception:
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
-                    'Unexpected error querying %s from nameserver %s on connection %s. %s: '
-                    '%s', query_name, nameserver, connection_context['id'],
+                    'Unexpected error querying %s from nameserver %s on connection "%s". '
+                    '%s: %s', query_name, nameserver, connection_context['id'],
                     type(exception).__name__, str(exception))
 
             if success:

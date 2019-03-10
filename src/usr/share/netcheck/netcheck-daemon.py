@@ -26,6 +26,7 @@ import ConfigParser
 import daemon
 from lockfile import pidlockfile
 import confighelper
+from confighelper import ValidationException
 import netcheck
 
 PID_FILE = '/run/netcheck.pid'
@@ -50,8 +51,12 @@ config['connection_ids'] = config_helper.verify_string_list_exists(
     config_file, 'connection_ids')
 config['nameservers'] = config_helper.verify_string_list_exists(
     config_file, 'nameservers')
+if len(config['nameservers']) < 2:
+    raise ValidationException("At least two nameservers are required.")
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
+if len(config['dns_queries']) < 2:
+    raise ValidationException("At least two domain names are required.")
 
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(

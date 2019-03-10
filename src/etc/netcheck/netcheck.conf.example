@@ -10,11 +10,11 @@ log_level=info
 connection_ids=
 
 # Comma delimited list of DNS servers to use. Pick your own servers here to help prevent
-#   fingerprinting of this application.
+#   fingerprinting of this application. At least two name servers are required.
 nameservers=
 
 # Comma delimited list of domains to query for. Again, pick your own domains here to help
-#   prevent fingerprinting of this application.
+#   prevent fingerprinting of this application. At least two domain names are required.
 dns_queries=
 
 # Maximum amount of time in seconds for a DNS query lookup. (Cannot be negative.)

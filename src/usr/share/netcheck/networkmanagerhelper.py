@@ -503,17 +503,21 @@ class NetworkManagerHelper(object):
         while not success and not give_up:
 
             connection_state = self._get_connection_activation_state(connection_id)
-            gateway_ip = self._get_gateway_ip(connection_id)
 
-            if gateway_ip:
-                self.logger.debug('_wait_for_gateway_ip: Connection "%s" assigned gateway '
-                                  'IP %s.', connection_id, gateway_ip)
-                success = True
+            # Skip looking up the gateway IP if we know there cannot be one.
+            gateway_ip = None
+            if connection_state is not NM_CONNECTION_DISCONNECTED:
+                gateway_ip = self._get_gateway_ip(connection_id)
 
-            elif connection_state is NM_CONNECTION_DISCONNECTED:
+            if connection_state is NM_CONNECTION_DISCONNECTED:
                 self.logger.warning('Connection %s disconnected. Trying next connection.',
                                     connection_id)
                 give_up = True
+
+            elif gateway_ip:
+                self.logger.debug('_wait_for_gateway_ip: Connection "%s" assigned gateway '
+                                  'IP %s.', connection_id, gateway_ip)
+                success = True
 
             elif time.time() > time_to_give_up:
                 self.logger.warning('Connection %s timed out. Trying next connection.',
