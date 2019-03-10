@@ -30,6 +30,7 @@ config_helper.configure_logger('/dev/stdout', 'trace')
 network = 'Wired connection 1'
 config = {}
 config['connection_ids'] = ['Wired connection 1']
+config['connection_periodic_check_time'] = 5
 config['connection_activation_timeout'] = 15
 config['dns_timeout'] = 10
 config['available_connections_check_time'] = 5
@@ -51,7 +52,7 @@ n = netcheck.NetCheck(config)
 
 time = datetime.datetime.now()
 connection_context = {
-    id: network,
+    'id' : network,
 }
 nameserver = '8.8.8.8'
 query = 'facebook.com'
