@@ -40,5 +40,5 @@ logger = logging.getLogger()
 nmh = networkmanagerhelper.NetworkManagerHelper(config)
 
 nmh.activate_connection_with_available_device(TEST_CONNECTION_NAME)
-print(nmh.get_connection_ip(TEST_CONNECTION_NAME))
+print(nmh.get_connection_interface(TEST_CONNECTION_NAME))
 print(nmh.connection_is_activated(TEST_CONNECTION_NAME))

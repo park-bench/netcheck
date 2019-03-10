@@ -18,6 +18,7 @@
 __author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
+import datetime
 import logging
 import confighelper
 import netcheck
@@ -43,19 +44,23 @@ m = networkmanagerhelper.NetworkManagerHelper(config)
 # print('NMM.activate_connection_with_available_device returns %s.' % 
 #    m.activate_connection_with_available_device(network))
 print('NMM.connection_is_activated returns %s.' % m.connection_is_activated(network))
-print('IP address: %s' % m.get_connection_ip(network))
+print('Interface is: %s' % m.get_connection_interface(network))
 
 logger = logging.getLogger()
 n = netcheck.NetCheck(config)
 
+time = datetime.datetime.now()
+connection_context = {
+    id: network,
+}
 nameserver = '8.8.8.8'
 query = 'facebook.com'
 
-print(n._dns_query(network, nameserver, query))
-#print(n._dns_query(network, '8.8.8.255', query))
+print(n._dns_query(time, connection_context, nameserver, query))
+#print(n._dns_query(time, connection_context, '8.8.8.255', query))
 
 # TODO: Test further for negatives.
-print('DNS works for %s: %s.' % (network, n._dns_works(network)))
+print('DNS works for %s: %s.' % (network, n._dns_works(time, connection_context)))
 
 # print('NMM.deactivate_connection:')
 # m.deactivate_connection(network)
