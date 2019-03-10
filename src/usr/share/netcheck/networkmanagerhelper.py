@@ -534,32 +534,24 @@ class NetworkManagerHelper(object):
           otherwise.
         """
 
+        connection_device = None
+        for device in self.NetworkManager.NetworkManager.GetDevices():
+            applied_connection = self._get_applied_connection(device)
+            if applied_connection is not None \
+                    and applied_connection['connection']['id'] == connection_id:
+                connection_device = device
+                break
+
         gateway_address = None
-
-        # TODO: Do we really need to check if the connection is activated? Do we need some of
-        #   these activation methods at all?
-        if not self.connection_is_activated(connection_id):
-            self.logger.warning('Attempted to get gateway IP address for connection "%s", '
-                                'which is not connected.', connection_id)
-
+        if connection_device is None:
+            self.logger.debug('_get_gateway_ip: Connection "%s" has no IP.',
+                              connection_id)
         else:
-            connection_device = None
-            for device in self.NetworkManager.NetworkManager.GetDevices():
-                applied_connection = self._get_applied_connection(device)
-                if applied_connection is not None \
-                        and applied_connection['connection']['id'] == connection_id:
-                    connection_device = device
-                    break
+            gateway_address = connection_device.Ip4Config.Gateway
 
-            if connection_device is None:
-                self.logger.debug('_get_gateway_ip: Connection "%s" has no IP.',
-                                  connection_id)
-            else:
-                gateway_address = connection_device.Ip4Config.Gateway
-
-                if gateway_address is None:
-                    self.logger.warning(
-                        'No gateway addresses for connection "%s".', connection_id)
+            if gateway_address is None:
+                self.logger.warning(
+                    'No gateway addresses for connection "%s".', connection_id)
 
         return gateway_address
 
