@@ -52,11 +52,15 @@ config['connection_ids'] = config_helper.verify_string_list_exists(
 config['nameservers'] = config_helper.verify_string_list_exists(
     config_file, 'nameservers')
 if len(config['nameservers']) < 2:
-    raise ValidationException("At least two nameservers are required.")
+    message = "At least two nameservers are required."
+    logger.critical(message)
+    raise ValidationException(message)
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 if len(config['dns_queries']) < 2:
-    raise ValidationException("At least two domain names are required.")
+    message = "At least two domain names are required."
+    logger.critical(message)
+    raise ValidationException(message)
 
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(
@@ -108,6 +112,6 @@ try:
         the_checker.start()
 
 except Exception as exception:
-    logger.critical('%s: %s\n', type(exception).__name__, str(exception))
+    logger.critical('%s: %s', type(exception).__name__, str(exception))
     logger.critical(traceback.format_exc())
     raise

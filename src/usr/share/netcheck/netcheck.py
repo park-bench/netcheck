@@ -73,15 +73,15 @@ class NetCheck(object):
         if missing_connections:
             raise UnknownConnectionException(
                 'Connection(s) "%s" is/are not known to NetworkManager.'
-                % missing_connections.join('", "'))
+                % '", "'.join(missing_connections))
 
         required_usage_connection_set = set(self.config['required_usage_connection_ids'])
         missing_required_usage_connections = \
             required_usage_connection_set - known_connection_set
         if missing_required_usage_connections:
             raise UnknownConnectionException(
-                'Connection "%s" is not in the list of configured connection_ids.' %
-                missing_required_usage_connections.pop())
+                'Connection(s) "%s" is/are not in the list of configured connection_ids.'
+                % '", "'.join(missing_required_usage_connections))
 
         self.connection_contexts = {}
         for connection_id in self.config['connection_ids']:
@@ -126,7 +126,7 @@ class NetCheck(object):
         #pylint: disable=broad-except
         except Exception as exception:
             self.logger.error(
-                'Error occurred while trying to establish connections quickly. Ignoring. '
+                'Error occurred while trying to activate connections quickly. Ignoring. '
                 '%s: %s', type(exception).__name__, str(exception))
             self.logger.error(traceback.format_exc())
 
@@ -166,7 +166,7 @@ class NetCheck(object):
             except Exception as exception2:
                 self.logger.error(
                     'Failed again to retrieve a list of all connection IDs. Will retry one '
-                    'last time in retry in 30 seconds. %s: %s', type(exception2).__name__,
+                    'last time in 30 seconds. %s: %s', type(exception2).__name__,
                     str(exception2))
                 self.logger.error(traceback.format_exc())
                 time.sleep(30)
@@ -280,7 +280,7 @@ class NetCheck(object):
 
             #pylint: disable=broad-except
             except Exception as exception:
-                self.logger.error('Unexpected error %s: %s\n',
+                self.logger.error('Unexpected error %s: %s',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
@@ -427,8 +427,8 @@ class NetCheck(object):
 
             #pylint: disable=broad-except
             except Exception as exception:
-                self.logger.error('Unexpected error while checking if connection is active '
-                                  '%s: %s\n', type(exception).__name__, str(exception))
+                self.logger.error('Unexpected error while checking if connection is active. '
+                                  '%s: %s', type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
             connection_context['next_periodic_check'] = \
@@ -455,7 +455,7 @@ class NetCheck(object):
             #pylint: disable=broad-except
             except Exception as exception:
                 self.logger.error('Unexpected error while attepting to fix connection '
-                                  'statuses or activate free devices %s: %s\n',
+                                  'statuses or activate free devices. %s: %s',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
 
