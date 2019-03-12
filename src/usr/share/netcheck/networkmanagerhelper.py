@@ -42,8 +42,8 @@ NM_CONNECTION_DISCONNECTED = "NM_CONNECTION_DISCONNECTED"
 SERVICE_UNKNOWN_PATTERN = re.compile(
     r'^org\.freedesktop\.DBus\.Error\.ServiceUnknown:')
 UNKNOWN_METHOD_PATTERN = re.compile(
-    r'org.freedesktop.DBus.Error.UnknownMethod: No such interface '
-    r"'org.freedesktop.DBus.Properties' on object at path ")
+    r'^org\.freedesktop\.DBus\.Error\.UnknownMethod: No such interface '
+    r"'org\.freedesktop\.DBus\.Properties' on object at path ")
 
 def reiterative(method):
     """Repeatedly retries a method if it throws certain types of exceptions. Specifically,
@@ -273,7 +273,7 @@ class NetworkManagerHelper(object):
                     and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_gateway_ip(applied_connection)
+                return self._wait_for_gateway_ip(device, applied_connection)
             elif excluded_connection_ids is None or applied_connection is None \
                     or applied_connection['connection']['id'] not in excluded_connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -287,7 +287,7 @@ class NetworkManagerHelper(object):
                                 'connection']['id']
 
         if connection is None:
-            self.logger.debug('_reiterative_activate_connection_and_steal_device: '
+            self.logger.debug('activate_connection_and_steal_device: '
                               'Connection "%s" is not available.', connection_id)
         else:
             # Try to activate the connection with a random available device.
@@ -328,7 +328,7 @@ class NetworkManagerHelper(object):
                     and applied_connection['connection']['id'] == connection_id:
                 # The connection is already activated.
                 # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_gateway_ip(applied_connection)
+                return self._wait_for_gateway_ip(device, applied_connection)
             elif not applied_connection \
                     or applied_connection['connection']['id'] not in self.connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -353,7 +353,8 @@ class NetworkManagerHelper(object):
                 # '/' means pick an access point automatically (if applicable).
                 self.NetworkManager.NetworkManager.ActivateConnection(
                     connection, available_device, '/')
-                success = self._wait_for_gateway_ip(connection.GetSettings())
+                success = self._wait_for_gateway_ip(
+                    available_device, connection.GetSettings())
 
         return success
 
@@ -365,8 +366,6 @@ class NetworkManagerHelper(object):
         Returns the connection's network interface name or None if the connection is not
           activated.
         """
-        interface = None
-
         for device in self.NetworkManager.NetworkManager.GetDevices():
             # In this case, we only care about applied connections.
             applied_connection = self._get_applied_connection(device)
@@ -392,7 +391,7 @@ class NetworkManagerHelper(object):
                 break
 
         if not active_connection:
-            self.logger.warning('Could not find active connection %s.', connection_id)
+            self.logger.warning('Could not find active connection "%s".', connection_id)
         else:
             self.NetworkManager.NetworkManager.DeactivateConnection(active_connection)
 
@@ -423,32 +422,32 @@ class NetworkManagerHelper(object):
             NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
             from NetworkManager import ObjectVanished
             NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-        #pylint: disable=broad-except
-        except Exception as exception:
+        except Exception as exception:  #pylint: disable=broad-except
             self.logger.error(
                 'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
                 'seconds. %s: %s', type(exception).__name__, str(exception))
             self.logger.error(traceback.format_exc())
             time.sleep(10)
+
             try:
                 import NetworkManager
                 NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
                 from NetworkManager import ObjectVanished
                 NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-            #pylint: disable=broad-except
-            except Exception as exception2:
+            except Exception as exception2:  #pylint: disable=broad-except
                 self.logger.error(
                     'Failed again to import NetworkManager or ObjectVanished. Will retry '
                     'one again in 30 seconds. %s: %s', type(exception2).__name__,
                     str(exception2))
                 self.logger.error(traceback.format_exc())
                 time.sleep(30)
+
                 try:
                     import NetworkManager
                     NetworkManagerHelper.NetworkManager = staticmethod(NetworkManager)
                     from NetworkManager import ObjectVanished
                     NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
-                except Exception as exception3:
+                except Exception as exception3:  #pylint: disable=broad-except
                     self.logger.error(
                         'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
                         'This probably means the NetworkManager daemon failed to start. '
@@ -481,14 +480,15 @@ class NetworkManagerHelper(object):
 
             # '/' means pick an access point automatically (if applicable).
             self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')
-            success = self._wait_for_gateway_ip(connection.GetSettings())
+            success = self._wait_for_gateway_ip(device, connection.GetSettings())
 
         return success
 
-    def _wait_for_gateway_ip(self, connection):
+    def _wait_for_gateway_ip(self, device, connection):
         """Wait for the configured number of seconds for the supplied connection to obtain a
         gateway IP.
 
+        device: The NetworkManager.Device the connection is being activated with.
         connection: A NetworkManager.Connection object that is expected to be assigned a
           gateway IP.
         Returns True if the connection is assigned a gateway. False otherwise.
@@ -503,15 +503,11 @@ class NetworkManagerHelper(object):
         while not success and not give_up:
 
             connection_state = self._get_connection_activation_state(connection_id)
-
-            # Skip looking up the gateway IP if we know there cannot be one.
-            gateway_ip = None
-            if connection_state is not NM_CONNECTION_DISCONNECTED:
-                gateway_ip = self._get_gateway_ip(connection_id)
+            gateway_ip = self._get_gateway_ip(device)
 
             if connection_state is NM_CONNECTION_DISCONNECTED:
-                self.logger.warning('Connection %s disconnected. Trying next connection.',
-                                    connection_id)
+                self.logger.warning('Connection "%s" disconnected while waiting for a '
+                                    'gateway IP.', connection_id)
                 give_up = True
 
             elif gateway_ip:
@@ -520,8 +516,8 @@ class NetworkManagerHelper(object):
                 success = True
 
             elif time.time() > time_to_give_up:
-                self.logger.warning('Connection %s timed out. Trying next connection.',
-                                    connection_id)
+                self.logger.warning('Connection "%s" timed out while waiting for a gateway '
+                                    'IP.', connection_id)
                 give_up = True
 
             else:
@@ -529,41 +525,28 @@ class NetworkManagerHelper(object):
 
         return success
 
-    def _get_gateway_ip(self, connection_id):
-        """Attempts to retrieve the gateway IP address of the given connection. If the
+    #pylint: disable=no-self-use
+    def _get_gateway_ip(self, device):
+        """Attempts to retrieve the gateway IP associated with the given device. If the
         gateway IP address is not available, None is returned.
 
-        connection_id: The displayed name of the connection in NetworkManager.
+        device: A NetworkManager API object representing a network device.
         Returns the gateway IP address as a string if it can be retrieved. Returns None
           otherwise.
         """
+        gateway_ip = None
+        if device.Ip4Config:
+            gateway_ip = device.Ip4Config.Gateway
+        elif device.Ip6Config:
+            gateway_ip = device.Ip6Config.Gateway
 
-        connection_device = None
-        for device in self.NetworkManager.NetworkManager.GetDevices():
-            applied_connection = self._get_applied_connection(device)
-            if applied_connection is not None \
-                    and applied_connection['connection']['id'] == connection_id:
-                connection_device = device
-                break
-
-        gateway_address = None
-        if connection_device is None:
-            self.logger.debug('_get_gateway_ip: Connection "%s" has no IP.',
-                              connection_id)
-        else:
-            gateway_address = connection_device.Ip4Config.Gateway
-
-            if gateway_address is None:
-                self.logger.warning(
-                    'No gateway addresses for connection "%s".', connection_id)
-
-        return gateway_address
+        return gateway_ip
 
     def _get_applied_connection(self, device):
         """Returns the NetworkManager.Connection that is currently 'applied' to the supplied
         network device.
 
-        device: A NetworkManager API object representing a device.
+        device: A NetworkManager API object representing a network device.
         Returns the applied connection or None if the device has no applied connection.
         """
         applied_connection = None
@@ -604,7 +587,7 @@ class NetworkManagerHelper(object):
                     state = NM_CONNECTION_ACTIVATED
 
             else:
-                self.logger.error('Connection %s is no longer activated.',
+                self.logger.error('Connection "%s" is no longer activated.',
                                   connection_id)
 
         return state

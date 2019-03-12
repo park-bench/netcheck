@@ -113,8 +113,7 @@ class NetCheck(object):
         """
         try:
             self.network_helper.update_available_connections()
-        #pylint: disable=broad-except
-        except Exception as exception:
+        except Exception as exception:  #pylint: disable=broad-except
             self.logger.error(
                 'Error occurred while trying to initially update available connections. '
                 'Ignoring. %s: %s', type(exception).__name__, str(exception))
@@ -123,8 +122,7 @@ class NetCheck(object):
         # Quickly connect to connections in priority order.
         try:
             self.network_helper.activate_connections_quickly(self.config['connection_ids'])
-        #pylint: disable=broad-except
-        except Exception as exception:
+        except Exception as exception:  #pylint: disable=broad-except
             self.logger.error(
                 'Error occurred while trying to activate connections quickly. Ignoring. '
                 '%s: %s', type(exception).__name__, str(exception))
@@ -151,28 +149,29 @@ class NetCheck(object):
         # TODO: This retry logic should probably be removed when we move to systemd.
         #   (issue 23)
         nm_connection_set = None
+
         try:
             nm_connection_set = set(self.network_helper.get_all_connection_ids())
-        #pylint: disable=broad-except
-        except Exception as exception:
+        except Exception as exception:  #pylint: disable=broad-except
             self.logger.error(
                 'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
                 '%s: %s', type(exception).__name__, str(exception))
             self.logger.error(traceback.format_exc())
             time.sleep(10)
+
             try:
                 nm_connection_set = set(self.network_helper.get_all_connection_ids())
-            #pylint: disable=broad-except
-            except Exception as exception2:
+            except Exception as exception2:  #pylint: disable=broad-except
                 self.logger.error(
                     'Failed again to retrieve a list of all connection IDs. Will retry one '
                     'last time in 30 seconds. %s: %s', type(exception2).__name__,
                     str(exception2))
                 self.logger.error(traceback.format_exc())
                 time.sleep(30)
+
                 try:
                     nm_connection_set = set(self.network_helper.get_all_connection_ids())
-                except Exception as exception3:
+                except Exception as exception3:  #pylint: disable=broad-except
                     self.logger.error(
                         'Failed 3 times to retrieve a list of all connection IDs. '
                         'Giving up! %s: %s', type(exception3).__name__, str(exception3))
@@ -196,14 +195,14 @@ class NetCheck(object):
                 try:
                     activation_successful = self._steal_device_and_check_dns(
                         start_time, connection_context)
-                #pylint: disable=broad-except
-                except Exception as exception:
+                except Exception as exception:  #pylint: disable=broad-except
                     connection_context['activated'] = False
                     self.logger.error(
                         'Exception thrown while initially attempting to activate required '
                         'usage connection "%s". %s: %s', connection_context['id'],
                         type(exception).__name__, str(exception))
                     self.logger.error(traceback.format_exc())
+
                 if activation_successful:
                     self._log_required_usage_activation(connection_context)
                 else:
@@ -228,8 +227,7 @@ class NetCheck(object):
                         loop_time=start_time,
                         connection_context=connection_context,
                         excluded_connection_ids=self.prior_connection_ids)
-                #pylint: disable=broad-except
-                except Exception as exception:
+                except Exception as exception:  #pylint: disable=broad-except
                     connection_context['activated'] = False
                     self.logger.error(
                         'Exception thrown while initially attempting to activate '
@@ -278,8 +276,7 @@ class NetCheck(object):
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
 
-            #pylint: disable=broad-except
-            except Exception as exception:
+            except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error %s: %s',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
@@ -425,8 +422,7 @@ class NetCheck(object):
                             '_periodic_connection_check: '
                             'Connection "%s" no longer has Internet access.', connection_id)
 
-            #pylint: disable=broad-except
-            except Exception as exception:
+            except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error while checking if connection is active. '
                                   '%s: %s', type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
@@ -447,13 +443,15 @@ class NetCheck(object):
                 connection_context = self.connection_contexts[connection_id]
                 if not self.network_helper.connection_is_activated(connection_context['id']):
                     connection_context['activated'] = False
-                elif not connection_context['activated']:
-                    self.network_helper.deactivate_connection(connection_context['id'])
-                self._activate_with_free_device_and_check_dns(loop_time, connection_context)
+
+                if not connection_context['activated']:
+                    self._activate_with_free_device_and_check_dns(
+                        loop_time, connection_context)
+
                 if connection_context['activated']:
                     current_connection_ids.append(connection_context['id'])
-            #pylint: disable=broad-except
-            except Exception as exception:
+
+            except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error while attepting to fix connection '
                                   'statuses or activate free devices. %s: %s',
                                   type(exception).__name__, str(exception))
@@ -678,13 +676,13 @@ class NetCheck(object):
                     nameserver, connection_context['id'], type(exception).__name__,
                     str(exception))
 
-            #pylint: disable=broad-except
-            except Exception as exception:
+            except Exception as exception:  #pylint: disable=broad-except
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
                     'Unexpected error querying %s from nameserver %s on connection "%s". '
                     '%s: %s', query_name, nameserver, connection_context['id'],
                     type(exception).__name__, str(exception))
+                self.logger.error(traceback.format_exc())
 
             if success:
                 connection_context['activated'] = True
