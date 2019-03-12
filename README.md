@@ -4,26 +4,23 @@ _netcheck_ monitors Internet availability and switches to alternate networks in 
 order if needed. This program gave the Parkbench team more control over the gateway network
 than NetworkManager alone provided.
 
-Also depends on our _confighelper_ library which can be found at
-https://github.com/park-bench/confighelper
+_netcheck_ is licensed under the GNU GPLv3. All source code commits prior to the public
+release are also retroactively licensed under the GNU GPLv3.
 
-netcheck is licensed under the GNU GPLv3. All source code commits prior to the public release
-are also retroactively licensed under the GNU GPLv3.
+This software is still in _beta_ and may not be ready for a production environment.
 
 Bug fixes are welcome!
 
 ## Prerequisites
 
-This software is currently only supported on Ubuntu 14.04 and may not be ready for use in a
-production environment.
+This software is currently only supported on Ubuntu 18.04.
 
 The only current method of installation for our software is building and installing your own
 debian package. We make the following assumptions:
 
-*    You are already familiar with using a Linux terminal.
-*    You are already somewhat familiar with using debuild.
-*    `build-essential` is installed.
-*    `devscripts` is installed.
+*    You are familiar with using a Linux terminal.
+*    You are somewhat familiar with using debuild.
+*    `debuild` is installed.
 
 ## Parkbench Dependencies
 
@@ -52,11 +49,10 @@ first:
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
 2. Copy or rename this file to `netcheck.conf` in the same directory. Edit this file to add
    configuration details.
-3. Restart the daemon with `service netcheck restart`. If the configuration file is valid and
-   named correctly, the service will now start successfully.
+3. Restart the daemon with `systemctl restart netcheck`. If the configuration file is valid
+   and named correctly, the service will now start successfully.
 
 ## Updates
 
-Updates may change configuration file options, so if you have a configuration
-file already, check that it has all of the required options in the current
-example file.
+Updates may change configuration file options, so if you have a configuration file already,
+check that it has all of the required options in the current example file.
