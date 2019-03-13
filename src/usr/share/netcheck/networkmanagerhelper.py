@@ -526,6 +526,7 @@ class NetworkManagerHelper(object):
 
         return success
 
+    # TODO: IPv4 and IPv6 networks do not play nice together. (issue 19)
     #pylint: disable=no-self-use
     def _get_gateway_ip(self, device):
         """Attempts to retrieve the gateway IP associated with the given device. If the
