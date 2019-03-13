@@ -233,7 +233,8 @@ class NetworkManagerHelper(object):
             # Try to activate the connection with a random available device.
             connection_devices = connection_devices_dict[connection]
             for used_device in used_devices:
-                connection_devices.remove(used_device)
+                if used_device in connection_devices:
+                    connection_devices.remove(used_device)
             if connection_devices:
                 device = connection_devices[self.random.randint(
                     0, len(connection_devices) - 1)]
@@ -537,7 +538,8 @@ class NetworkManagerHelper(object):
         gateway_ip = None
         if device.Ip4Config:
             gateway_ip = device.Ip4Config.Gateway
-        elif device.Ip6Config:
+
+        if not gateway_ip and device.Ip6Config:
             gateway_ip = device.Ip6Config.Gateway
 
         return gateway_ip

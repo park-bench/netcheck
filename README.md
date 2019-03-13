@@ -42,3 +42,8 @@ _netcheck_ depends on one other piece of the Parkbench project, which must be in
 # Updates
 
 Updates may change configuration file options. If a configuration file already exists, check that it has all of the required options from the current example file.
+
+# Known Errors and Limitations
+
+* IPv4 and IPv6 networks do not work well together.
+* Captive portal login pages that use DNS redirection trick netcheck into thinking it has access to the Internet.
