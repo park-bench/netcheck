@@ -1,0 +1,56 @@
+TODO: How do we determine which network is being used? Maybe setup a fake DNS on a fake network?
+
+Test all of these cases before tagging a commit.
+
+* Configuration file is missing.
+    - Crash.
+* Remove each required option.
+    - Crash with decent message.
+* Test each option that will not accept blanks.
+    - Crash with decent message.
+* Verify numbers fields only accept numbers.
+    - Crash with decent message.
+* Verify integer fields don't accept floats.
+    - Crash with decent message.
+
+* Test backup network. Connection down. (Maybe use wireshark to see what gateway was used?)
+  * ifconfig eth0 down
+* Test backup network. DNS down.
+  * iptables -A OUTPUT -s 10.0.2.16 -d 8.8.8.8 -j REJECT
+* Wired network down. (Unplug wired. Should fall back to first wireless.)
+* Wired network 1st dns fails. (Use router to block first DNS.)
+* Wired network 2st dns fails. (Use router to block both DNS. Should connect to wireless router.)
+* Wired network goes down and first wireless DNS is down. (Start with a wired connection, a valid wireless connection on Router with 1st DNS IPs blocked, a thrid Phone wireless network. Unplug wired. Program should fall back to Router wireless and logs should indicate first DNS failed.)
+* Wired network down and first wireless network both dns fails. (Start with a wired connection, a valid wireless connection on Router with both DNS IPs blocked, a thrid Phone wireless network. Unplug wired. Program should fall back to Phone wirless.)
+* Wired network connects when it comes back up and a wireless connection exists. (Start the program with a wired connection and a valid wireless network. Unplug the wired connection. Program should fall back to wireless network. Plug wire back in. Program should connect to wired network.) 
+* Wired network connects from no available connection. (Have a fake list of wireless networks. Start the program. Plug in the wired connection.)
+* 1st Wireless network connects from no available connections. (Have a list of wireless networks where the first network is Router. The router should be down when the program starts. Turn on the router and watch the program connect.) 
+* 2nd Wireless network connects from no available connections. (Have a list of wireless networks where the second network is Router. The router should be down when the program starts. Turn on the router and watch the program connect.) 
+* First wireless network connects if 2nd wireless goes down. (We might need two networks for this. Router, Phone, SPACE. Bring down Router and have it connect to Phone. Bring up Router and then bring down Phone. Wireless should connect to Router and not SPACE.)
+* Wireless network list is exceeded. (List a whole bunch of fake networks.)
+* Backup connection is used periodically.
+* Backup connection retries regularly after failure.
+* Backup connection test when already connected to backup connection.
+* Backup connection test when not already connected to backup connection.
+* Test when a connection is made but did not receive an IP address. (This might not be easily testable.)
+* Test when a connection is made but did not receive a gateway IP address. (This might not be easily testable.)
+* Try the following with both wireless and eithernet:
+  * When two adapters of the same type are present, test a connection with no specified interface nor mac address.
+    * The connection should use "the best" (one of) the two adapters.
+    * If the adapter is not available, crash on init.
+  * When two adapters of the same type are present, test a connection with a specified interface but no mac address.
+    * The connection should only use the specified interface.
+    * If the adapter is not available, crash on init.
+  * When two adapters of the same type are present, test a connection with a mac address but no specified interface.
+    * The connection should only use the specified mac address.
+    * If the adapter is not available, crash on init.
+  * When two adapters of the same type are present, test a connection with a matching interface and mac address.
+    * The connection should use the specified adpater.
+    * If the adapter is not available, crash on init.
+  * When two adpaters of the same type are present, test a connection with a conflicting interface and mac address.
+    * Crash on init.
+
+* Optional test: Route cannot be set. (Rename ip command.)
+* Optional test: Route cannot be removed. (Rename ip command.)
+* Optional test: dig cannot be called. (Rename dig command.)
+* Optional test: nmcli cannot be called. (Rename nmcli command.)
