@@ -27,6 +27,7 @@ import re
 import datetime
 import time
 import traceback
+import pyroute2
 from dbus import DBusException
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
@@ -412,6 +413,39 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
+
+    def get_default_gateway_state(self):
+        """Gets information about the current default gateway route. Returns a dictionary
+        including the gateway address, the interface name associated with the address, and
+        the NetworkManager connection associated with that device.
+        """
+
+        # TODO: broadcast signal if:
+        #   the default gateway IP changes
+        #   the interface associated with the default gateway changes
+        #   the connection associated with the interface of the default gateway changes
+
+        # to get an interface name from the default gatway:
+        # with pyroute2.IPRoute() as ipr:
+        #   ipr.get_links()[ipr.get_default_routes()[0]['attrs'][3][1] - 1]['attrs'][0][1]
+
+        gateway_state = {'address': None, 'interface': None, 'connection_id': None}
+
+        with pyroute2.IPRoute() as ipr:
+            default_route = ipr.get_default_routes()[0]
+            gateway_state['address'] = default_route['attrs'][2][1]
+            # OIF is the output interface associated with the route, conveniently represented
+            # in an index value that's off by one.
+            default_route_oif = default_route['attrs'][3][1]
+            oif_device = ipr.get_links()[default_route_oif - 1]
+            gateway_state['interface'] = oif_device['attrs'][3][1]
+
+            for device in self.NetworkManager.NetworkManager.GetDevices():
+                if device.Interface == gateway_state['interface']:
+                    connection_settings = self._get_applied_connection(device).GetSettings()
+                    gateway_state['connection_id'] = connection_settings['connection']['id']
+
+        return gateway_state
 
     # TODO: Remove this method after we move to systemd. (issue 23)
     def _import_network_manager(self):
