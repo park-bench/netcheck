@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/python2
 
 # Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
 #
@@ -17,10 +17,10 @@
 
 """Daemon to find and maintain the best connection to the Internet."""
 
+# TODO: Eventually consider running in a chroot or jail. (gpgmailer issue 17)
+
 __author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
-
-# TODO: Consider running in a chroot or jail.
 
 import grp
 import logging
@@ -46,7 +46,14 @@ PID_FILE = '%s.pid' % PROGRAM_NAME
 LOG_DIR = os.path.join('/var/log', PROGRAM_NAME)
 LOG_FILE = '%s.log' % PROGRAM_NAME
 PROCESS_USERNAME = PROGRAM_NAME
-PRODESS_GROUP_NAME = PROGRAM_NAME
+PROCESS_GROUP_NAME = PROGRAM_NAME
+PROGRAM_UMASK = 0o027  # -rw-r----- and drwxr-x---
+
+
+class InitializationException(Exception):
+    """Indicates an expected fatal error occurred during program initialization.
+    Initialization is implied to mean, before daemonization.
+    """
 
 
 def get_user_and_group_ids():
@@ -57,13 +64,21 @@ def get_user_and_group_ids():
     try:
         program_user = pwd.getpwnam(PROCESS_USERNAME)
     except KeyError as key_error:
-        raise Exception('User %s does not exist.' % process_username, key_error)
+        # TODO: When switching to Python 3, convert to chained exception.
+        #   (gpgmailer issue 15)
+        print('User %s does not exist. %s: %s' % (
+            PROCESS_USERNAME, type(key_error).__name__, str(key_error)))
+        raise key_error
     try:
         program_group = grp.getgrnam(PROCESS_GROUP_NAME)
     except KeyError as key_error:
-        raise Exception('Group %s does not exist.' % process_group_name, key_error)
+        # TODO: When switching to Python 3, convert to chained exception.
+        #   (gpgmailer issue 15)
+        print('Group %s does not exist. %s: %s' % (
+            PROCESS_GROUP_NAME, type(key_error).__name__, str(key_error)))
+        raise key_error
 
-    return (program_user.pw_uid, program_group.gr_gid)
+    return program_user.pw_uid, program_group.gr_gid
 
 
 def read_configuration_and_create_logger(program_uid, program_gid):
@@ -75,32 +90,37 @@ def read_configuration_and_create_logger(program_uid, program_gid):
     program_gid: The system group ID this program should drop to before daemonization.
     Returns the read system config, a confighelper instance, and a logger instance.
     """
+    print('Reading %s...' % CONFIGURATION_PATHNAME)
+
+    if not os.path.isfile(CONFIGURATION_PATHNAME):
+        raise InitializationException(
+            'Configuration file %s does not exist. Quitting.' % CONFIGURATION_PATHNAME)
+
     config_file = ConfigParser.SafeConfigParser()
     config_file.read(CONFIGURATION_PATHNAME)
 
-    # Get logging options first.
     config = {}
     config_helper = confighelper.ConfigHelper()
+    # Figure out the logging options so that can start before anything else.
+    # TODO: Eventually add a verify_string_list method. (gpgmailer issue 20)
     config['log_level'] = config_helper.verify_string_exists(config_file, 'log_level')
 
-    # Create logging directory.
-    log_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP \
-        | stat.S_IROTH | stat.S_IXOTH
+    # Create logging directory.  drwxr-x--- netcheck netcheck
+    log_mode = stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR | stat.S_IRGRP | stat.S_IXGRP
     # TODO: Look into defaulting the logging to the console until the program gets more
-    #   bootstrapped.
-    print('Creating logging directory %s.' % log_dir)
-    if not os.path.isdir(log_dir):
-        # Will throw exception if file cannot be created.
-        os.makedirs(log_dir, log_mode)
-    os.chown(log_dir, program_uid, program_gid)
-    os.chmod(log_dir, log_mode)
+    #   bootstrapped. (gpgmailer issue 18)
+    print('Creating logging directory %s.' % LOG_DIR)
+    if not os.path.isdir(LOG_DIR):
+        # Will throw exception if directory cannot be created.
+        os.makedirs(LOG_DIR, log_mode)
+    os.chown(LOG_DIR, program_uid, program_gid)
+    os.chmod(LOG_DIR, log_mode)
 
-    # Temporarily drop permission and create the handle to the logger.
+    # Temporarily drop permissions and create the handle to the logger.
+    print('Configuring logger.')
     os.setegid(program_gid)
     os.seteuid(program_uid)
-    config_helper.configure_logger(os.path.join(log_dir, log_file), config['log_level'])
-    os.seteuid(os.getuid())
-    os.setegid(os.getgid())
+    config_helper.configure_logger(os.path.join(LOG_DIR, LOG_FILE), config['log_level'])
 
     logger = logging.getLogger(__name__)
 
@@ -142,7 +162,23 @@ def read_configuration_and_create_logger(program_uid, program_gid):
     config['periodic_status_delay'] = config_helper.verify_number_within_range(
         config_file, 'periodic_status_delay', lower_bound=0)
 
-    return (config, config_helper, logger)
+    return config, config_helper, logger
+
+
+# TODO: Consider checking ACLs. (gpgmailer issue 22)
+def verify_safe_file_permissions():
+    """Crashes the application if unsafe file permissions exist on application configuration
+    files.
+    """
+    # The configuration file should be owned by root.
+    config_file_stat = os.stat(CONFIGURATION_PATHNAME)
+    if config_file_stat.st_uid != 0:
+        raise InitializationException(
+            'File %s must be owned by root.' % CONFIGURATION_PATHNAME)
+    if bool(config_file_stat.st_mode & (stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH)):
+        raise InitializationException(
+            "File %s cannot have 'other user' access permissions set."
+            % CONFIGURATION_PATHNAME)
 
 
 def create_directory(system_path, program_dirs, uid, gid, mode):
@@ -152,16 +188,17 @@ def create_directory(system_path, program_dirs, uid, gid, mode):
     system_path: The system path that the directories should be created under. These are
       assumed to already exist. The ownership and permissions on these directories are not
       modified.
-    program_dirs: Additional directories that should be created under the system path that
-      should take on the following ownership and permissions.
+    program_dirs: A string representing additional directories that should be created under
+      the system path that should take on the following ownership and permissions.
     uid: The system user ID that should own the directory.
-    gid: The system group ID that should own be associated with the directory.
-    mode: The umask of the directory access permissions.
+    gid: The system group ID that should be associated with the directory.
+    mode: The unix standard 'mode bits' that should be associated with the directory.
     """
-    logger.info('Creating directory %s.' % os.path.join(system_path, program_dirs))
+    logger.info('Creating directory %s.', os.path.join(system_path, program_dirs))
 
+    path = system_path
     for directory in program_dirs.strip('/').split('/'):
-        path = os.path.join(system_path, directory)
+        path = os.path.join(path, directory)
         if not os.path.isdir(path):
             # Will throw exception if file cannot be created.
             os.makedirs(path, mode)
@@ -175,39 +212,10 @@ def drop_permissions_forever(uid, gid):
     uid: The system user ID to drop to.
     gid: The system group ID to drop to.
     """
-    logger.info('Dropping permissions for user %s.' % process_username)
+    logger.info('Dropping permissions for user %s.', PROCESS_USERNAME)
     os.initgroups(PROCESS_USERNAME, gid)
     os.setgid(gid)
     os.setuid(uid)
-
-
-def setup_daemon_context(log_file_handle, program_uid, program_gid):
-    """Creates the daemon context. Specifies daemon permissions, PID file information, and
-    the signal handler.
-
-    log_file_handle: The file handle to the log file.
-    program_uid: The system user ID the daemon should run as.
-    program_pid: The system group ID the daemon should run as.
-    Returns the daemon context.
-    """
-    daemon_context = daemon.DaemonContext(
-        working_directory='/',
-        pidfile=pidlockfile.PIDLockFile(
-            os.path.join(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, PID_FILE)),
-        umask=0o117,  # Read/write by user and group.
-        )
-
-    daemon_context.signal_map = {
-        signal.SIGTERM: sig_term_handler,
-        }
-
-    daemon_context.files_preserve = [log_file_handle]
-
-    # Set the UID and PID to 'netcheck' user and group.
-    daemon_context.uid = program_uid
-    daemon_context.gid = program_gid
-
-    return daemon_context
 
 
 def sig_term_handler(signal, stack_frame):
@@ -216,19 +224,55 @@ def sig_term_handler(signal, stack_frame):
     signal: Object representing the signal thrown.
     stack_frame: Represents the stack frame.
     """
-    logger.info('Received SIGTERM, quitting.')
+    logger.info('SIGTERM received. Quitting.')
     sys.exit(0)
 
-program_uid, program_gid = get_user_and_group_ids()
 
+def setup_daemon_context(log_file_handle, program_uid, program_gid):
+    """Creates the daemon context. Specifies daemon permissions, PID file information, and
+    the signal handler.
+
+    log_file_handle: The file handle to the log file.
+    program_uid: The system user ID that should own the daemon process.
+    program_gid: The system group ID that should be assigned to the daemon process.
+    Returns the daemon context.
+    """
+    daemon_context = daemon.DaemonContext(
+        working_directory='/',
+        pidfile=pidlockfile.PIDLockFile(
+            os.path.join(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, PID_FILE)),
+        umask=PROGRAM_UMASK,
+    )
+
+    daemon_context.signal_map = {
+        signal.SIGTERM: sig_term_handler,
+    }
+
+    daemon_context.files_preserve = [log_file_handle]
+
+    # Set the UID and GID to 'netcheck' user and group.
+    daemon_context.uid = program_uid
+    daemon_context.gid = program_gid
+
+    return daemon_context
+
+
+os.umask(PROGRAM_UMASK)
+program_uid, program_gid = get_user_and_group_ids()
 config, config_helper, logger = read_configuration_and_create_logger(
     program_uid, program_gid)
 
 try:
+    verify_safe_file_permissions()
+
+    # Re-establish root permissions to create required directories.
+    os.seteuid(os.getuid())
+    os.setegid(os.getgid())
+
     # Non-root users cannot create files in /run, so create a directory that can be written
-    #   to. Full access to user only.
+    #   to. Full access to user only.  drwx------ netcheck netcheck
     create_directory(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, program_uid, program_gid,
-        stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+                     stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     # Configuration has been read and directories setup. Now drop permissions forever.
     drop_permissions_forever(program_uid, program_gid)
@@ -237,7 +281,7 @@ try:
         config_helper.get_log_file_handle(), program_uid, program_gid)
 
     # TODO: We might have to move this within the daemon_context due to dbus stuff.
-    logger.info('Initializing NetCheck.')
+    logger.debug('Initializing NetCheck.')
     netcheck = netcheck.NetCheck(config)
 
     logger.info('Daemonizing...')
@@ -245,6 +289,6 @@ try:
         netcheck.start()
 
 except Exception as exception:
-    logger.critical('Fatal %s: %s', type(exception).__name__, str(exception))
-    logger.critical(traceback.format_exc())
-    raise
+    logger.critical('Fatal %s: %s\n%s', type(exception).__name__, str(exception),
+                    traceback.format_exc())
+    raise exception
