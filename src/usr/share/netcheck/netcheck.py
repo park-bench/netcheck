@@ -250,6 +250,7 @@ class NetCheck(object):
         connections if network devices are avaiable, and scans for available connections.
         """
         self.logger.info('Main loop starting.')
+        prior_gateway_state = self.network_helper.get_default_gateway_state()
 
         # TODO: netcheck's Main Loop Runs Too Slowly (issue 26)
         while True:
@@ -275,6 +276,11 @@ class NetCheck(object):
                     self.network_helper.update_available_connections()
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
+
+                current_gateway_state = self.network_helper.get_default_gateway_state()
+                if current_gateway_state != prior_gateway_state:
+                    self.logger.info('The default gateway has changed to %s.' %
+                            current_gateway_state['address'])
 
             except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error %s: %s',
