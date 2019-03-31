@@ -25,8 +25,7 @@ import traceback
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
-import confighelper
-from confighelper import ValidationException
+import parkbenchcommon.confighelper
 import netcheck
 
 PID_FILE = '/run/netcheck.pid'
@@ -37,7 +36,7 @@ config_file = ConfigParser.SafeConfigParser()
 config_file.read('/etc/netcheck/netcheck.conf')
 
 # Get logging options first.
-config_helper = confighelper.ConfigHelper()
+config_helper = parkbenchcommon.confighelper.ConfigHelper()
 log_file = config_helper.verify_string_exists(config_file, 'log_file')
 log_level = config_helper.verify_string_exists(config_file, 'log_level')
 
@@ -54,13 +53,13 @@ config['nameservers'] = config_helper.verify_string_list_exists(
 if len(config['nameservers']) < 2:
     message = "At least two nameservers are required."
     logger.critical(message)
-    raise ValidationException(message)
+    raise parkbenchcommon.confighelper.ValidationException(message)
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 if len(config['dns_queries']) < 2:
     message = "At least two domain names are required."
     logger.critical(message)
-    raise ValidationException(message)
+    raise parkbenchcommon.confighelper.ValidationException(message)
 
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(
