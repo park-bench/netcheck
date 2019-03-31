@@ -7,5 +7,5 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
-Depends: confighelper (>=0.8),network-manager,python-dnspython,python-netaddr,python-networkmanager
+Depends: confighelper (>=0.8),network-manager,python-dnspython,python-iproute2,python-netaddr,python-networkmanager
 Description: Finds the best network connection with access to the Internet.
