@@ -26,6 +26,7 @@ import ConfigParser
 import daemon
 from lockfile import pidlockfile
 import parkbenchcommon.confighelper
+import parkbenchcommon.broadcaster
 import netcheck
 
 PID_FILE = '/run/netcheck.pid'
@@ -103,11 +104,13 @@ try:
         }
 
     daemon_context.files_preserve = [log_file_handle]
+    broadcaster = parkbenchcommon.broadcaster.Broadcaster(
+        'NetCheck', 'network-reconnected', 0, 0)
 
     logger.info('Daemonizing...')
     with daemon_context:
         logger.info('Initializing NetCheck.')
-        the_checker = netcheck.NetCheck(config)
+        the_checker = netcheck.NetCheck(config, broadcaster)
         the_checker.start()
 
 except Exception as exception:

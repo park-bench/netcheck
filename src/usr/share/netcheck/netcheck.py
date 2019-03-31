@@ -45,12 +45,14 @@ class NetCheck(object):
     actually on the Internet.
     """
 
-    def __init__(self, config):
+    def __init__(self, config, broadcaster):
         """Constructor.
 
         config: The program configuration dictionary.
+        broadcaster: An already configured parkbenchcommon.broadcaster.Broadcaster object.
         """
         self.config = config
+        self.broadcaster = broadcaster
 
         # Create a logger.
         self.logger = logging.getLogger(__name__)
@@ -291,6 +293,9 @@ class NetCheck(object):
                     current_gateway_state['address'],
                     current_gateway_state['connection_id'],
                     current_gateway_state['interface'])
+
+                prior_gateway_state = current_gateway_state
+                self.broadcaster.issue()
 
             # This loop takes a rather long time (about a second). Give some other processes
             #   time to do stuff.
