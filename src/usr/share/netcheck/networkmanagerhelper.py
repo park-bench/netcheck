@@ -437,12 +437,12 @@ class NetworkManagerHelper(object):
             # OIF is the output interface associated with the route, conveniently represented
             # in an index value that's off by one.
             default_route_oif = default_route['attrs'][3][1]
-            oif_device = ipr.get_links()[default_route_oif - 1]
-            gateway_state['interface'] = oif_device['attrs'][3][1]
+            oif_device_attrs = ipr.get_links()[default_route_oif - 1]['attrs']
+            gateway_state['interface'] = oif_device_attrs[0][1]
 
             for device in self.NetworkManager.NetworkManager.GetDevices():
                 if device.Interface == gateway_state['interface']:
-                    connection_settings = self._get_applied_connection(device).GetSettings()
+                    connection_settings = self._get_applied_connection(device)
                     gateway_state['connection_id'] = connection_settings['connection']['id']
 
         return gateway_state

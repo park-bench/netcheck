@@ -277,15 +277,20 @@ class NetCheck(object):
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
 
-                current_gateway_state = self.network_helper.get_default_gateway_state()
-                if current_gateway_state != prior_gateway_state:
-                    self.logger.info('The default gateway has changed to %s.' %
-                            current_gateway_state['address'])
 
             except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error %s: %s',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
+
+            current_gateway_state = self.network_helper.get_default_gateway_state()
+
+            if current_gateway_state != prior_gateway_state:
+                self.logger.info(
+                    'The default gateway has changed to %s via %s on interface %s.',
+                    current_gateway_state['address'],
+                    current_gateway_state['connection_id'],
+                    current_gateway_state['interface'])
 
             # This loop takes a rather long time (about a second). Give some other processes
             #   time to do stuff.
