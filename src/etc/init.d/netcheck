@@ -32,8 +32,8 @@
 PATH=/sbin:/usr/sbin:/bin:/usr/bin
 DESC="Netcheck"
 NAME=netcheck
-PROCESS_NAME=/usr/bin/python2
-DAEMON=/usr/share/$NAME/$NAME-daemon.py
+PROCESS_NAME=${NAME}d.py
+DAEMON=/usr/share/$NAME/${NAME}d.py
 DAEMON_ARGS=
 PIDFILE=/run/$NAME/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
