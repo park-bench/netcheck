@@ -25,7 +25,8 @@
 # Description:       Finds the best network connection with access to the Internet.
 ### END INIT INFO
 
-# Author: Joel Luellwitz <eviljoel@linux.com>, Emily Frost <emfrost@posteo.net>
+# Author: Joel Luellwitz <eviljoel@linux.com>
+# Author: Emily Frost <emfrost@posteo.net>
 
 # Do NOT "set -e"
 
