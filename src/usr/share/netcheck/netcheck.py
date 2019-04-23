@@ -142,7 +142,7 @@ class NetCheck(object):
         # Connect back to connections in priority order.
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
-        # TODO: Read the default gatway again and issue broadcast if it isn't the same.
+        self._update_default_gateway_state()
 
         self._main_loop()
 
