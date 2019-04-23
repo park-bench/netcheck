@@ -53,6 +53,7 @@ class NetCheck(object):
         """
         self.config = config
         self.broadcaster = broadcaster
+        self.default_gateway_state = None
 
         # Create a logger.
         self.logger = logging.getLogger(__name__)
@@ -113,6 +114,9 @@ class NetCheck(object):
         ensuring all required usage connections are used, and finally, activating connections
         in priority order.
         """
+
+        self.default_gateway_state = self.network_helper.get_default_gateway_state()
+
         try:
             self.network_helper.update_available_connections()
         except Exception as exception:  #pylint: disable=broad-except
@@ -137,6 +141,8 @@ class NetCheck(object):
 
         # Connect back to connections in priority order.
         self._initial_activate_and_check_connections_in_priority_order(start_time)
+
+        # TODO: Read the default gatway again and issue broadcast if it isn't the same.
 
         self._main_loop()
 
@@ -252,7 +258,6 @@ class NetCheck(object):
         connections if network devices are avaiable, and scans for available connections.
         """
         self.logger.info('Main loop starting.')
-        prior_gateway_state = self.network_helper.get_default_gateway_state()
 
         # TODO: netcheck's Main Loop Runs Too Slowly (issue 26)
         while True:
@@ -279,23 +284,12 @@ class NetCheck(object):
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
 
+                self._update_default_gateway_state()
 
             except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error %s: %s',
                                   type(exception).__name__, str(exception))
                 self.logger.error(traceback.format_exc())
-
-            current_gateway_state = self.network_helper.get_default_gateway_state()
-
-            if current_gateway_state != prior_gateway_state:
-                self.logger.info(
-                    'The default gateway has changed to %s via %s on interface %s.',
-                    current_gateway_state['address'],
-                    current_gateway_state['connection_id'],
-                    current_gateway_state['interface'])
-
-                prior_gateway_state = current_gateway_state
-                self.broadcaster.issue()
 
             # This loop takes a rather long time (about a second). Give some other processes
             #   time to do stuff.
@@ -792,3 +786,20 @@ class NetCheck(object):
         Returns the datetime that the logging should occur.
         """
         return loop_time + datetime.timedelta(seconds=self.config['periodic_status_delay'])
+
+    def _update_default_gateway_state(self):
+        """Checks the current state of the default gateway and issues a broadcast if it is
+        different from the previous one.
+        """
+
+        new_gateway_state = self.network_helper.get_default_gateway_state()
+        if new_gateway_state != self.default_gateway_state \
+                and new_gateway_state is not None:
+            self.logger.info(
+                'The default gateway has changed to %s via %s on interface %s.',
+                new_gateway_state['address'],
+                new_gateway_state['connection_id'],
+                new_gateway_state['interface'])
+
+            self.default_gateway_state = new_gateway_state
+            self.broadcaster.issue()

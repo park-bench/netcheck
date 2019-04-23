@@ -429,21 +429,24 @@ class NetworkManagerHelper(object):
         # with pyroute2.IPRoute() as ipr:
         #   ipr.get_links()[ipr.get_default_routes()[0]['attrs'][3][1] - 1]['attrs'][0][1]
 
-        gateway_state = {'address': None, 'interface': None, 'connection_id': None}
+        gateway_state = None
 
         with pyroute2.IPRoute() as ipr:
-            default_route = ipr.get_default_routes()[0]
-            gateway_state['address'] = default_route['attrs'][2][1]
-            # OIF is the output interface associated with the route, conveniently represented
-            # in an index value that's off by one.
-            default_route_oif = default_route['attrs'][3][1]
-            oif_device_attrs = ipr.get_links()[default_route_oif - 1]['attrs']
-            gateway_state['interface'] = oif_device_attrs[0][1]
+            default_routes = ipr.get_default_routes()
+            if default_routes:
+                gateway_state = {'address': None, 'interface': None, 'connection_id': None}
+                default_route = default_routes[0]
+                gateway_state['address'] = default_route['attrs'][2][1]
+                # OIF is the output interface associated with the route, conveniently
+                # represented in an index value that's off by one.
+                default_route_oif = default_route['attrs'][3][1]
+                oif_device_attrs = ipr.get_links()[default_route_oif - 1]['attrs']
+                gateway_state['interface'] = oif_device_attrs[0][1]
 
-            for device in self.NetworkManager.NetworkManager.GetDevices():
-                if device.Interface == gateway_state['interface']:
-                    connection_settings = self._get_applied_connection(device)
-                    gateway_state['connection_id'] = connection_settings['connection']['id']
+                for device in self.NetworkManager.NetworkManager.GetDevices():
+                    if device.Interface == gateway_state['interface']:
+                        connection_settings = self._get_applied_connection(device)
+                        gateway_state['connection_id'] = connection_settings['connection']['id']
 
         return gateway_state
 

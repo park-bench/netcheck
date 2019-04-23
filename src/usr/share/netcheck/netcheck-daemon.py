@@ -96,7 +96,8 @@ try:
     daemon_context = daemon.DaemonContext(
         working_directory='/',
         pidfile=pidlockfile.PIDLockFile(PID_FILE),
-        umask=0
+        # TODO: Set this back to 0 when NetCheck properly drops permissions.
+        umask=0o022
         )
 
     daemon_context.signal_map = {
