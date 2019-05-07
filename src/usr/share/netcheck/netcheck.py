@@ -143,7 +143,7 @@ class NetCheck(object):
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
         # Check for changes in the default gateway and issue a broadcast if there are any.
-        self._update_default_gateway_state()
+        self._check_for_gateway_change()
 
         self._main_loop()
 
@@ -285,7 +285,7 @@ class NetCheck(object):
                     self.next_available_connections_check_time = \
                         self._calculate_available_connections_check_time(loop_time)
 
-                self._update_default_gateway_state()
+                self._check_for_gateway_change()
 
             except Exception as exception:  #pylint: disable=broad-except
                 self.logger.error('Unexpected error %s: %s',
@@ -788,19 +788,27 @@ class NetCheck(object):
         """
         return loop_time + datetime.timedelta(seconds=self.config['periodic_status_delay'])
 
-    def _update_default_gateway_state(self):
+    def _check_for_gateway_change(self:
         """Checks the current state of the default gateway and issues a broadcast if it is
         different from the prior state.
         """
 
-        new_gateway_state = self.network_helper.get_default_gateway_state()
-        if new_gateway_state != self.default_gateway_state \
-                and new_gateway_state is not None:
-            self.logger.info(
-                'The default gateway has changed to %s via %s on interface %s.',
-                new_gateway_state['address'],
-                new_gateway_state['connection_id'],
-                new_gateway_state['interface'])
+        try:
+            new_gateway_state = self.network_helper.get_default_gateway_state()
+        except Exception as exception:
+            self.logger.error('Could not get current default gateway state.')
+            new_gateway_state = None
 
-            self.default_gateway_state = new_gateway_state
-            self.broadcaster.issue()
+        if new_gateway_state is None:
+            self.logger.warning('No default gateway is defined.')
+
+        else:
+            if new_gateway_state != self.default_gateway_state:
+                self.logger.info(
+                    'The default gateway has changed to %s via %s on interface %s.',
+                    new_gateway_state['address'],
+                    new_gateway_state['connection_id'],
+                    new_gateway_state['interface'])
+
+                self.default_gateway_state = new_gateway_state
+                self.broadcaster.issue()
