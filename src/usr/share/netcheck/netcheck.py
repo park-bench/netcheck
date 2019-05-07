@@ -49,7 +49,7 @@ class NetCheck(object):
         """Constructor.
 
         config: The program configuration dictionary.
-        broadcaster: An already configured parkbenchcommon.broadcaster.Broadcaster object.
+        broadcaster: A parkbenchcommon.broadcaster.Broadcaster object.
         """
         self.config = config
         self.broadcaster = broadcaster
@@ -142,6 +142,7 @@ class NetCheck(object):
         # Connect back to connections in priority order.
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
+        # Check for changes in the default gateway and issue a broadcast if there are any.
         self._update_default_gateway_state()
 
         self._main_loop()
@@ -789,7 +790,7 @@ class NetCheck(object):
 
     def _update_default_gateway_state(self):
         """Checks the current state of the default gateway and issues a broadcast if it is
-        different from the previous one.
+        different from the prior state.
         """
 
         new_gateway_state = self.network_helper.get_default_gateway_state()

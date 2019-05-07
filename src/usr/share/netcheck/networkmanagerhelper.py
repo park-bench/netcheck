@@ -417,17 +417,8 @@ class NetworkManagerHelper(object):
     def get_default_gateway_state(self):
         """Gets information about the current default gateway route. Returns a dictionary
         including the gateway address, the interface name associated with the address, and
-        the NetworkManager connection associated with that device.
+        the NetworkManager connection associated with that interface.
         """
-
-        # TODO: broadcast signal if:
-        #   the default gateway IP changes
-        #   the interface associated with the default gateway changes
-        #   the connection associated with the interface of the default gateway changes
-
-        # to get an interface name from the default gatway:
-        # with pyroute2.IPRoute() as ipr:
-        #   ipr.get_links()[ipr.get_default_routes()[0]['attrs'][3][1] - 1]['attrs'][0][1]
 
         gateway_state = None
 
@@ -438,7 +429,7 @@ class NetworkManagerHelper(object):
                 default_route = default_routes[0]
                 gateway_state['address'] = default_route['attrs'][2][1]
                 # OIF is the output interface associated with the route, conveniently
-                # represented in an index value that's off by one.
+                #   represented in an index value that's off by one.
                 default_route_oif = default_route['attrs'][3][1]
                 oif_device_attrs = ipr.get_links()[default_route_oif - 1]['attrs']
                 gateway_state['interface'] = oif_device_attrs[0][1]
