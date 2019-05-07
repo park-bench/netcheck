@@ -29,7 +29,14 @@ import socket
 import time
 import traceback
 import dns.resolver
+import pyroute2
 import networkmanagerhelper
+
+# These are named after constants from pyroute2.
+IPROUTE_ATTR_RTA_GATEWAY = 2 # Index of the gateway IP for an IPRoute default route object.
+IPROUTE_ATTR_RTA_OIF = 3 # Index of the output interface for an IPRoute default route object.
+IPROUTE_ATTR_IFLA_IFNAME = 0 # Index of the interface name for an IPRoute link object.
+IPROUTE_ATTR_VALUE = 1 # Every attribute is stored as a key value tuple.
 
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
@@ -788,27 +795,43 @@ class NetCheck(object):
         """
         return loop_time + datetime.timedelta(seconds=self.config['periodic_status_delay'])
 
-    def _check_for_gateway_change(self:
+    def _check_for_gateway_change(self):
         """Checks the current state of the default gateway and issues a broadcast if it is
         different from the prior state.
         """
+        new_gateway_state = None
 
-        try:
-            new_gateway_state = self.network_helper.get_default_gateway_state()
-        except Exception as exception:
-            self.logger.error('Could not get current default gateway state.')
-            new_gateway_state = None
+        with pyroute2.IPRoute() as ip_route:
+            default_routes = ip_route.get_default_routes()
+            if default_routes:
+                new_gateway_state = {
+                    'address': None,
+                    'interface': None,
+                    'connection_id': None}
+                default_route = default_routes[0]
+                new_gateway_state['address'] = default_route['attrs'] \
+                    [IPROUTE_ATTR_RTA_GATEWAY][IPROUTE_ATTR_VALUE]
+                # Output interfaces are stored as index values, which are conveniently
+                #   represented in an index value that's off by one.
+                output_interface_index = default_route['attrs'][IPROUTE_ATTR_RTA_OIF] \
+                    [IPROUTE_ATTR_VALUE] - 1
+                output_interface_attrs = ip_route.get_links()[output_interface_index] \
+                    ['attrs']
+                new_gateway_state['interface'] = output_interface_attrs \
+                    [IPROUTE_ATTR_IFLA_IFNAME][IPROUTE_ATTR_VALUE]
 
-        if new_gateway_state is None:
-            self.logger.warning('No default gateway is defined.')
-
-        else:
-            if new_gateway_state != self.default_gateway_state:
-                self.logger.info(
-                    'The default gateway has changed to %s via %s on interface %s.',
-                    new_gateway_state['address'],
-                    new_gateway_state['connection_id'],
+                self.network_helper.get_connection_for_interface(
                     new_gateway_state['interface'])
 
-                self.default_gateway_state = new_gateway_state
-                self.broadcaster.issue()
+            else:
+                self.logger.error('No default routes are defined.')
+
+        if new_gateway_state != self.default_gateway_state:
+            self.logger.info(
+                'The default gateway has changed to %s via %s on interface %s.',
+                new_gateway_state['address'],
+                new_gateway_state['connection_id'],
+                new_gateway_state['interface'])
+
+            self.default_gateway_state = new_gateway_state
+            self.broadcaster.issue()

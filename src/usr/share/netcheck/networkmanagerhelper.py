@@ -27,7 +27,6 @@ import re
 import datetime
 import time
 import traceback
-import pyroute2
 from dbus import DBusException
 
 SERVICE_UNKNOWN_MAX_DELAY = 1  # In seconds.
@@ -421,36 +420,27 @@ class NetworkManagerHelper(object):
 
         return connection_is_activated
 
-    def get_default_gateway_state(self):
-        """Gets information about the current default gateway route. Returns a dictionary
-        including the gateway address, the interface name associated with the address, and
-        the NetworkManager connection associated with that interface.
+    def get_connection_for_interface(self, interface_name):
+        """Find and return the connection id currently applied to the given interface.
+
+        interface_name: The system interface name, for example eth1 or ens0s1.
         """
+        connection_id = None
+        devices = []
 
-        gateway_state = None
+        try:
+            devices = self.NetworkManager.NetworkManager.GetDevices()
+        except Exception as exception:
+            self.logger.error(
+                'Unable to get device list from NetworkManager. %s: %s.',
+                type(exception).__name__, str(exception))
 
-        with pyroute2.IPRoute() as ip_route:
-            default_routes = ip_route.get_default_routes()
-            if default_routes:
-                gateway_state = {'address': None, 'interface': None, 'connection_id': None}
-                default_route = default_routes[0]
-                gateway_state['address'] = default_route['attrs'][IPROUTE_ATTR_RTA_GATEWAY] \
-                        [IPROUTE_ATTR_VALUE]
-                # Output interfaces are stored as index values, which are conveniently
-                #   represented in an index value that's off by one.
-                output_interface_index = default_route['attrs'][IPROUTE_ATTR_RTA_OIF] \
-                        [IPROUTE_ATTR_VALUE] - 1
-                output_interface_attrs = ip_route.get_links()[output_interface_index] \
-                        ['attrs']
-                gateway_state['interface'] = output_interface_attrs[IPROUTE_ATTR_IFLA_IFNAME] \
-                        [IPROUTE_ATTR_VALUE]
+        for device in devices:
+            if device.Interface == interface_name:
+                connection_settings = self._get_applied_connection(device)
+                connection_id = connection_settings['connection']['id']
 
-                for device in self.NetworkManager.NetworkManager.GetDevices():
-                    if device.Interface == gateway_state['interface']:
-                        connection_settings = self._get_applied_connection(device)
-                        gateway_state['connection_id'] = connection_settings['connection']['id']
-
-        return gateway_state
+        return connection_id
 
     # TODO: Remove this method after we move to systemd. (issue 23)
     def _import_network_manager(self):
