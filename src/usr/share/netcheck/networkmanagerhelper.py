@@ -46,6 +46,13 @@ UNKNOWN_METHOD_PATTERN = re.compile(
     r'^org\.freedesktop\.DBus\.Error\.UnknownMethod: No such interface '
     r"'org\.freedesktop\.DBus\.Properties' on object at path ")
 
+
+# These are named after constants from pyroute2.
+IPROUTE_ATTR_RTA_GATEWAY = 2 # Index of the gateway IP for an IPRoute default route object.
+IPROUTE_ATTR_RTA_OIF = 3 # Index of the output interface for an IPRoute default route object.
+IPROUTE_ATTR_IFLA_IFNAME = 0 # Index of the interface name for an IPRoute link object.
+IPROUTE_ATTR_VALUE = 1 # Every attribute is stored as a key value tuple.
+
 def reiterative(method):
     """Repeatedly retries a method if it throws certain types of exceptions. Specifically,
     will retry if it is detected that NetworkManager is not running or if a NetworkManager
@@ -155,7 +162,7 @@ def reiterative(method):
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
-    D-Bus API. All methods will retry for a bit when encounting exceptions that the
+    D-Bus API. All methods will retry for a bit when encountering exceptions that the
     NetworkManager API frequently throws.
     """
     # TODO: Eventually remove this non-sense once we implement propper logging. (Yes, this is
@@ -422,17 +429,21 @@ class NetworkManagerHelper(object):
 
         gateway_state = None
 
-        with pyroute2.IPRoute() as ipr:
-            default_routes = ipr.get_default_routes()
+        with pyroute2.IPRoute() as ip_route:
+            default_routes = ip_route.get_default_routes()
             if default_routes:
                 gateway_state = {'address': None, 'interface': None, 'connection_id': None}
                 default_route = default_routes[0]
-                gateway_state['address'] = default_route['attrs'][2][1]
-                # OIF is the output interface associated with the route, conveniently
+                gateway_state['address'] = default_route['attrs'][IPROUTE_ATTR_RTA_GATEWAY] \
+                        [IPROUTE_ATTR_VALUE]
+                # Output interfaces are stored as index values, which are conveniently
                 #   represented in an index value that's off by one.
-                default_route_oif = default_route['attrs'][3][1]
-                oif_device_attrs = ipr.get_links()[default_route_oif - 1]['attrs']
-                gateway_state['interface'] = oif_device_attrs[0][1]
+                output_interface_index = default_route['attrs'][IPROUTE_ATTR_RTA_OIF] \
+                        [IPROUTE_ATTR_VALUE] - 1
+                output_interface_attrs = ip_route.get_links()[output_interface_index] \
+                        ['attrs']
+                gateway_state['interface'] = output_interface_attrs[IPROUTE_ATTR_IFLA_IFNAME] \
+                        [IPROUTE_ATTR_VALUE]
 
                 for device in self.NetworkManager.NetworkManager.GetDevices():
                     if device.Interface == gateway_state['interface']:
