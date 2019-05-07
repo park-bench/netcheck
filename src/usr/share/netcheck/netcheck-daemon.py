@@ -25,11 +25,12 @@ import traceback
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
-import parkbenchcommon.confighelper
-import parkbenchcommon.broadcaster
+from parkbenchcommon import confighelper
+from parkbenchcommon import broadcaster
 import netcheck
 
 PID_FILE = '/run/netcheck.pid'
+PROGRAM_UMASK = 0o022 # rw-r--r-- and drwxr-xr-x
 
 # Verify config file here.
 
@@ -37,7 +38,7 @@ config_file = ConfigParser.SafeConfigParser()
 config_file.read('/etc/netcheck/netcheck.conf')
 
 # Get logging options first.
-config_helper = parkbenchcommon.confighelper.ConfigHelper()
+config_helper = confighelper.ConfigHelper()
 log_file = config_helper.verify_string_exists(config_file, 'log_file')
 log_level = config_helper.verify_string_exists(config_file, 'log_level')
 
@@ -54,13 +55,13 @@ config['nameservers'] = config_helper.verify_string_list_exists(
 if len(config['nameservers']) < 2:
     message = "At least two nameservers are required."
     logger.critical(message)
-    raise parkbenchcommon.confighelper.ValidationException(message)
+    raise confighelper.ValidationException(message)
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 if len(config['dns_queries']) < 2:
     message = "At least two domain names are required."
     logger.critical(message)
-    raise parkbenchcommon.confighelper.ValidationException(message)
+    raise confighelper.ValidationException(message)
 
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(
@@ -96,8 +97,7 @@ try:
     daemon_context = daemon.DaemonContext(
         working_directory='/',
         pidfile=pidlockfile.PIDLockFile(PID_FILE),
-        # TODO: Set this back to 0 when NetCheck properly drops permissions.
-        umask=0o022
+        umask=PROGRAM_UMASK
         )
 
     daemon_context.signal_map = {
@@ -105,7 +105,7 @@ try:
         }
 
     daemon_context.files_preserve = [log_file_handle]
-    broadcaster = parkbenchcommon.broadcaster.Broadcaster(
+    broadcaster = broadcaster.Broadcaster(
         'NetCheck', 'network-reconnected', 0, 0)
 
     logger.info('Daemonizing...')
