@@ -106,7 +106,7 @@ try:
 
     daemon_context.files_preserve = [log_file_handle]
     broadcaster = broadcaster.Broadcaster(
-        'NetCheck', 'network-reconnected', 0, 0)
+        program_name='NetCheck', broadcast_name='network-reconnected', uid=0, gid=0)
 
     logger.info('Daemonizing...')
     with daemon_context:
