@@ -33,6 +33,7 @@ import traceback
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
+import prctl
 import confighelper
 from confighelper import ValidationException
 import netcheck
@@ -126,6 +127,8 @@ def read_configuration_and_create_logger(program_uid, program_gid):
 
     logger.info('Verifying non-logging configuration.')
 
+    config['run_as_root'] = config_helper.verify_boolean_exists(config_file, 'run_as_root')
+
     config['connection_ids'] = config_helper.verify_string_list_exists(
         config_file, 'connection_ids')
     config['nameservers'] = config_helper.verify_string_list_exists(
@@ -206,16 +209,45 @@ def create_directory(system_path, program_dirs, uid, gid, mode):
         os.chmod(path, mode)
 
 
-def drop_permissions_forever(uid, gid):
+def drop_permissions_forever(config, uid, gid):
     """Drops escalated permissions forever to the specified user and group.
 
+    config: TODO:
     uid: The system user ID to drop to.
     gid: The system group ID to drop to.
     """
-    logger.info('Dropping permissions for user %s.', PROCESS_USERNAME)
-    os.initgroups(PROCESS_USERNAME, gid)
-    os.setgid(gid)
-    os.setuid(uid)
+    if config['run_as_root']:
+        logger.info('Dropping capabilities for root user.')
+    else:
+        logger.info('Dropping permissions for user %s.', PROCESS_USERNAME)
+        prctl.securebits.no_setuid_fixup = True
+        os.initgroups(PROCESS_USERNAME, gid)
+        os.setgid(gid)
+        os.setuid(uid)
+
+    # Manually remove all capabilities from 0 to 200 because prctl.limit doesn't know
+    #   about newer capabilities. (200 is an abitrary limit but right now there are only
+    #   about 40 capabilities.)
+    for capability_index in range(0, 200):
+        # TODO: Add something to ignore the not found error.
+        if (capability_index != prctl.CAP_NET_RAW and capability_index != prctl.CAP_SETPCAP):
+            try:
+                # TODO: Are capbsets correct? Are there others?
+                prctl.capbset.remove(capability_index)
+                prctl.cap_permitted.remove(capability_index)
+                prctl.cap_effective.remove(capability_index)
+            except Exception as exception:  # TODO: What type of exception?
+                if str(exception) != '':  # TODO: What should the message say? Can it withstand a internationalization?
+                    raise exception
+                else:
+                    # We expect most of these 200 capability values to not exist.
+                    logger.trace('Capability value %d does not exist.', capability_index)
+
+    # Remove all capabilities except CAP_NET_RAW including removing any capabilities the
+    #   above may have missed.
+    prctl.capbset.limit(prctl.CAP_NET_RAW)
+    prctl.cap_permitted.limit(prctl.CAP_NET_RAW)
+    prctl.cap_effective.limit(prctl.CAP_NET_RAW)
 
 
 def sig_term_handler(signal, stack_frame):
@@ -264,6 +296,7 @@ config, config_helper, logger = read_configuration_and_create_logger(
 
 try:
     verify_safe_file_permissions()
+    warn_about_suspect_network_manager_permissions()
 
     # Re-establish root permissions to create required directories.
     os.seteuid(os.getuid())
@@ -275,7 +308,7 @@ try:
                      stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
     # Configuration has been read and directories setup. Now drop permissions forever.
-    drop_permissions_forever(program_uid, program_gid)
+    drop_permissions_forever(config, program_uid, program_gid)
 
     daemon_context = setup_daemon_context(
         config_helper.get_log_file_handle(), program_uid, program_gid)
