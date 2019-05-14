@@ -122,7 +122,7 @@ class NetCheck(object):
         in priority order.
         """
 
-        self.default_gateway_state = self.network_helper.get_default_gateway_state()
+        self.default_gateway_state = self._get_default_gateway_state()
 
         try:
             self.network_helper.update_available_connections()
@@ -799,32 +799,8 @@ class NetCheck(object):
         """Checks the current state of the default gateway and issues a broadcast if it is
         different from the prior state.
         """
-        new_gateway_state = None
 
-        with pyroute2.IPRoute() as ip_route:
-            default_routes = ip_route.get_default_routes()
-            if default_routes:
-                new_gateway_state = {
-                    'address': None,
-                    'interface': None,
-                    'connection_id': None}
-                default_route = default_routes[0]
-                new_gateway_state['address'] = default_route['attrs'] \
-                    [IPROUTE_ATTR_RTA_GATEWAY][IPROUTE_ATTR_VALUE]
-                # Output interfaces are stored as index values, which are conveniently
-                #   represented in an index value that's off by one.
-                output_interface_index = default_route['attrs'][IPROUTE_ATTR_RTA_OIF] \
-                    [IPROUTE_ATTR_VALUE] - 1
-                output_interface_attrs = ip_route.get_links()[output_interface_index] \
-                    ['attrs']
-                new_gateway_state['interface'] = output_interface_attrs \
-                    [IPROUTE_ATTR_IFLA_IFNAME][IPROUTE_ATTR_VALUE]
-
-                self.network_helper.get_connection_for_interface(
-                    new_gateway_state['interface'])
-
-            else:
-                self.logger.error('No default routes are defined.')
+        new_gateway_state = self._get_default_gateway_state()
 
         if new_gateway_state != self.default_gateway_state:
             self.logger.info(
@@ -835,3 +811,38 @@ class NetCheck(object):
 
             self.default_gateway_state = new_gateway_state
             self.broadcaster.issue()
+
+    def _get_default_gateway_state(self):
+        """Retrieves information about the current default gateway.
+
+        Returns a dictionary containing a gateway IP address, interface name, and associated
+        connection id.
+        """
+        gateway_state = None
+
+        with pyroute2.IPRoute() as ip_route:
+            default_routes = ip_route.get_default_routes()
+            if default_routes:
+                gateway_state = {
+                    'address': None,
+                    'interface': None,
+                    'connection_id': None}
+                default_route = default_routes[0]
+                gateway_state['address'] = default_route['attrs'] \
+                    [IPROUTE_ATTR_RTA_GATEWAY][IPROUTE_ATTR_VALUE]
+                # Output interfaces are stored as index values, which are conveniently
+                #   represented in an index value that's off by one.
+                output_interface_index = default_route['attrs'][IPROUTE_ATTR_RTA_OIF] \
+                    [IPROUTE_ATTR_VALUE] - 1
+                output_interface_attrs = ip_route.get_links()[output_interface_index] \
+                    ['attrs']
+                gateway_state['interface'] = output_interface_attrs \
+                    [IPROUTE_ATTR_IFLA_IFNAME][IPROUTE_ATTR_VALUE]
+
+                self.network_helper.get_connection_for_interface(
+                    gateway_state['interface'])
+
+            else:
+                self.logger.error('No default routes are defined.')
+
+        return gateway_state
