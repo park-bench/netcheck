@@ -36,6 +36,7 @@ from lockfile import pidlockfile
 import prctl
 import confighelper
 from confighelper import ValidationException
+import _prctl  # Necesary to address https://github.com/seveas/python-prctl/issues/21
 import netcheck
 
 # Constants
@@ -229,25 +230,23 @@ def drop_permissions_forever(config, uid, gid):
     #   about newer capabilities. (200 is an abitrary limit but right now there are only
     #   about 40 capabilities.)
     for capability_index in range(0, 200):
-        # TODO: Add something to ignore the not found error.
-        if (capability_index != prctl.CAP_NET_RAW and capability_index != prctl.CAP_SETPCAP):
-            try:
-                # TODO: Are capbsets correct? Are there others?
-                prctl.capbset.remove(capability_index)
-                prctl.cap_permitted.remove(capability_index)
-                prctl.cap_effective.remove(capability_index)
-            except Exception as exception:  # TODO: What type of exception?
-                if str(exception) != '':  # TODO: What should the message say? Can it withstand a internationalization?
-                    raise exception
-                else:
-                    # We expect most of these 200 capability values to not exist.
-                    logger.trace('Capability value %d does not exist.', capability_index)
+        # TODO: Add something to ignore the no member error.
+        if capability_index != prctl.CAP_NET_RAW \
+                and capability_index != prctl.CAP_SETPCAP:
+            if not config['run_as_root'] and (capability_index == prctl.CAP_SETUID \
+                    or capability_index == prctl.CAP_SETGID):
+                # Referencing internal _prctl to address
+                #   https://github.com/seveas/python-prctl/issues/21 .
+                _prctl.set_caps([], [], [], [capability_index], [capability_index], [])
+            else:
+                _prctl.set_caps(
+                    [], [], [], [capability_index], [capability_index], [capability_index])
 
     # Remove all capabilities except CAP_NET_RAW including removing any capabilities the
-    #   above may have missed.
-    prctl.capbset.limit(prctl.CAP_NET_RAW)
-    prctl.cap_permitted.limit(prctl.CAP_NET_RAW)
+    #   above may have missed (including prctl.SETPCAP).
     prctl.cap_effective.limit(prctl.CAP_NET_RAW)
+    prctl.cap_inheritable.limit(prctl.CAP_NET_RAW)
+    prctl.cap_permitted.limit(prctl.CAP_NET_RAW)
 
 
 def sig_term_handler(signal, stack_frame):
@@ -296,7 +295,7 @@ config, config_helper, logger = read_configuration_and_create_logger(
 
 try:
     verify_safe_file_permissions()
-    warn_about_suspect_network_manager_permissions()
+    # TODO: warn_about_suspect_network_manager_permissions()
 
     # Re-establish root permissions to create required directories.
     os.seteuid(os.getuid())
