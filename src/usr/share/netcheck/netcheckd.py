@@ -235,17 +235,25 @@ def drop_permissions_forever(config, uid, gid):
                 and capability_index != prctl.CAP_SETPCAP:
             if not config['run_as_root'] and (capability_index == prctl.CAP_SETUID \
                     or capability_index == prctl.CAP_SETGID):
-                # Referencing internal _prctl to address
-                #   https://github.com/seveas/python-prctl/issues/21 .
-                _prctl.set_caps([], [], [], [capability_index], [capability_index], [])
+                remove_effective = [capability_index]
+                remove_permitted = [capability_index]
+                remove_inheritable = []
             else:
-                _prctl.set_caps(
-                    [], [], [], [capability_index], [capability_index], [capability_index])
+                remove_effective = [capability_index]
+                remove_permitted = [capability_index]
+                remove_inheritable = [capability_index]
 
-    # Remove all capabilities except CAP_NET_RAW including removing any capabilities the
-    #   above may have missed (including prctl.SETPCAP).
+            # Referencing internal _prctl to address
+            #   https://github.com/seveas/python-prctl/issues/21 .
+            _prctl.set_caps(
+                [], [], [], remove_effective, remove_permitted, remove_inheritable)
+
+    # Remove all capabilities except CAP_NET_RAW and CAP_SETUID and CAP_SETGID from the
+    #   inheritable set. This includes removing any capabilities the above may have
+    #   missed (including prctl.SETPCAP). CAP_SETUID and CAP_SETGID might have already been
+    #   removed from the inheritable set above.
     prctl.cap_effective.limit(prctl.CAP_NET_RAW)
-    prctl.cap_inheritable.limit(prctl.CAP_NET_RAW)
+    prctl.cap_inheritable.limit(prctl.CAP_NET_RAW, prctl.CAP_SETUID, prctl.CAP_SETGID)
     prctl.cap_permitted.limit(prctl.CAP_NET_RAW)
 
 
