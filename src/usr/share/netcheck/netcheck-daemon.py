@@ -105,6 +105,7 @@ try:
         }
 
     daemon_context.files_preserve = [log_file_handle]
+    # TODO: Change uid and gid to the netcheck user before merging in standard-daemonizing.
     broadcaster = broadcaster.Broadcaster(
         program_name='netcheck', broadcast_name='gateway-changed', uid=0, gid=0)
 

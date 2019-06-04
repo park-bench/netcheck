@@ -45,13 +45,6 @@ UNKNOWN_METHOD_PATTERN = re.compile(
     r'^org\.freedesktop\.DBus\.Error\.UnknownMethod: No such interface '
     r"'org\.freedesktop\.DBus\.Properties' on object at path ")
 
-
-# These are named after constants from pyroute2.
-IPROUTE_ATTR_RTA_GATEWAY = 2 # Index of the gateway IP for an IPRoute default route object.
-IPROUTE_ATTR_RTA_OIF = 3 # Index of the output interface for an IPRoute default route object.
-IPROUTE_ATTR_IFLA_IFNAME = 0 # Index of the interface name for an IPRoute link object.
-IPROUTE_ATTR_VALUE = 1 # Every attribute is stored as a key value tuple.
-
 def reiterative(method):
     """Repeatedly retries a method if it throws certain types of exceptions. Specifically,
     will retry if it is detected that NetworkManager is not running or if a NetworkManager
@@ -420,25 +413,32 @@ class NetworkManagerHelper(object):
 
         return connection_is_activated
 
+    @reiterative
     def get_connection_for_interface(self, interface_name):
-        """Find and return the connection id currently applied to the given interface.
+        """Find the connection ID currently applied to the given interface.
 
         interface_name: The system interface name, for example eth1 or ens0s1.
+
+        Returns the connection ID.
         """
         connection_id = None
         devices = []
 
         try:
             devices = self.NetworkManager.NetworkManager.GetDevices()
+
+            for device in devices:
+                if device.Interface == interface_name:
+                    connection_settings = self._get_applied_connection(device)
+                    if connection_settings:
+                        connection_id = connection_settings['connection']['id']
+
+        # TODO: Implement exception chaining when we move to Python 3.
         except Exception as exception:
             self.logger.error(
                 'Unable to get device list from NetworkManager. %s: %s.',
                 type(exception).__name__, str(exception))
-
-        for device in devices:
-            if device.Interface == interface_name:
-                connection_settings = self._get_applied_connection(device)
-                connection_id = connection_settings['connection']['id']
+            raise exception
 
         return connection_id
 

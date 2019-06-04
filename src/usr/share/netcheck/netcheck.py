@@ -149,7 +149,7 @@ class NetCheck(object):
         # Connect back to connections in priority order.
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
-        # Check for changes in the default gateway and issue a broadcast if there are any.
+        # The initial cycling through networks might result in a new gateway being chosen.
         self._check_for_gateway_change()
 
         self._main_loop()
@@ -816,10 +816,10 @@ class NetCheck(object):
         self.default_gateway_state = new_default_gateway_state
 
     def _get_default_gateway_state(self):
-        """Retrieves information about the current default gateway.
+        """Retrieves information about the current primary default gateway.
 
         Returns a dictionary containing a gateway IP address, interface name, and associated
-        connection id.
+            connection ID. If there is no primary default gateway, None is returned.
         """
         default_gateway_state = None
 
