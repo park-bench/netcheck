@@ -267,10 +267,11 @@ def sig_term_handler(signal, stack_frame):
     sys.exit(0)
 
 
-def setup_daemon_context(log_file_handle, program_uid, program_gid):
+def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
     """Creates the daemon context. Specifies daemon permissions, PID file information, and
     the signal handler.
 
+    config: TODO:
     log_file_handle: The file handle to the log file.
     program_uid: The system user ID that should own the daemon process.
     program_gid: The system group ID that should be assigned to the daemon process.
@@ -290,8 +291,9 @@ def setup_daemon_context(log_file_handle, program_uid, program_gid):
     daemon_context.files_preserve = [log_file_handle]
 
     # Set the UID and GID to 'netcheck' user and group.
-    daemon_context.uid = program_uid
-    daemon_context.gid = program_gid
+    if config['run_as_root'] == False:
+        daemon_context.uid = program_uid
+        daemon_context.gid = program_gid
 
     return daemon_context
 
@@ -309,6 +311,11 @@ try:
     os.seteuid(os.getuid())
     os.setegid(os.getgid())
 
+    if config['run_as_root']:
+        # Only the log file needs to be created with non-root ownership.
+        program_uid = os.getuid()
+        program_uid = os.getgid()
+
     # Non-root users cannot create files in /run, so create a directory that can be written
     #   to. Full access to user only.  drwx------ netcheck netcheck
     create_directory(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, program_uid, program_gid,
@@ -318,7 +325,7 @@ try:
     drop_permissions_forever(config, program_uid, program_gid)
 
     daemon_context = setup_daemon_context(
-        config_helper.get_log_file_handle(), program_uid, program_gid)
+        config, config_helper.get_log_file_handle(), program_uid, program_gid)
 
     # TODO: We might have to move this within the daemon_context due to dbus stuff.
     logger.debug('Initializing NetCheck.')
