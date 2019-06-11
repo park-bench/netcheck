@@ -327,12 +327,10 @@ try:
     daemon_context = setup_daemon_context(
         config, config_helper.get_log_file_handle(), program_uid, program_gid)
 
-    # TODO: We might have to move this within the daemon_context due to dbus stuff.
-    logger.debug('Initializing NetCheck.')
-    netcheck = netcheck.NetCheck(config)
-
     logger.info('Daemonizing...')
     with daemon_context:
+        logger.debug('Initializing NetCheck.')
+        netcheck = netcheck.NetCheck(config)
         netcheck.start()
 
 except Exception as exception:

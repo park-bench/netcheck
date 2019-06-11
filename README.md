@@ -41,6 +41,7 @@ Since running netcheck as a non-root user is more complex than with other Parkbe
 
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
 2. Copy or rename this file to `netcheck.conf` in the same directory. Edit this file to add configuration details.
+3. Remove all 'other' permission access to netcheck.conf.
 
 If you are running entcheck as a root user, please do the following:
 
@@ -49,14 +50,13 @@ If you are running entcheck as a root user, please do the following:
 If you are running netcheck as a non-root user, please do the following:
 
 1. Verify the configuration file has run_as_root set to 'false'.
-2. Remove all 'other' permission access to netcheck.conf.
-3. Run mkdir -p /etc/dbus-1/system.d/.
-4. Replace /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf with a copy of /src/usr/share/netcheck/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf. This change denies access to NetworkManager except for users root and netcheck.
-5. Run mkdir -p /etc/NetworkManager/.
-6. Replace /etc/NetworkManager/NetworkManager.conf with a copy of /src/usr/share/netcheck/etc/NetworkManager/NetworkManager.conf. This disables NetworkManager's polkit authentication.
-7. If your system is configured for unattended-upgrades (recommended), copy /usr/share/netcheck/etc/apt/apt.conf.d/99-netcheck-unattended-upgrades to /etc/apt/apt.conf.d/. This forces automatic-upgrades (and apt) to keep local modifications to configuration files.
+2. Run mkdir -p /etc/dbus-1/system.d/.
+3. Replace /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf with a copy of /src/usr/share/netcheck/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf. This change denies access to NetworkManager except for users root and netcheck.
+4. Run mkdir -p /etc/NetworkManager/.
+5. Replace /etc/NetworkManager/NetworkManager.conf with a copy of /src/usr/share/netcheck/etc/NetworkManager/NetworkManager.conf. This disables NetworkManager's polkit authentication.
+6. If your system is configured for unattended-upgrades (recommended), copy /usr/share/netcheck/etc/apt/apt.conf.d/99-netcheck-unattended-upgrades to /etc/apt/apt.conf.d/. This forces automatic-upgrades (and apt) to keep local modifications of configuration files.
 
-Once the configuration is complete, restart the daemon with `systemctl restart netcheck`. If the above steps were followed correctly, the service should now start successfully.
+Once the configuration is complete, restart NetworkManager with `systemctl restart NetworkManager` and then restart netcheck with `systemctl restart netcheck`. If the above steps were followed correctly, the service should now start successfully.
 
 # Updates
 
