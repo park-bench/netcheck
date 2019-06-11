@@ -69,7 +69,7 @@ class NetCheck(object):
         """
         self.config = config
         self.broadcaster = broadcaster
-        self.default_gateway_state = None
+        self.prior_default_gateway_state = None
 
         # Create a logger.
         self.logger = logging.getLogger(__name__)
@@ -131,7 +131,7 @@ class NetCheck(object):
         in priority order.
         """
 
-        self.default_gateway_state = self._get_default_gateway_state()
+        self.prior_default_gateway_state = self._get_default_gateway_state()
 
         try:
             self.network_helper.update_available_connections()
@@ -810,26 +810,26 @@ class NetCheck(object):
         different from the prior state.
         """
 
-        new_default_gateway_state = self._get_default_gateway_state()
+        default_gateway_state = self._get_default_gateway_state()
 
-        if new_default_gateway_state \
-            and new_default_gateway_state != self.default_gateway_state:
+        if default_gateway_state \
+            and default_gateway_state != self.prior_default_gateway_state:
 
             self.logger.info(
                 'The default gateway has changed to %s via %s on interface %s.',
-                new_default_gateway_state['address'],
-                new_default_gateway_state['connection_id'],
-                new_default_gateway_state['interface'])
+                default_gateway_state['address'],
+                default_gateway_state['connection_id'],
+                default_gateway_state['interface'])
 
             self.broadcaster.issue()
 
-        self.default_gateway_state = new_default_gateway_state
+        self.prior_default_gateway_state = default_gateway_state
 
     def _get_default_gateway_state(self):
         """Retrieves information about the current primary default gateway.
 
-        Returns a dictionary containing a gateway IP address, interface name, and associated
-            connection ID. If there is no primary default gateway, None is returned.
+        Returns a dictionary containing the gateway IP address, interface name, and
+          associated connection ID. If there is no primary default gateway, None is returned.
         """
         default_gateway_state = None
 

@@ -418,7 +418,6 @@ class NetworkManagerHelper(object):
         """Find the connection ID currently applied to the given interface.
 
         interface_name: The system interface name, for example eth1 or ens0s1.
-
         Returns the connection ID.
         """
         connection_id = None
@@ -436,8 +435,8 @@ class NetworkManagerHelper(object):
         # TODO: Implement exception chaining when we move to Python 3.
         except Exception as exception:
             self.logger.error(
-                'Unable to get device list from NetworkManager. %s: %s.',
-                type(exception).__name__, str(exception))
+                'Error while getting connection ID for interface %s. %s: %s.',
+                interface_name, type(exception).__name__, str(exception))
             raise exception
 
         return connection_id
