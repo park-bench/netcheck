@@ -842,8 +842,9 @@ class NetCheck(object):
                 default_gateway_state['interface'] = output_interface_attrs \
                     [IPROUTE_ATTR_IFLA_IFNAME][IPROUTE_ATTR_VALUE]
 
-                self.network_helper.get_connection_for_interface(
-                    default_gateway_state['interface'])
+                default_gateway_state['connection_id'] = \
+                    self.network_helper.get_connection_for_interface(
+                        default_gateway_state['interface'])
 
             else:
                 self.logger.warning('No default routes are defined.')
