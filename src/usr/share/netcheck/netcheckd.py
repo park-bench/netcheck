@@ -185,6 +185,62 @@ def verify_safe_file_permissions():
             % CONFIGURATION_PATHNAME)
 
 
+def warn_about_suspect_network_manager_configuration(config):
+    """Logs a warning if it is detected that the user did not follow the README instructions
+    and is subverting some of the system's security measures. This method assumes the
+    program is running with full root privileges.
+
+    The checks in this method are not perfect but should, in practice, work nearly 100% of
+    the time.
+
+    config: The program configuration dictionary. Used to determine if the program is running
+      as root.
+    """
+
+    # See if NetworkManager polkit authentication is enabled.
+    polkit_auth_enabled = True
+    network_manager_config_pathname = '/etc/NetworkManager/NetworkManager.conf'
+    try:
+        with open(network_manager_config_pathname, 'r') as network_manager_config:
+            for line in network_manager_config:
+                lowercase_line = line.lower()
+                if 'auth-polkit' in lowercase_line and 'false' in lowercase_line:
+                    polkit_auth_enabled = False
+    except Exception as exception:  #pylint: disable=broad-except
+        logger.warning('Cannot access %s. %s: %s', network_manager_config_pathname,
+                       str(exception), traceback.format_exc())
+        # Yes, we are eating this exception. This is a non-fatal error.
+
+    # See if any user can communicate with NetworkManager via DBus.
+    any_user_dbus_config = False
+    network_manager_dbus_config_pathname = \
+        '/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf'
+    try:
+        with open(network_manager_dbus_config_pathname, 'r') as network_manager_dbus_config:
+            for line in network_manager_dbus_config:
+                if '<policy context="default">' in line.lower():
+                    any_user_dbus_config = True
+    except Exception as exception:  #pylint: disable=broad-except
+        logger.warning('Cannot access %s. %s: %s', network_manager_dbus_config_pathname,
+                       str(exception), traceback.format_exc())
+        # Yes, we are eating this exception. This is a non-fatal error.
+
+
+    if not polkit_auth_enabled:
+        if config['run_as_root']:
+            logger.warning(
+                'NetworkManager polkit authentication appears to be disabled. '
+                'NetworkManager polkit authentication should probably be enabled when this '
+                'daemon is run as the root user.')
+        else:
+            if any_user_dbus_config:
+                logger.warning(
+                    "NetworkManager polkit authentication appears to be disabled and "
+                    "NetworkManager's DBus configuration appears to allow communication "
+                    "from any user. This is a potential security risk! Refer to the program "
+                    "README.md for instuctions about how to correct this.")
+
+
 def create_directory(system_path, program_dirs, uid, gid, mode):
     """Creates directories if they do not exist and sets the specified ownership and
     permissions.
@@ -213,9 +269,10 @@ def create_directory(system_path, program_dirs, uid, gid, mode):
 def drop_permissions_forever(config, uid, gid):
     """Drops escalated permissions forever to the specified user and group.
 
-    config: TODO:
-    uid: The system user ID to drop to.
-    gid: The system group ID to drop to.
+    config: The program configuration dictionary used to determine if the program is running
+      as root.
+    uid: The system user ID to drop to if the program is not running as root.
+    gid: The system group ID to drop to if the program is not running as root.
     """
     if config['run_as_root']:
         logger.info('Dropping capabilities for root user.')
@@ -230,11 +287,12 @@ def drop_permissions_forever(config, uid, gid):
     #   about newer capabilities. (200 is an abitrary limit but right now there are only
     #   about 40 capabilities.)
     for capability_index in range(0, 200):
-        # TODO: Add something to ignore the no member error.
+        #pylint: disable=no-member
         if capability_index != prctl.CAP_NET_RAW \
                 and capability_index != prctl.CAP_SETPCAP:
-            if not config['run_as_root'] and (capability_index == prctl.CAP_SETUID \
-                    or capability_index == prctl.CAP_SETGID):
+            if not config['run_as_root'] and (capability_index == prctl.CAP_SETUID
+                                              or capability_index == prctl.CAP_SETGID):
+                #pylint: enable=no-member
                 remove_effective = [capability_index]
                 remove_permitted = [capability_index]
                 remove_inheritable = []
@@ -252,12 +310,14 @@ def drop_permissions_forever(config, uid, gid):
     #   inheritable set. This includes removing any capabilities the above may have
     #   missed (including prctl.SETPCAP). CAP_SETUID and CAP_SETGID might have already been
     #   removed from the inheritable set above.
+    #pylint: disable=no-member
     prctl.cap_effective.limit(prctl.CAP_NET_RAW)
     prctl.cap_inheritable.limit(prctl.CAP_NET_RAW, prctl.CAP_SETUID, prctl.CAP_SETGID)
     prctl.cap_permitted.limit(prctl.CAP_NET_RAW)
+    #pylint: enable=no-member
 
 
-def sig_term_handler(signal, stack_frame):
+def sig_term_handler(signal, stack_frame):  #pylint: disable=unused-argument
     """Signal handler for SIGTERM. Quits when SIGTERM is received.
 
     signal: Object representing the signal thrown.
@@ -271,10 +331,13 @@ def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
     """Creates the daemon context. Specifies daemon permissions, PID file information, and
     the signal handler.
 
-    config: TODO:
+    config: The program configuration dictionary used to determine if the program is running
+      as root.
     log_file_handle: The file handle to the log file.
-    program_uid: The system user ID that should own the daemon process.
-    program_gid: The system group ID that should be assigned to the daemon process.
+    program_uid: The system user ID that should own the daemon process if the program is
+      not running as root.
+    program_gid: The system group ID that should be assigned to the daemon process if the
+      program is not running as root.
     Returns the daemon context.
     """
     daemon_context = daemon.DaemonContext(
@@ -291,7 +354,7 @@ def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
     daemon_context.files_preserve = [log_file_handle]
 
     # Set the UID and GID to 'netcheck' user and group.
-    if config['run_as_root'] == False:
+    if not config['run_as_root']:
         daemon_context.uid = program_uid
         daemon_context.gid = program_gid
 
@@ -305,11 +368,12 @@ config, config_helper, logger = read_configuration_and_create_logger(
 
 try:
     verify_safe_file_permissions()
-    # TODO: warn_about_suspect_network_manager_permissions()
 
     # Re-establish root permissions to create required directories.
     os.seteuid(os.getuid())
     os.setegid(os.getgid())
+
+    warn_about_suspect_network_manager_configuration(config)
 
     if config['run_as_root']:
         # Only the log file needs to be created with non-root ownership.
