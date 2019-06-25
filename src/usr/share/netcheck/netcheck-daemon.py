@@ -25,11 +25,12 @@ import traceback
 import ConfigParser
 import daemon
 from lockfile import pidlockfile
-import confighelper
-from confighelper import ValidationException
+from parkbenchcommon import confighelper
+from parkbenchcommon import broadcaster
 import netcheck
 
 PID_FILE = '/run/netcheck.pid'
+PROGRAM_UMASK = 0o022 # rw-r--r-- and drwxr-xr-x
 
 # Verify config file here.
 
@@ -54,13 +55,13 @@ config['nameservers'] = config_helper.verify_string_list_exists(
 if len(config['nameservers']) < 2:
     message = "At least two nameservers are required."
     logger.critical(message)
-    raise ValidationException(message)
+    raise confighelper.ValidationException(message)
 config['dns_queries'] = config_helper.verify_string_list_exists(
     config_file, 'dns_queries')
 if len(config['dns_queries']) < 2:
     message = "At least two domain names are required."
     logger.critical(message)
-    raise ValidationException(message)
+    raise confighelper.ValidationException(message)
 
 config['dns_timeout'] = config_helper.verify_number_exists(config_file, 'dns_timeout')
 config['connection_activation_timeout'] = config_helper.verify_number_within_range(
@@ -96,7 +97,7 @@ try:
     daemon_context = daemon.DaemonContext(
         working_directory='/',
         pidfile=pidlockfile.PIDLockFile(PID_FILE),
-        umask=0
+        umask=PROGRAM_UMASK
         )
 
     daemon_context.signal_map = {
@@ -104,11 +105,14 @@ try:
         }
 
     daemon_context.files_preserve = [log_file_handle]
+    # TODO: Change uid and gid to the netcheck user before merging in standard-daemonizing.
+    broadcaster = broadcaster.Broadcaster(
+        program_name='netcheck', broadcast_name='gateway-changed', uid=0, gid=0)
 
     logger.info('Daemonizing...')
     with daemon_context:
         logger.info('Initializing NetCheck.')
-        the_checker = netcheck.NetCheck(config)
+        the_checker = netcheck.NetCheck(config, broadcaster)
         the_checker.start()
 
 except Exception as exception:

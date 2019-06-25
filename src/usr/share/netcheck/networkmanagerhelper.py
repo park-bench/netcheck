@@ -154,7 +154,7 @@ def reiterative(method):
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
-    D-Bus API. All methods will retry for a bit when encounting exceptions that the
+    D-Bus API. All methods will retry for a bit when encountering exceptions that the
     NetworkManager API frequently throws.
     """
     # TODO: Eventually remove this non-sense once we implement propper logging. (Yes, this is
@@ -412,6 +412,34 @@ class NetworkManagerHelper(object):
             connection_is_activated = True
 
         return connection_is_activated
+
+    @reiterative
+    def get_connection_for_interface(self, interface_name):
+        """Find the connection ID currently applied to the given interface.
+
+        interface_name: The system interface name, for example eth1 or ens0s1.
+        Returns the connection ID.
+        """
+        connection_id = None
+        devices = []
+
+        try:
+            devices = self.NetworkManager.NetworkManager.GetDevices()
+
+            for device in devices:
+                if device.Interface == interface_name:
+                    connection_settings = self._get_applied_connection(device)
+                    if connection_settings:
+                        connection_id = connection_settings['connection']['id']
+
+        # TODO: Implement exception chaining when we move to Python 3.
+        except Exception as exception:
+            self.logger.error(
+                'Error while getting connection ID for interface %s. %s: %s.',
+                interface_name, type(exception).__name__, str(exception))
+            raise exception
+
+        return connection_id
 
     # TODO: Remove this method after we move to systemd. (issue 23)
     def _import_network_manager(self):
