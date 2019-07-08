@@ -20,7 +20,7 @@ The only current method of installation for netcheck is building and installing 
 
 _netcheck_ depends on one other piece of the Parkbench project, which must be installed first:
 
-* [_confighelper_](https://github.com/park-bench/confighelper)
+* [_parkbench-common_](https://github.com/park-bench/parkbench-common)
 
 # Steps to Build and Install
 
