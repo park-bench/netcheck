@@ -721,8 +721,7 @@ class NetCheck(object):
         loop_time: The datetime representing when the current program loop began.
         Returns the datetime that the list of available connections should be refreshed.
         """
-        return loop_time + datetime.timedelta(seconds=random.uniform(
-            0, self.config['available_connections_check_time']))
+        return loop_time + self.config['available_connections_check_delay']
 
     def _log_connections(self, loop_time, prior_connection_ids, current_connection_ids):
         """Logs changes to the activated connections and periodically logs the currently

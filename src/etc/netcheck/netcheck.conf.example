@@ -33,10 +33,11 @@ connection_activation_timeout=15
 #   still has access to the Internet. (Cannot be negative.)
 connection_periodic_check_time=5
 
-# Maximum amount of time in seconds that can elapse between attempts to refresh the list of
-#   available connections. (Effectively, this is the maximum delay between WiFi scan
-#   attempts.) (Cannot be negative.)
-available_connections_check_time=5
+# Amount of time in seconds between attempts to refresh the list of available connections.
+#   This value cannot be less than 26 because NetworkManager has problems forgetting
+#   connections if this value is any lower. (Effectively, this is the delay between WiFi scan
+#   attempts.)
+available_connections_check_delay=26
 
 # Some ISPs have minimum usage requirements (like FreedomPop). This is a comma delimited list
 #   of connection IDs that netcheck will periodically connect to to ensure their associated

@@ -151,8 +151,8 @@ def read_configuration_and_create_logger(program_uid, program_gid):
         config_file, 'connection_activation_timeout', lower_bound=0)
     config['connection_periodic_check_time'] = config_helper.verify_number_within_range(
         config_file, 'connection_periodic_check_time', lower_bound=0)
-    config['available_connections_check_time'] = config_helper.verify_number_within_range(
-        config_file, 'available_connections_check_time', lower_bound=0)
+    config['available_connections_check_delay'] = config_helper.verify_number_within_range(
+        config_file, 'available_connections_check_delay', lower_bound=26)
 
     config['required_usage_connection_ids'] = config_helper.get_string_list_if_exists(
         config_file, 'required_usage_connection_ids')
