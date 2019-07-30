@@ -34,7 +34,8 @@ import ConfigParser
 import daemon
 from lockfile import pidlockfile
 import prctl
-import confighelper
+from parkbenchcommon import broadcaster
+from parkbenchcommon import confighelper
 from confighelper import ValidationException
 import _prctl  # Necesary to address https://github.com/seveas/python-prctl/issues/21
 import netcheck
@@ -56,7 +57,6 @@ class InitializationException(Exception):
     """Indicates an expected fatal error occurred during program initialization.
     Initialization is implied to mean, before daemonization.
     """
-
 
 def get_user_and_group_ids():
     """Get user and group information for dropping privileges.
@@ -137,13 +137,13 @@ def read_configuration_and_create_logger(program_uid, program_gid):
     if len(config['nameservers']) < 2:
         message = "At least two nameservers are required."
         logger.critical(message)
-        raise ValidationException(message)
+        raise confighelper.ValidationException(message)
     config['dns_queries'] = config_helper.verify_string_list_exists(
         config_file, 'dns_queries')
     if len(config['dns_queries']) < 2:
         message = "At least two domain names are required."
         logger.critical(message)
-        raise ValidationException(message)
+        raise confighelper.ValidationException(message)
 
     config['dns_timeout'] = config_helper.verify_number_within_range(
         config_file, 'dns_timeout', lower_bound=0)
@@ -391,10 +391,14 @@ try:
     daemon_context = setup_daemon_context(
         config, config_helper.get_log_file_handle(), program_uid, program_gid)
 
+    broadcaster = broadcaster.Broadcaster(
+        program_name='netcheck', broadcast_name='gateway-changed', uid=program_uid,
+        gid=program_gid)
+
     logger.info('Daemonizing...')
     with daemon_context:
         logger.debug('Initializing NetCheck.')
-        netcheck = netcheck.NetCheck(config)
+        netcheck = netcheck.NetCheck(config, broadcaster)
         netcheck.start()
 
 except Exception as exception:

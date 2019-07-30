@@ -21,7 +21,7 @@ The only supported method of installation for netcheck is building and installin
 
 _netcheck_ depends on one other Parkbench package, which must be installed first:
 
-* [_confighelper_](https://github.com/park-bench/confighelper)
+* [_parkbench-common_](https://github.com/park-bench/parkbench-common)
 
 # Steps to Build and Install
 
