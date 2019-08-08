@@ -58,6 +58,7 @@ class InitializationException(Exception):
     Initialization is implied to mean, before daemonization.
     """
 
+
 def get_user_and_group_ids():
     """Get user and group information for dropping privileges.
 
@@ -385,15 +386,15 @@ try:
     create_directory(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, program_uid, program_gid,
                      stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
+    broadcaster = broadcaster.Broadcaster(
+        program_name='netcheck', broadcast_name='gateway-changed', uid=program_uid,
+        gid=program_gid)
+
     # Configuration has been read and directories setup. Now drop permissions forever.
     drop_permissions_forever(config, program_uid, program_gid)
 
     daemon_context = setup_daemon_context(
         config, config_helper.get_log_file_handle(), program_uid, program_gid)
-
-    broadcaster = broadcaster.Broadcaster(
-        program_name='netcheck', broadcast_name='gateway-changed', uid=program_uid,
-        gid=program_gid)
 
     logger.info('Daemonizing...')
     with daemon_context:

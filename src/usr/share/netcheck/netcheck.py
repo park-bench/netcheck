@@ -131,7 +131,14 @@ class NetCheck(object):
         in priority order.
         """
 
-        self.prior_default_gateway_state = self._get_default_gateway_state()
+        try:
+            self.prior_default_gateway_state = self._get_default_gateway_state()
+        except Exception as exception:  #pylint: disable=broad-except
+            self.logger.error(
+                'Error getting the default gateway state during startup. Ignoring. '
+                '%s: %s\n%s', type(exception).__name__, str(exception),
+                traceback.format_exc())
+            self.prior_default_gateway_state = None
 
         try:
             self.network_helper.update_available_connections()
@@ -159,7 +166,13 @@ class NetCheck(object):
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
         # The initial cycling through networks might result in a new gateway being chosen.
-        self._check_for_gateway_change()
+        try:
+            self._check_for_gateway_change()
+        except Exception as exception:  #pylint: disable=broad-except
+            self.logger.error(
+                'Error checking for default gateway state change during startup. Ignoring. '
+                '%s: %s\n%s', type(exception).__name__, str(exception),
+                traceback.format_exc())
 
         self._main_loop()
 
@@ -748,7 +761,8 @@ class NetCheck(object):
         loop_time: The datetime representing when the current program loop began.
         Returns the datetime that the list of available connections should be refreshed.
         """
-        return loop_time + self.config['available_connections_check_delay']
+        return loop_time + datetime.timedelta(
+            seconds=self.config['available_connections_check_delay'])
 
     def _log_connections(self, loop_time, prior_connection_ids, current_connection_ids):
         """Logs changes to the activated connections and periodically logs the currently
