@@ -22,7 +22,6 @@ __author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
 import datetime
-import IN
 import logging
 import random
 import socket
@@ -46,6 +45,11 @@ IPROUTE_INTERFACE_NAME_INDEX = 0
 
 # pyroute2 stores route information in a list of key-value pair tuples.
 IPROUTE_ATTRIBUTE_VALUE_INDEX = 1
+
+# A socket option name pulled from the socket C library. It used to be defined in a built-in
+#  library, but is no longer present. This option allows us to bind a socket to a specific
+#  network interface.
+SO_BINDTODEVICE = 25
 
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
@@ -730,7 +734,8 @@ class NetCheck(object):
             documentation for a description of the parameters and the return value.
             """
             device_bound_socket = socket.socket(address_family, socket_type, protocol_number)
-            device_bound_socket.setsockopt(socket.SOL_SOCKET, IN.SO_BINDTODEVICE, interface)
+            device_bound_socket.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE,
+                                           interface.encode('utf-8'))
             return device_bound_socket
 
         return create_device_bound_socket
