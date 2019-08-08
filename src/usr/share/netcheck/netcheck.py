@@ -870,6 +870,6 @@ class NetCheck(object):
                         default_gateway_state['interface'])
 
             else:
-                self.logger.warning('No default routes are defined.')
+                self.logger.trace('No default routes are defined.')
 
         return default_gateway_state
