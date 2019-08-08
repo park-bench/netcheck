@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 
 # Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
 #
@@ -22,7 +22,7 @@ import logging
 import signal
 import sys
 import traceback
-import ConfigParser
+import configparser
 import daemon
 from lockfile import pidlockfile
 from parkbenchcommon import confighelper
@@ -34,7 +34,7 @@ PROGRAM_UMASK = 0o022 # rw-r--r-- and drwxr-xr-x
 
 # Verify config file here.
 
-config_file = ConfigParser.SafeConfigParser()
+config_file = configparser.SafeConfigParser()
 config_file.read('/etc/netcheck/netcheck.conf')
 
 # Get logging options first.
