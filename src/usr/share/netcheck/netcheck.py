@@ -838,6 +838,7 @@ class NetCheck(object):
 
         self.prior_default_gateway_state = default_gateway_state
 
+    # TODO: This should probalby consider IPv4 and IPv6 routes separately. (issue 28)
     def _get_default_gateway_state(self):
         """Retrieves information about the current primary default gateway.
 
@@ -846,6 +847,7 @@ class NetCheck(object):
         """
         default_gateway_state = None
 
+        # TODO: This is giving us a too many open files error.
         with pyroute2.IPRoute() as ip_route:
             default_routes = ip_route.get_default_routes()
             if default_routes:
