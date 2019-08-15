@@ -14,7 +14,6 @@ netcheck (0.5) stable; urgency=low
 
   [ eviljoel ]
   * GPLv3 release of netcheck.
-  * Now uses python-daemon module.
 
   [ Britt Dogg ]
   * Fixed init script so service displays correct status.
