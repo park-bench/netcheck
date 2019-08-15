@@ -32,21 +32,6 @@ import dns.resolver
 import pyroute2
 import networkmanagerhelper
 
-# Index of the gateway IP for an IPRoute default route object.
-# pyroute2 constant IPROUTE_ATTR_RTA_GATEWAY
-IPROUTE_GATEWAY_INDEX = 2
-
-# Index of the output interface for an IPRoute default route object.
-# pyroute2 constant IPROUTE_ATTR_RTA_OIF
-IPROUTE_OUTPUT_INTERFACE_INDEX = 3
-
-# Index of the interface name for an IPRoute link object.
-# pyroute2 constant IPROUTE_ATTR_IFLA_IFNAME
-IPROUTE_INTERFACE_NAME_INDEX = 0
-
-# pyroute2 stores route information in a list of key-value pair tuples.
-IPROUTE_ATTRIBUTE_VALUE_INDEX = 1
-
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
 
@@ -73,6 +58,9 @@ class NetCheck(object):
 
         # Create a logger.
         self.logger = logging.getLogger(__name__)
+
+        # Create a IPRoute instance here so we don't use up all the sockets at runtime.
+        self.ip_route = pyroute2.IPRoute()
 
         self.network_helper = networkmanagerhelper.NetworkManagerHelper(self.config)
 
@@ -847,31 +835,24 @@ class NetCheck(object):
         """
         default_gateway_state = None
 
-        # TODO: This is giving us a too many open files error.
-        with pyroute2.IPRoute() as ip_route:
-            default_routes = ip_route.get_default_routes()
-            if default_routes:
-                default_gateway_state = {
-                    'address': None,
-                    'interface': None,
-                    'connection_id': None}
-                default_route = default_routes[0]
-                default_gateway_state['address'] = default_route['attrs'] \
-                    [IPROUTE_GATEWAY_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX]
-                # Output interfaces are stored as index values, which are conveniently
-                #   represented in an index value that's off by one.
-                output_interface_index = default_route['attrs'] \
-                    [IPROUTE_OUTPUT_INTERFACE_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX] - 1
-                output_interface_attrs = ip_route.get_links()[output_interface_index] \
-                    ['attrs']
-                default_gateway_state['interface'] = output_interface_attrs \
-                    [IPROUTE_INTERFACE_NAME_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX]
+        default_routes = self.ip_route.get_default_routes()
+        if default_routes:
+            default_gateway_state = {
+                'address': None,
+                'interface': None,
+                'connection_id': None}
+            route_attributes = dict(default_routes[0]['attrs'])
+            default_gateway_state['address'] = route_attributes['RTA_GATEWAY']
+            output_interface_id = route_attributes['RTA_OIF']
+            interface = next((dict(interface) for interface in self.ip_route.get_links(
+                ) if dict(interface)['index'] == output_interface_id), None)
+            interface_attributes = dict(interface['attrs'])
+            default_gateway_state['interface'] = interface_attributes['IFLA_IFNAME']
 
-                default_gateway_state['connection_id'] = \
-                    self.network_helper.get_connection_for_interface(
-                        default_gateway_state['interface'])
-
-            else:
-                self.logger.trace('No default routes are defined.')
+            default_gateway_state['connection_id'] = \
+                self.network_helper.get_connection_for_interface(
+                    default_gateway_state['interface'])
+        else:
+            self.logger.trace('No default routes are defined.')
 
         return default_gateway_state
