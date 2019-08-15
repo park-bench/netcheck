@@ -13,7 +13,6 @@ This beta software is currently only supported on Ubuntu 18.04 LTS and may not b
 The only supported method of installation for netcheck is building and installing your own Debian package. We make the following assumptions:
 
 *    You are already familiar with using a Linux terminal.
-*    You already know how to use GnuPG.
 *    You are already somewhat familiar with using debuild.
 *    `debhelper` is installed.
 
