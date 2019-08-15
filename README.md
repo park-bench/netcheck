@@ -45,11 +45,11 @@ Since running netcheck as a non-root user is more complex than with other Parkbe
 
 If you are running netcheck as a root user, please do the following:
 
-1. Modify the configuration file to set 'run_as_root' to 'true'.
+1. Modify the configuration file to set 'run_as_root' to 'True'.
 
 If you are running netcheck as a non-root user, please do the following:
 
-1. Verify the configuration file has 'run_as_root' set to 'false'.
+1. Verify the configuration file has 'run_as_root' set to 'False'.
 2. Run `mkdir -p /etc/dbus-1/system.d/`.
 3. Replace `/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf` with a copy of `/src/usr/share/netcheck/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf`. This change denies access to NetworkManager except for users root and netcheck.
 4. Run `mkdir -p /etc/NetworkManager/`.
