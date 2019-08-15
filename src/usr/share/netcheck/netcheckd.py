@@ -36,7 +36,6 @@ from lockfile import pidlockfile
 import prctl
 from parkbenchcommon import broadcaster
 from parkbenchcommon import confighelper
-from confighelper import ValidationException
 import _prctl  # Necesary to address https://github.com/seveas/python-prctl/issues/21
 import netcheck
 
@@ -105,7 +104,7 @@ def read_configuration_and_create_logger(program_uid, program_gid):
     config = {}
     config_helper = confighelper.ConfigHelper()
     # Figure out the logging options so that can start before anything else.
-    # TODO: Eventually add a verify_string_list method. (gpgmailer issue 20)
+    # TODO: Eventually add a verify_string_in_list method. (gpgmailer issue 20)
     config['log_level'] = config_helper.verify_string_exists(config_file, 'log_level')
 
     # Create logging directory.  drwxr-x--- netcheck netcheck
