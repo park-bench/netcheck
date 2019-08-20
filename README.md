@@ -51,9 +51,9 @@ If you are running netcheck as a non-root user, please do the following:
 
 1. Verify the configuration file has 'run_as_root' set to 'False'.
 2. Run `mkdir -p /etc/dbus-1/system.d/`.
-3. Replace `/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf` with a copy of `/src/usr/share/netcheck/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf`. This change denies access to NetworkManager except for users root and netcheck.
-4. Run `mkdir -p /etc/NetworkManager/`.
-5. Replace `/etc/NetworkManager/NetworkManager.conf` with a copy of `/src/usr/share/netcheck/etc/NetworkManager/NetworkManager.conf`. This disables NetworkManager's polkit authentication.
+3. Replace `/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf` with a copy of `/usr/share/netcheck/etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf`. This change denies access to NetworkManager except for users root and netcheck.
+4. Run `mkdir -p /etc/NetworkManager/conf.d/`.
+5. Copy `/usr/share/netcheck/etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf` to `/etc/NetworkManager/conf.d/`. This disables NetworkManager's polkit authentication.
 6. If your system is configured for unattended-upgrades (recommended), copy `/usr/share/netcheck/etc/apt/apt.conf.d/99-netcheck-unattended-upgrades` to `/etc/apt/apt.conf.d/`. This forces automatic-upgrades (and apt) to keep local modifications of configuration files.
 
 Once the configuration is complete, restart NetworkManager with `systemctl restart NetworkManager` and then restart netcheck with `systemctl restart netcheck`. If the above steps were followed correctly, the service should now start successfully.
