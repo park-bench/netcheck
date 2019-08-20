@@ -15,14 +15,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+# Default Linux user and group information
+NETCHECK_USER='netcheck'
+NETCHECK_USER_COMMENT='Netcheck Daemon'
+NETCHECK_GROUP='netcheck'
+
 case "$1" in
     configure)
-
-    # Default Linux user and group information
-    NETCHECK_USER='netcheck'
-    NETCHECK_USER_COMMENT='Netcheck Daemon'
-    NETCHECK_GROUP='netcheck'
-    NETDEV_GROUP='netdev'
 
     # Add the netcheck group
     if ! getent group "$NETCHECK_GROUP" >> /dev/null; then
@@ -42,7 +41,7 @@ case "$1" in
     # Adjust the user regardless of whether this script created the user or not.
     #   (The user might already exist.)
     usermod -c "$NETCHECK_USER_COMMENT" -d "/nonexistent" -g "$NETCHECK_GROUP" \
-        -G "$NETDEV_GROUP" "$NETCHECK_USER"
+        "$NETCHECK_USER"
     ;;
 esac
 
