@@ -41,6 +41,7 @@ Since running netcheck as a non-root user is more complex than with other Parkbe
 1. Locate the example configuration file at `/etc/netcheck/netcheck.conf.example`.
 2. Copy or rename this file to `/etc/netcheck/netcheck.conf`. Edit this new file to add configuration details.
 3. Remove all 'other' permission access to netcheck.conf.
+4. To ease system maintenance, add 'netcheck' as a supplemental group to administrative users. Doing this will allow these users to view netcheck log files.
 
 If you are running netcheck as a root user, please do the following:
 
