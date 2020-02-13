@@ -188,7 +188,7 @@ def verify_safe_file_permissions():
 def warn_about_suspect_network_manager_configuration(config):
     """Logs a warning if it is detected that the user did not follow the README instructions
     and is subverting some of the system's security measures. This method assumes the
-    program is running with full root privileges.
+    program is currently running with full root privileges.
 
     The checks in this method are not perfect but should, in practice, work nearly 100% of
     the time.
@@ -260,7 +260,7 @@ def create_directory(system_path, program_dirs, uid, gid, mode):
     for directory in program_dirs.strip('/').split('/'):
         path = os.path.join(path, directory)
         if not os.path.isdir(path):
-            # Will throw exception if file cannot be created.
+            # Will throw exception if directory cannot be created.
             os.makedirs(path, mode)
         os.chown(path, uid, gid)
         os.chmod(path, mode)
@@ -283,13 +283,15 @@ def drop_permissions_forever(config, uid, gid):
         os.setgid(gid)
         os.setuid(uid)
 
-    # Manually remove all capabilities from 0 to 200 because prctl.limit doesn't know
+    # Conditionally remove all capabilities from 0 to 200 because prctl.limit doesn't know
     #   about newer capabilities. (200 is an abitrary limit but right now there are only
     #   about 40 capabilities.)
     for capability_index in range(0, 200):
         #pylint: disable=no-member
         if capability_index != prctl.CAP_NET_RAW \
                 and capability_index != prctl.CAP_SETPCAP:
+            # Conditionally keep CAP_SETUID and CAP_SETGID for switching the owner and group
+            #   when daemonizing.
             if not config['run_as_root'] and (capability_index == prctl.CAP_SETUID
                                               or capability_index == prctl.CAP_SETGID):
                 #pylint: enable=no-member
@@ -381,7 +383,8 @@ try:
         program_uid = os.getgid()
 
     # Non-root users cannot create files in /run, so create a directory that can be written
-    #   to. Full access to user only.  drwx------ netcheck netcheck
+    #   to. Full access to user only.
+    #   drwx------ netcheck netcheck  or  drwx------ root root
     create_directory(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, program_uid, program_gid,
                      stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 

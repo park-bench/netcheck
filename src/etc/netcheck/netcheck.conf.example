@@ -7,7 +7,7 @@
 #   or trace.
 log_level=info
 
-# The daemon gives you the option to run it as the root user. Alternatively, you can run
+# This daemon gives you the option to run it as the root user. Alternatively, you can run
 #   this daemon as the 'netcheck' user, but this requires more setup. See the README.md for
 #   more details.
 run_as_root=False
