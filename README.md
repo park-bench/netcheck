@@ -1,8 +1,6 @@
 # netcheck
 
-_netcheck_ monitors Internet availability and switches to alternate networks in a predefined
-order if needed. This program gave the Parkbench team more control over the gateway network
-than NetworkManager alone provided.
+_netcheck_ monitors Internet availability and, if needed, switches to alternative connections in a predefined order. This program provides more control over the gateway connection than NetworkManager alone provides.
 
 _netcheck_ is licensed under the GNU GPLv3. All source code commits prior to the public
 release are also retroactively licensed under the GNU GPLv3.
