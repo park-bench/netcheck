@@ -1,11 +1,11 @@
 Source: netcheck
 Section: parkbench
 Priority: required
-Maintainer: eviljoel, Andrew Klapp
+Maintainer: eviljoel, Emily Frost
 Build-Depends: debhelper
 Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
-Depends: confighelper (>=0.3),network-manager,python-dnspython,dnsutils
-Description: Finds the best network with access to the Internet.
+Depends: adduser (>= 3.11),parkbench-common (>= 0.8),network-manager,python-daemon,python-dnspython,python-networkmanager,python-prctl,python-pyroute2
+Description: Finds the best network connection with access to the Internet.

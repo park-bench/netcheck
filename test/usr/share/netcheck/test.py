@@ -1,6 +1,6 @@
 #!/usr/bin/env python2
 
-# Copyright 2017 Joel Allen Luellwitz and Andrew Klapp
+# Copyright 2017-2019 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,42 +15,53 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-__author__ = 'Joel Luellwitz and Andrew Klapp'
+__author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
-import confighelper
+import datetime
 import logging
-import networkmetamanager
+import confighelper
 import netcheck
+import networkmanagerhelper
 
 config_helper = confighelper.ConfigHelper()
 config_helper.configure_logger('/dev/stdout', 'trace')
 
 network = 'Wired connection 1'
 config = {}
-config['nmcli_timeout'] = 600
-config['dig_timeout'] = 10
+config['connection_ids'] = ['Wired connection 1']
+config['connection_periodic_check_time'] = 5
+config['connection_activation_timeout'] = 15
+config['dns_timeout'] = 10
+config['available_connections_check_time'] = 5
+config['required_usage_connection_ids'] = []
+config['periodic_status_delay'] = 900
 
 config['nameservers'] = ['8.8.8.8', '1.2.3.4', '8.8.4.4']
 config['dns_queries'] = ['facebook.com', 'google.com', 'twitter.com']
 
-m = networkmetamanager.NetworkMetaManager(config)
+m = networkmanagerhelper.NetworkManagerHelper(config)
 
-# print('NMM.connect returns %s.' % m.connect(network))
-print('NMM.is_connected returns %s.' % m.is_connected(network))
-print('IP address: %s' % m.get_interface_ip(network))
-print('Gateway address: %s' % m.get_gateway_ip(network))
+# print('NMM.activate_connection_with_available_device returns %s.' % 
+#    m.activate_connection_with_available_device(network))
+print('NMM.connection_is_activated returns %s.' % m.connection_is_activated(network))
+print('Interface is: %s' % m.get_connection_interface(network))
 
 logger = logging.getLogger()
 n = netcheck.NetCheck(config)
 
+time = datetime.datetime.now()
+connection_context = {
+    'id' : network,
+}
 nameserver = '8.8.8.8'
 query = 'facebook.com'
 
-print(n._dns_query(network, nameserver, query))
-#print(n._DNS_query(network, '8.8.8.255', query))
+print(n._dns_query(time, connection_context, nameserver, query))
+#print(n._dns_query(time, connection_context, '8.8.8.255', query))
 
 # TODO: Test further for negatives.
-print('DNS works for %s: %s.' % (network, n._dns_works(network)))
+print('DNS works for %s: %s.' % (network, n._dns_works(time, connection_context)))
 
-# print('NMM.disconnect returns %s.' % m.disconnect(network))
+# print('NMM.deactivate_connection:')
+# m.deactivate_connection(network)

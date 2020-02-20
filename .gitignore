@@ -5,6 +5,7 @@ debian/files
 debian/netcheck/
 debian/netcheck.debhelper.log
 debian/netcheck.substvars
+debian/.debhelper
 src/etc/opt/netcheck/netcheck.conf
 src/var/opt/log/netcheck.log
 *.pyc
