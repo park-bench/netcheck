@@ -7,5 +7,5 @@ Standards-Version: 3.9.6.1
 
 Package: netcheck
 Architecture: all
-Depends: parkbench-common (>=0.8),network-manager,python-dnspython,python-pyroute2,python-networkmanager
+Depends: adduser (>= 3.11),parkbench-common (>= 0.8),network-manager,python-daemon,python-dnspython,python-networkmanager,python-prctl,python-pyroute2
 Description: Finds the best network connection with access to the Internet.
