@@ -1,4 +1,4 @@
-# Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,25 +31,11 @@ import dns.resolver
 import pyroute2
 import networkmanagerhelper
 
-# Index of the gateway IP for an IPRoute default route object.
-# pyroute2 constant IPROUTE_ATTR_RTA_GATEWAY
-IPROUTE_GATEWAY_INDEX = 2
-
-# Index of the output interface for an IPRoute default route object.
-# pyroute2 constant IPROUTE_ATTR_RTA_OIF
-IPROUTE_OUTPUT_INTERFACE_INDEX = 3
-
-# Index of the interface name for an IPRoute link object.
-# pyroute2 constant IPROUTE_ATTR_IFLA_IFNAME
-IPROUTE_INTERFACE_NAME_INDEX = 0
-
-# pyroute2 stores route information in a list of key-value pair tuples.
-IPROUTE_ATTRIBUTE_VALUE_INDEX = 1
-
 # A socket option name pulled from the socket C library. It used to be defined in a built-in
 #  library, but is no longer present. This option allows us to bind a socket to a specific
 #  network interface.
 SO_BINDTODEVICE = 25
+
 
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
@@ -77,6 +63,9 @@ class NetCheck(object):
 
         # Create a logger.
         self.logger = logging.getLogger(__name__)
+
+        # Create a IPRoute instance here so we don't use up all the sockets at runtime.
+        self.ip_route = pyroute2.IPRoute()
 
         self.network_helper = networkmanagerhelper.NetworkManagerHelper(self.config)
 
@@ -110,13 +99,13 @@ class NetCheck(object):
         for connection_id in self.config['connection_ids']:
             # TODO: Break netcheck.py's Logic Into Multilple Modules (issue 25)
             connection_context = {
-                'id' : connection_id,
-                'activated' : False,
-                'next_periodic_check' : self._calculate_periodic_check_delay(),
-                'confirmed_activated_time' :  None,
-                'is_required_usage_connection' : False,
-                'required_usage_activation_delay' : None,
-                'failed_required_usage_activation_time' : None}
+                'id': connection_id,
+                'activated': False,
+                'next_periodic_check': self._calculate_periodic_check_delay(),
+                'confirmed_activated_time':  None,
+                'is_required_usage_connection': False,
+                'required_usage_activation_delay': None,
+                'failed_required_usage_activation_time': None}
             self.connection_contexts[connection_id] = connection_context
 
         for connection_id in required_usage_connection_set:
@@ -135,7 +124,14 @@ class NetCheck(object):
         in priority order.
         """
 
-        self.prior_default_gateway_state = self._get_default_gateway_state()
+        try:
+            self.prior_default_gateway_state = self._get_default_gateway_state()
+        except Exception as exception:  #pylint: disable=broad-except
+            self.logger.error(
+                'Error getting the default gateway state during startup. Ignoring. '
+                '%s: %s\n%s', type(exception).__name__, str(exception),
+                traceback.format_exc())
+            self.prior_default_gateway_state = None
 
         try:
             self.network_helper.update_available_connections()
@@ -163,7 +159,13 @@ class NetCheck(object):
         self._initial_activate_and_check_connections_in_priority_order(start_time)
 
         # The initial cycling through networks might result in a new gateway being chosen.
-        self._check_for_gateway_change()
+        try:
+            self._check_for_gateway_change()
+        except Exception as exception:  #pylint: disable=broad-except
+            self.logger.error(
+                'Error checking for default gateway state change during startup. Ignoring. '
+                '%s: %s\n%s', type(exception).__name__, str(exception),
+                traceback.format_exc())
 
         self._main_loop()
 
@@ -753,8 +755,8 @@ class NetCheck(object):
         loop_time: The datetime representing when the current program loop began.
         Returns the datetime that the list of available connections should be refreshed.
         """
-        return loop_time + datetime.timedelta(seconds=random.uniform(
-            0, self.config['available_connections_check_time']))
+        return loop_time + datetime.timedelta(
+            seconds=self.config['available_connections_check_delay'])
 
     def _log_connections(self, loop_time, prior_connection_ids, current_connection_ids):
         """Logs changes to the activated connections and periodically logs the currently
@@ -818,7 +820,7 @@ class NetCheck(object):
         default_gateway_state = self._get_default_gateway_state()
 
         if default_gateway_state \
-            and default_gateway_state != self.prior_default_gateway_state:
+                and default_gateway_state != self.prior_default_gateway_state:
 
             self.logger.info(
                 'The default gateway has changed to %s via %s on interface %s.',
@@ -830,6 +832,7 @@ class NetCheck(object):
 
         self.prior_default_gateway_state = default_gateway_state
 
+    # TODO: This should probalby consider IPv4 and IPv6 routes separately. (issue 28)
     def _get_default_gateway_state(self):
         """Retrieves information about the current primary default gateway.
 
@@ -838,30 +841,24 @@ class NetCheck(object):
         """
         default_gateway_state = None
 
-        with pyroute2.IPRoute() as ip_route:
-            default_routes = ip_route.get_default_routes()
-            if default_routes:
-                default_gateway_state = {
-                    'address': None,
-                    'interface': None,
-                    'connection_id': None}
-                default_route = default_routes[0]
-                default_gateway_state['address'] = default_route['attrs'] \
-                    [IPROUTE_GATEWAY_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX]
-                # Output interfaces are stored as index values, which are conveniently
-                #   represented in an index value that's off by one.
-                output_interface_index = default_route['attrs'] \
-                    [IPROUTE_OUTPUT_INTERFACE_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX] - 1
-                output_interface_attrs = ip_route.get_links()[output_interface_index] \
-                    ['attrs']
-                default_gateway_state['interface'] = output_interface_attrs \
-                    [IPROUTE_INTERFACE_NAME_INDEX][IPROUTE_ATTRIBUTE_VALUE_INDEX]
+        default_routes = self.ip_route.get_default_routes()
+        if default_routes:
+            default_gateway_state = {
+                'address': None,
+                'interface': None,
+                'connection_id': None}
+            route_attributes = dict(default_routes[0]['attrs'])
+            default_gateway_state['address'] = route_attributes['RTA_GATEWAY']
+            output_interface_id = route_attributes['RTA_OIF']
+            interface = next((dict(interface) for interface in self.ip_route.get_links(
+                ) if dict(interface)['index'] == output_interface_id), None)
+            interface_attributes = dict(interface['attrs'])
+            default_gateway_state['interface'] = interface_attributes['IFLA_IFNAME']
 
-                default_gateway_state['connection_id'] = \
-                    self.network_helper.get_connection_for_interface(
-                        default_gateway_state['interface'])
-
-            else:
-                self.logger.warning('No default routes are defined.')
+            default_gateway_state['connection_id'] = \
+                self.network_helper.get_connection_for_interface(
+                    default_gateway_state['interface'])
+        else:
+            self.logger.trace('No default routes are defined.')
 
         return default_gateway_state
