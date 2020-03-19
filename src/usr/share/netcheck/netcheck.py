@@ -31,11 +31,6 @@ import dns.resolver
 import pyroute2
 import networkmanagerhelper
 
-# A socket option name pulled from the socket C library. It used to be defined in a built-in
-#  library, but is no longer present. This option allows us to bind a socket to a specific
-#  network interface.
-SO_BINDTODEVICE = 25
-
 
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
@@ -736,7 +731,7 @@ class NetCheck(object):
             documentation for a description of the parameters and the return value.
             """
             device_bound_socket = socket.socket(address_family, socket_type, protocol_number)
-            device_bound_socket.setsockopt(socket.SOL_SOCKET, SO_BINDTODEVICE,
+            device_bound_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE,
                                            interface.encode('utf-8'))
             return device_bound_socket
 

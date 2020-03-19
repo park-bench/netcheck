@@ -1,4 +1,4 @@
-# Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -265,6 +265,7 @@ class NetworkManagerHelper(object):
 
         # Get a list of all devices this connection can be applied to.
         available_devices = []
+        used_devices = []
         used_device_connection_dict = {}
         connection = None
         for device in self.NetworkManager.NetworkManager.GetDevices():
@@ -284,8 +285,9 @@ class NetworkManagerHelper(object):
                         if not applied_connection:
                             available_devices.append(device)
                         else:
-                            used_device_connection_dict[device] = applied_connection[
-                                'connection']['id']
+                            used_devices.append(device)
+                            used_device_connection_dict[
+                                device.object_path] = applied_connection['connection']['id']
 
         if connection is None:
             self.logger.debug('activate_connection_and_steal_device: '
@@ -299,7 +301,6 @@ class NetworkManagerHelper(object):
                 used_device_connection_dict=used_device_connection_dict)
             if not success:
                 # Try to activate the connection with a random used device.
-                used_devices = used_device_connection_dict.keys()
                 success = self._activate_with_random_devices(
                     connection=connection,
                     devices=used_devices,
@@ -504,8 +505,8 @@ class NetworkManagerHelper(object):
             devices[random_index] = devices[devices_left - 1]
             devices_left -= 1
 
-            if device in used_device_connection_dict:
-                stolen_connection_ids.add(used_device_connection_dict[device])
+            if device.object_path in used_device_connection_dict:
+                stolen_connection_ids.add(used_device_connection_dict[device.object_path])
 
             # '/' means pick an access point automatically (if applicable).
             self.NetworkManager.NetworkManager.ActivateConnection(connection, device, '/')

@@ -385,9 +385,9 @@ try:
     # Non-root users cannot create files in /run, so create a directory that can be written
     #   to. Full access to user only.
     #   drwx------ netcheck netcheck  or  drwx------ root root
+    create_directory(SYSTEM_PID_DIR, PROGRAM_PID_DIRS, program_uid, program_gid,
                      stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
 
-    # TODO: Change uid and gid to the netcheck user before merging in standard-daemonizing.
     broadcaster = broadcaster.Broadcaster(
         program_name='netcheck', broadcast_name='gateway-changed', uid=program_uid,
         gid=program_gid)
