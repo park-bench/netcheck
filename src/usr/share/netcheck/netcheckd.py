@@ -66,19 +66,13 @@ def get_user_and_group_ids():
     try:
         program_user = pwd.getpwnam(PROCESS_USERNAME)
     except KeyError as key_error:
-        # TODO: When switching to Python 3, convert to chained exception.
-        #   (gpgmailer issue 15)
-        print('User %s does not exist. %s: %s' % (
-            PROCESS_USERNAME, type(key_error).__name__, str(key_error)))
-        raise key_error
+        message = 'User %s does not exist.' % PROCESS_USERNAME
+        raise InitializationException(message) from key_error
     try:
         program_group = grp.getgrnam(PROCESS_GROUP_NAME)
     except KeyError as key_error:
-        # TODO: When switching to Python 3, convert to chained exception.
-        #   (gpgmailer issue 15)
-        print('Group %s does not exist. %s: %s' % (
-            PROCESS_GROUP_NAME, type(key_error).__name__, str(key_error)))
-        raise key_error
+        message = 'Group %s does not exist.' % PROCESS_GROUP_NAME
+        raise InitializationException(message) from key_error
 
     return program_user.pw_uid, program_group.gr_gid
 
@@ -224,7 +218,6 @@ def warn_about_suspect_network_manager_configuration(config):
         logger.warning('Cannot access %s. %s: %s', network_manager_dbus_config_pathname,
                        str(exception), traceback.format_exc())
         # Yes, we are eating this exception. This is a non-fatal error.
-
 
     if not polkit_auth_enabled:
         if config['run_as_root']:

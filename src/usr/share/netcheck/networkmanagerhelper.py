@@ -45,6 +45,12 @@ UNKNOWN_METHOD_PATTERN = re.compile(
     r'^org\.freedesktop\.DBus\.Error\.UnknownMethod: No such interface '
     r"'org\.freedesktop\.DBus\.Properties' on object at path ")
 
+
+class RetryExhaustionException(Exception):
+    """Thrown if an operation is attempted too many times without successfully completing.
+    """
+
+
 def reiterative(method):
     """Repeatedly retries a method if it throws certain types of exceptions. Specifically,
     will retry if it is detected that NetworkManager is not running or if a NetworkManager
@@ -52,9 +58,9 @@ def reiterative(method):
     decorator will retry the method until a specified period of time has elapsed AND a
     minimum number of attempts have been made. (Waiting for NetworkManager to restart.) For
     missing NetworkManager methods or properties, this decorator will retry the method until
-    a minimum number of attempts have been made. (Waiting for method or property to
+    a minimum number of attempts have been made. (Waiting for the method or property to
     reappear.) When this decorator stops retrying a method and the last invocation fails,
-    this decorator allows the last exception raised to pass through to the caller.
+    this decorator throws a RetryExhaustionException to the caller.
 
     The retry mechanism is only applied on the first instance of this decorator on the call
     stack. Subsequent instances simply pass through to the called method.
@@ -123,34 +129,30 @@ def reiterative(method):
                             or delay_from_service_unknown < SERVICE_UNKNOWN_MAX_DELAY:
                         time.sleep(max(.1 - delay_since_last_attempt, 0))
                     else:
-                        self.logger.error(
-                            'Service unknown after %d attempts and %f seconds. %s: %s',
-                            service_unknown_count, delay_from_service_unknown,
-                            type(exception).__name__, str(exception))
-                        raise
+                        message = 'Service unknown after %d attempts and %f seconds.' % (
+                            service_unknown_count, delay_from_service_unknown)
+                        raise RetryExhaustionException(message) from exception
 
                 elif UNKNOWN_METHOD_PATTERN.match(str(exception)):
                     vanished_symbol_count += 1
                     if vanished_symbol_count >= VANISHED_SYMBOL_MAX_ATTEMPTS:
-                        self.logger.error(
-                            'Method was unknown after %d retry attempts. %s: %s',
-                            vanished_symbol_count, type(exception).__name__,
-                            str(exception))
-                        raise
+                        message = 'Missing symbol after %d retry attempts.' % \
+                            vanished_symbol_count
+                        raise RetryExhaustionException(message) from exception
                 else:
                     raise
 
             except NetworkManagerHelper.ObjectVanished as exception:
                 vanished_symbol_count += 1
                 if vanished_symbol_count >= VANISHED_SYMBOL_MAX_ATTEMPTS:
-                    self.logger.error(
-                        'Object vanished after %d retry attempts. %s: %s',
-                        vanished_symbol_count, type(exception).__name__, str(exception))
-                    raise
+                    message = 'Missing symbol after %d retry attempts.' % \
+                        vanished_symbol_count
+                    raise RetryExhaustionException(message) from exception
 
         return return_value
 
     return passthrough_on_reentry
+
 
 class NetworkManagerHelper(object):
     """NetworkManagerHelper abstracts away some of the messy details of the NetworkManager
@@ -199,9 +201,8 @@ class NetworkManagerHelper(object):
                     # This is logged as debug because it occurs so frequently.
                     self.logger.debug(
                         'update_available_connections: An error occurred while requesting '
-                        'scan from device %s. %s: %s', device.Interface,
-                        type(exception).__name__, str(exception))
-                    self.logger.debug(traceback.format_exc())
+                        'scan from device %s. %s: %s\n%s', device.Interface,
+                        type(exception).__name__, str(exception), traceback.format_exc())
 
     @reiterative
     def activate_connections_quickly(self, connection_ids):
@@ -433,12 +434,9 @@ class NetworkManagerHelper(object):
                     if connection_settings:
                         connection_id = connection_settings['connection']['id']
 
-        # TODO: Implement exception chaining when we move to Python 3.
         except Exception as exception:
-            self.logger.error(
-                'Error while getting connection ID for interface %s. %s: %s.',
-                interface_name, type(exception).__name__, str(exception))
-            raise exception
+            message = 'Error while getting connection ID for interface %s.' % interface_name
+            raise Exception(message) from exception
 
         return connection_id
 
@@ -455,8 +453,8 @@ class NetworkManagerHelper(object):
         except Exception as exception:  #pylint: disable=broad-except
             self.logger.error(
                 'Failed to import NetworkManager or ObjectVanished. Will retry in 10 '
-                'seconds. %s: %s', type(exception).__name__, str(exception))
-            self.logger.error(traceback.format_exc())
+                'seconds. %s: %s\n%s', type(exception).__name__, str(exception),
+                traceback.format_exc())
             time.sleep(10)
 
             try:
@@ -467,9 +465,8 @@ class NetworkManagerHelper(object):
             except Exception as exception2:  #pylint: disable=broad-except
                 self.logger.error(
                     'Failed again to import NetworkManager or ObjectVanished. Will retry '
-                    'one again in 30 seconds. %s: %s', type(exception2).__name__,
-                    str(exception2))
-                self.logger.error(traceback.format_exc())
+                    'once again in 30 seconds. %s: %s\n%s', type(exception2).__name__,
+                    str(exception2), traceback.format_exc())
                 time.sleep(30)
 
                 try:
@@ -478,11 +475,11 @@ class NetworkManagerHelper(object):
                     from NetworkManager import ObjectVanished
                     NetworkManagerHelper.ObjectVanished = staticmethod(ObjectVanished)
                 except Exception as exception3:  #pylint: disable=broad-except
-                    self.logger.error(
-                        'Failed to import NetworkManager or ObjectVanished in 40 seconds. '
-                        'This probably means the NetworkManager daemon failed to start. '
-                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
-                    raise
+                    message = \
+                        'Failed to import NetworkManager or ObjectVanished in 40 ' \
+                        'seconds. This probably means the NetworkManager daemon failed ' \
+                        'to start. Giving up'
+                    raise RetryExhaustionException(message) from exception3
 
     def _activate_with_random_devices(
             self, connection, devices, stolen_connection_ids, used_device_connection_dict):
@@ -588,9 +585,9 @@ class NetworkManagerHelper(object):
                 applied_connection, _ = device.GetAppliedConnection(0)
             except DBusException as exception:
                 self.logger.error(
-                    'Error getting applied connection for device %s. %s: %s',
-                    device.Interface, type(exception).__name__, str(exception))
-                self.logger.error(traceback.format_exc())
+                    'Error getting applied connection for device %s. %s: %s\n%s',
+                    device.Interface, type(exception).__name__, str(exception),
+                    traceback.format_exc())
 
         return applied_connection
 

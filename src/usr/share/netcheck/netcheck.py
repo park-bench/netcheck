@@ -32,6 +32,11 @@ import pyroute2
 import networkmanagerhelper
 
 
+class RetryExhaustionException(Exception):
+    """Thrown if an operation is attempted too many times without successfully completing.
+    """
+
+
 class UnknownConnectionException(Exception):
     """Thrown during instantiation if a connection ID is not known to NetworkManager."""
 
@@ -198,10 +203,9 @@ class NetCheck(object):
                 try:
                     nm_connection_set = set(self.network_helper.get_all_connection_ids())
                 except Exception as exception3:  #pylint: disable=broad-except
-                    self.logger.error(
-                        'Failed 3 times to retrieve a list of all connection IDs. '
-                        'Giving up! %s: %s', type(exception3).__name__, str(exception3))
-                    raise
+                    message = 'Failed 3 times to retrieve a list of all connection IDs. ' \
+                        'Giving up!'
+                    raise RetryExhaustionException(message) from exception3
 
         return nm_connection_set
 
@@ -305,9 +309,9 @@ class NetCheck(object):
                 self._check_for_gateway_change()
 
             except Exception as exception:  #pylint: disable=broad-except
-                self.logger.error('Unexpected error %s: %s',
-                                  type(exception).__name__, str(exception))
-                self.logger.error(traceback.format_exc())
+                self.logger.error(
+                    'Unexpected error %s: %s\n%s', type(exception).__name__, str(exception),
+                    traceback.format_exc())
 
             # This loop takes a rather long time (about a second). Give some other processes
             #   time to do stuff.
@@ -451,9 +455,9 @@ class NetCheck(object):
                             'Connection "%s" no longer has Internet access.', connection_id)
 
             except Exception as exception:  #pylint: disable=broad-except
-                self.logger.error('Unexpected error while checking if connection is active. '
-                                  '%s: %s', type(exception).__name__, str(exception))
-                self.logger.error(traceback.format_exc())
+                self.logger.error(
+                    'Unexpected error while checking if connection is active. %s: %s\n%s',
+                    type(exception).__name__, str(exception), traceback.format_exc())
 
             connection_context['next_periodic_check'] = \
                 self._calculate_periodic_check_delay()
@@ -480,10 +484,10 @@ class NetCheck(object):
                     current_connection_ids.append(connection_context['id'])
 
             except Exception as exception:  #pylint: disable=broad-except
-                self.logger.error('Unexpected error while attepting to fix connection '
-                                  'statuses or activate free devices. %s: %s',
-                                  type(exception).__name__, str(exception))
-                self.logger.error(traceback.format_exc())
+                self.logger.error(
+                    'Unexpected error while attepting to fix connection statuses or '
+                    'activate free devices. %s: %s\n%s', type(exception).__name__,
+                    str(exception), traceback.format_exc())
 
         return current_connection_ids
 
@@ -708,9 +712,8 @@ class NetCheck(object):
                 # Something happened that is outside of Netcheck's scope.
                 self.logger.error(
                     'Unexpected error querying %s from nameserver %s on connection "%s". '
-                    '%s: %s', query_name, nameserver, connection_context['id'],
-                    type(exception).__name__, str(exception))
-                self.logger.error(traceback.format_exc())
+                    '%s: %s\n%s', query_name, nameserver, connection_context['id'],
+                    type(exception).__name__, str(exception), traceback.format_exc())
 
             if success:
                 connection_context['activated'] = True
