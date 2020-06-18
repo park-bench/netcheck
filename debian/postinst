@@ -46,4 +46,4 @@ case "$1" in
 esac
 
 update-rc.d netcheck defaults || exit 1
-invoke-rc.d netcheck start || exit 1
+systemctl start netcheck || exit 1
