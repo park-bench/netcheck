@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright 2015-2019 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -46,4 +46,4 @@ case "$1" in
 esac
 
 update-rc.d netcheck defaults || exit 1
-systemctl start netcheck || exit 1
+systemctl restart netcheck || exit 1
