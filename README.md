@@ -17,7 +17,7 @@ The only supported method of installation for netcheck is building and installin
 
 *    You are familiar with using a Linux terminal.
 *    You are somewhat familiar with using debuild.
-*    `debuild` is installed.
+*    `debhelper` and `devscripts` are installed on your build server.
 *    You are familiar with GnuPG.
 
 # Parkbench Dependencies
