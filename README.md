@@ -53,14 +53,15 @@ applications, you have the option of running netcheck as both a root and non-roo
 either case, you must do the following:
 
 1.  Copy or rename the example configuration file `/etc/netcheck/netcheck.conf.example` to
-    `/etc/netcheck/netcheck.conf`. Edit this file to enter the connection IDs, nameservers,
-    and queryable domains. Other settings can also be modified.
+    `/etc/netcheck/netcheck.conf`.
 2.  Change the ownership and permissions of the configuration file:
 ```
 chown root:netcheck /etc/netcheck/netcheck.conf
 chmod u=rw,g=r,o= /etc/netcheck/netcheck.conf
 ```
-3.  To ease system maintenance, add `netcheck` as a supplemental group to administrative
+3.  Edit the `/etc/netcheck/netcheck.conf` file to enter the connection IDs, nameservers, and
+    queryable domains. Other settings can also be modified.
+4.  To ease system maintenance, add `netcheck` as a supplemental group to administrative
     users. Doing this will allow these users to view netcheck log files.
 
 If you are running netcheck as a root user, please do the following:
