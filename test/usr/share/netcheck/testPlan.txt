@@ -1,5 +1,208 @@
 TODO: How do we determine which network is being used? Maybe setup a fake DNS on a fake network?
 
+* Can build following the instructions.
+* Test the init.d script:
+  * Exit if daemon program is not installed.
+  * Source the /etc/default/netcheck file if it exists.
+  * start
+    * starts the program from stop
+    * doesn't restart the program if started.
+  * stop
+    * PID file removed
+  * status prints status
+  * restart
+    * Starts when not running.
+    * restarts when running.
+  * force-reload
+    * Same as restart.
+  * anything else prints usage
+* Following the instructions results in a working application.
+* On install, the netcheck group is created if it doesn't exist.
+* On install, the netcheck group already exists.
+* On install, the netcheck user is created if it doesn't exist.
+  * Has the netcheck group.
+* On install, the netcheck user already exists.
+  * Has the netcheck group.
+* netcheck is started following install.
+* netcheck is enabled following install.
+* Reinstalling does restart netcheck.
+* Reinstalling enables netcheck.
+* Verify the config matches the example.
+* Verify the license is installed.
+* Verify changelog is sufficiently updated.
+* Test starting when the netcheck user does not exist.
+* Test starting when the netcheck group does not exist.
+* Configuration file missing.
+* log_level setting missing.
+* log_level setting empty.
+  * And try uppercase.
+* Log directory gets created if it doesn't exist.
+  * Permissions are correct on /var/log/netcheck/netcheck.log
+    * Owner and group
+    * Permission bits
+  * Permissions are correct on /var/log/netcheck/
+    * Owner and group
+    * Permission bits
+* Log directory already exists.
+  * Permissions are corrected on /var/log/netcheck/netcheck.log
+    * Owner and group
+    * Permission bits
+  * Permissions are correct on /var/log/netcheck/
+    * Owner and group
+    * Permission bits
+* log_level isn't one of trace, debug, info, warn, critical
+* log_level is one of trace, debug, info, warn, critical
+* Process eoid is netcheck after log directory creation.
+* Process egid is netcheck after log directory creation.
+* run_as_root is missing
+* run_as_root is empty
+* run_as_root is not boolean
+* run_as_root contains a valid all caps value
+* connection_ids is missing
+* connection_ids is empty
+* nameservers is missing
+* nameservers is empty
+* nameservers only has one value
+* dns_queries is missing
+* dns_queries is empty
+* dns_queries only has one value
+* dns_timeout is missing
+* dns_timeout is empty
+* dns_timeout is not a number
+* dns_timeout is negative
+* dns_timeout is zero
+* dns_timeout is positive
+* connection_activation_timeout is missing
+* connection_activation_timeout is empty
+* connection_activation_timeout is not a number
+* connection_activation_timeout is negative
+* connection_activation_timeout is zero
+* connection_activation_timeout is positive
+* connection_periodic_check_time is missing
+* connection_periodic_check_time is empty
+* connection_periodic_check_time is not a number
+* connection_periodic_check_time is negative
+* connection_periodic_check_time is zero
+* connection_periodic_check_time is positive
+* available_connections_check_delay is missing
+* available_connections_check_delay is empty
+* available_connections_check_delay is not a number
+* available_connections_check_delay is less than 26
+* available_connections_check_delay is 26
+* available_connections_check_delay is greater than 26
+* required_usage_connection_ids is missing
+* required_usage_connection_ids is empty
+* required_usage_max_delay is missing
+* required_usage_max_delay is empty
+* required_usage_max_delay is not a number
+* required_usage_max_delay is negative
+* required_usage_max_delay is zero
+* required_usage_max_delay is positive
+* required_usage_failed_retry_delay is missing
+* required_usage_failed_retry_delay is empty
+* required_usage_failed_retry_delay is not a number
+* required_usage_failed_retry_delay is negative
+* required_usage_failed_retry_delay is zero
+* required_usage_failed_retry_delay is positive
+* main_loop_delay is missing
+* main_loop_delay is empty
+* main_loop_delay is not a number
+* main_loop_delay is negative
+* main_loop_delay is zero
+* main_loop_delay is positive
+* periodic_status_delay is missing
+* periodic_status_delay is empty
+* periodic_status_delay is not a number
+* periodic_status_delay is negative
+* periodic_status_delay is zero
+* periodic_status_delay is positive
+* configuration file is not owned by root, program crashes.
+* configuration file has group write permission, program crashes.
+* configuration file's other permissions are wrong, program crashes.
+  * x
+  * r
+  * w
+* /etc/NetworkManager/NetworkManager.conf does not exist
+* /etc/NetworkManager/NetworkManager.conf has no lines
+* /etc/NetworkManager/NetworkManager.conf does not have auth-polkit
+* /etc/NetworkManager/NetworkManager.conf has auth-polkit and it equals true
+* /etc/NetworkManager/NetworkManager.conf has auth-poliit and it is uppercase FALSE.
+* /etc/NetworkManager/NetworkManager.conf has auth-poliit and it is lowercase false.
+* /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf does not exist
+* /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf has no lines
+* /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf does not have <policy context="default">
+* /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf has uppercase <policy context="DEFAULT">
+* /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf has lowercase <policy context="default">
+* polkit auth not enabled and run as root is true
+  * Warning is logged.
+* polkit auth not enabled, run as root is false and the dbus interface is open to everyone.
+  * warning is logged
+* polkit auth is enabled
+  * no warning is logged
+* polkit auth is not enabled, run as root is false and the dbus interface is not open to everyone.
+  * no warning is logged.
+* Run directory gets created if it doesn't exist.
+  * Permissions are correct on /run/netcheck/netcheck.pid
+    * Owner and group are root when program runs as root
+    * Owner and group are netcheck when program runs as netcheck
+    * Permission bits
+  * Permissions are correct on /run/netcheck/
+    * Owner and group are root when program runs as root
+    * Owner and group are netcheck when program runs as netcheck
+    * Permission bits
+* Run directory already exists.
+  * Permissions are correct on /run/netcheck/netcheck.pid
+    * Owner and group are root when program runs as root
+    * Owner and group are netcheck when program runs as netcheck
+    * Permission bits
+  * Permissions are correct on /run/netcheck/
+    * Owner and group are root when program runs as root
+    * Owner and group are netcheck when program runs as netcheck
+    * Permission bits changed
+* When not running as root, once permissions are dropped, the egid cannot be changed.
+* When not running as root, once permissions are dropped, the euid cannot be changed.
+* The program has the correct groups after permissions are dropped.
+* Try setting a capability supported by prctl after permissions are dropped but before deamonize.
+* Try setting a capability not supported by prctl after permissions are dropped but before deamonize.
+* Try setting the uid after permissions are dropped but before deamonize.
+* Try setting the gid after permissions are dropped but before deamonize.
+* TODO: Try setting no_setuid_fixup back to false after everything is done.
+  * TODO: If that works, try setting it back to true.
+* uid is 0 when running as root.
+* git is 0 when running as root.
+* uid is netcheck when running as netcheck.
+* git is netcheck when running as netcheck.
+* After daemonize, the current working directory is '/'.
+* The pid file contains the correct process number.
+* Before daemonize program's umask is set correctly.
+  * Test file creation.
+  * Test directory creation.
+* After daemonize program's umask is set correctly.
+  * Test file creation.
+  * Test directory creation.
+* After deamonize, the program have a blank ouid.
+* Before deamonize, the program should have an suid, euid, and ruid of netcheck when running as netcheck.
+* After deamonize, the program should have an sgid, egid, and rgid of netcheck when running as netcheck.
+* Before deamonize, the program should have an suid, euid, and ruid of 0 when running as root.
+* After deamonize, the program should have an sgid, egid, and rgid of 0 when running as root.
+* systemd considers the service stopped on expected termination.
+* systemd considers the service stopped on unexpected termination.
+* An exception doesn't kill the program once the main loop is entered.
+
+* Flushes the sendmail queue when a broadcast is sent.
+* Broadcast delay is recognized.
+* Main loop delay is recognized.
+* The program quits when all recipients have expired (when the program already started).
+* The stack trace is printed if an exception occurs before the main loop.
+* Test the keyboard exception (by starting the program outside of systemd).
+* On removal, the gpgmailer process is stopped.
+* On removal, the gpgmailer process is disabled.
+* Programs starts fine with default values (as much as possible) in a VM.
+* Termination Signal.
+  * Logs info message and quits.
+
+
+
 Test all of these cases before tagging a commit.
 
 * Configuration file is missing.
@@ -49,8 +252,3 @@ Test all of these cases before tagging a commit.
     * If the adapter is not available, crash on init.
   * When two adpaters of the same type are present, test a connection with a conflicting interface and mac address.
     * Crash on init.
-
-* Optional test: Route cannot be set. (Rename ip command.)
-* Optional test: Route cannot be removed. (Rename ip command.)
-* Optional test: dig cannot be called. (Rename dig command.)
-* Optional test: nmcli cannot be called. (Rename nmcli command.)

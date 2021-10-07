@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2021 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -38,6 +38,7 @@ from parkbenchcommon import broadcaster
 from parkbenchcommon import confighelper
 import _prctl  # Necesary to address https://github.com/seveas/python-prctl/issues/21
 import netcheck
+import networkmanagerhelper
 
 # Constants
 PROGRAM_NAME = 'netcheck'
@@ -173,6 +174,10 @@ def verify_safe_file_permissions():
     if config_file_stat.st_uid != 0:
         raise InitializationException(
             'File %s must be owned by root.' % CONFIGURATION_PATHNAME)
+    if bool(config_file_stat.st_mode & stat.S_IWGRP):
+        raise InitializationException(
+            "File %s cannot be writable via the group access permission."
+            % CONFIGURATION_PATHNAME)
     if bool(config_file_stat.st_mode & (stat.S_IROTH | stat.S_IWOTH | stat.S_IXOTH)):
         raise InitializationException(
             "File %s cannot have 'other user' access permissions set."
@@ -322,6 +327,22 @@ def sig_term_handler(signal, stack_frame):  #pylint: disable=unused-argument
     sys.exit(0)
 
 
+def verify_connection_id_consistency(config):
+    """Verify the required usage connections are also listed in 'connection_ids'.
+
+    config: The program configuration dictionary used to obtain the list of supported
+      connection IDs.
+    """
+    connection_id_set = set(config['connection_ids'])
+    required_usage_connection_set = set(config['required_usage_connection_ids'])
+    missing_required_usage_connections = \
+        required_usage_connection_set - connection_id_set
+    if missing_required_usage_connections:
+        raise InitializationException(
+            'Connection(s) "%s" is/are not in the list of configured connection_ids.'
+            % '", "'.join(missing_required_usage_connections))
+
+
 def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
     """Creates the daemon context. Specifies daemon permissions, PID file information, and
     the signal handler.
@@ -329,8 +350,8 @@ def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
     config: The program configuration dictionary used to determine if the program is running
       as root.
     log_file_handle: The file handle to the log file.
-    program_uid: The system user ID that should own the daemon process if the program is
-      not running as root.
+    program_uid: The system user ID that should own the daemon process if the program is not
+      running as root.
     program_gid: The system group ID that should be assigned to the daemon process if the
       program is not running as root.
     Returns the daemon context.
@@ -388,12 +409,16 @@ try:
     # Configuration has been read and directories setup. Now drop permissions forever.
     drop_permissions_forever(config, program_uid, program_gid)
 
+    verify_connection_id_consistency(config)
+
     daemon_context = setup_daemon_context(
         config, config_helper.get_log_file_handle(), program_uid, program_gid)
 
     logger.info('Daemonizing...')
     with daemon_context:
         logger.info('Initializing NetCheck.')
+        # Ideally we should initialize this object outside of the daemon context, but once
+        #   we import NetworkManager it must stay with that process.
         the_checker = netcheck.NetCheck(config, broadcaster)
         the_checker.start()
 

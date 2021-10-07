@@ -1,4 +1,4 @@
-# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2021 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -87,14 +87,6 @@ class NetCheck(object):
                 'Connection(s) "%s" is/are not known to NetworkManager.'
                 % '", "'.join(missing_connections))
 
-        required_usage_connection_set = set(self.config['required_usage_connection_ids'])
-        missing_required_usage_connections = \
-            required_usage_connection_set - known_connection_set
-        if missing_required_usage_connections:
-            raise UnknownConnectionException(
-                'Connection(s) "%s" is/are not in the list of configured connection_ids.'
-                % '", "'.join(missing_required_usage_connections))
-
         self.connection_contexts = {}
         for connection_id in self.config['connection_ids']:
             # TODO: Break netcheck.py's Logic Into Multilple Modules (issue 25)
@@ -108,7 +100,7 @@ class NetCheck(object):
                 'failed_required_usage_activation_time': None}
             self.connection_contexts[connection_id] = connection_context
 
-        for connection_id in required_usage_connection_set:
+        for connection_id in config['required_usage_connection_ids']:
             self.connection_contexts[connection_id]['is_required_usage_connection'] = True
 
         self.prior_connection_ids = []
