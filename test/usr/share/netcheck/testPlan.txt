@@ -168,6 +168,7 @@ TODO: How do we determine which network is being used? Maybe setup a fake DNS on
 * Try setting the gid after permissions are dropped but before deamonize.
 * TODO: Try setting no_setuid_fixup back to false after everything is done.
   * TODO: If that works, try setting it back to true.
+* Fails if a required usage connection is not in the connection IDs list.
 * uid is 0 when running as root.
 * git is 0 when running as root.
 * uid is netcheck when running as netcheck.
@@ -187,6 +188,13 @@ TODO: How do we determine which network is being used? Maybe setup a fake DNS on
 * After deamonize, the program should have an sgid, egid, and rgid of 0 when running as root.
 * systemd considers the service stopped on expected termination.
 * systemd considers the service stopped on unexpected termination.
+* Retries if NetworkManager fails to import. (10 second delay)
+* Retries again if NetworkManager fails to import twice. (30 second delay)
+* Fails if NetworkManger fails to import 3 times.
+* Retries if we fail to get the connections IDs. (10 second delay)
+* Retries again if we fail to get the connection IDs twice. (30 second delay)
+* Fails if we fail to get the connection IDs 3 times.
+* Daemon crashes of connection_id is not in network manager.
 * An exception doesn't kill the program once the main loop is entered.
 
 * Flushes the sendmail queue when a broadcast is sent.

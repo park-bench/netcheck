@@ -24,6 +24,7 @@ __version__ = '0.8'
 
 import grp
 import logging
+from multiprocessing import Process, Queue
 import os
 import pwd
 import signal
@@ -58,6 +59,10 @@ class InitializationException(Exception):
     Initialization is implied to mean, before daemonization.
     """
 
+
+class RetryExhaustionException(Exception):
+    """Thrown if an operation is attempted too many times without successfully completing.
+    """
 
 def get_user_and_group_ids():
     """Get user and group information for dropping privileges.
@@ -327,12 +332,13 @@ def sig_term_handler(signal, stack_frame):  #pylint: disable=unused-argument
     sys.exit(0)
 
 
-def verify_connection_id_consistency(config):
-    """Verify the required usage connections are also listed in 'connection_ids'.
+def verify_connection_ids(config):
+    """Verifies the connection IDs in the configuration are valid.
 
     config: The program configuration dictionary used to obtain the list of supported
       connection IDs.
     """
+    # Verify the required usage connections are also listed in 'connection_ids'.
     connection_id_set = set(config['connection_ids'])
     required_usage_connection_set = set(config['required_usage_connection_ids'])
     missing_required_usage_connections = \
@@ -341,6 +347,91 @@ def verify_connection_id_consistency(config):
         raise InitializationException(
             'Connection(s) "%s" is/are not in the list of configured connection_ids.'
             % '", "'.join(missing_required_usage_connections))
+
+    # Verify each connection is known to NetworkManager.
+    response_queue = Queue()
+    get_all_connection_ids_process = Process(
+        target=get_all_connection_ids, args=(response_queue,))
+    get_all_connection_ids_process.start()
+    process_result = response_queue.get()
+    get_all_connection_ids_process.join()
+
+    if isinstance(process_result, Exception):
+        raise process_result
+
+    nm_connection_set = set(process_result)
+
+    known_connection_set = set(config['connection_ids'])
+    missing_connections = known_connection_set - nm_connection_set
+    if missing_connections:
+        raise InitializationException(
+            'Connection(s) "%s" is/are not known to NetworkManager.'
+            % '", "'.join(missing_connections))
+
+
+def get_all_connection_ids(response_queue):
+    """Retrieves the list of all connection IDs known to NetworkManager and returns them as
+    a list via the response_queue. If an exception is raised, that is returned via the
+    response_queue instead.
+
+    response_queue: A multiprocessing.Queue used to pass information back to the parent
+      process.
+    """
+    try:
+        # This import must happen here in this forked process only.
+        import networkmanagerhelper
+
+        try:
+            network_helper = networkmanagerhelper.NetworkManagerHelper(config)
+        except RetryExhaustionException as exception:
+            raise InitializationException(
+                'Could not import networkmanagerhelper.', exception)
+
+        response_queue.put(get_all_connection_ids_with_retries(network_helper))
+    except Exception as exception:
+        response_queue.put(exception)
+
+
+def get_all_connection_ids_with_retries(network_helper):
+    """Retrieves the list of all connection IDs known to NetworkManager. If an exception
+    is thrown, this method will retry the retrival operation several more times before
+    letting the exception bubble up to the caller. This retry logic exists in case
+    NetworkManager is retarting when netcheck is initialized.
+
+    network_helper: A NetworkManagerHelper object.
+    Returns the list of all connection IDs known to NetworkManager.
+    """
+    # TODO: This retry logic should probably be removed when we move to systemd.
+    #   (issue 23)
+    nm_connection_set = None
+
+    try:
+        nm_connection_set = set(network_helper.get_all_connection_ids())
+    except Exception as exception:  #pylint: disable=broad-except
+        logger.error(
+            'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
+            '%s: %s', type(exception).__name__, str(exception))
+        logger.error(traceback.format_exc())
+        time.sleep(10)
+
+        try:
+            nm_connection_set = set(network_helper.get_all_connection_ids())
+        except Exception as exception2:  #pylint: disable=broad-except
+            logger.error(
+                'Failed again to retrieve a list of all connection IDs. Will retry one '
+                'last time in 30 seconds. %s: %s', type(exception2).__name__,
+                str(exception2))
+            logger.error(traceback.format_exc())
+            time.sleep(30)
+
+            try:
+                nm_connection_set = set(network_helper.get_all_connection_ids())
+            except Exception as exception3:  #pylint: disable=broad-except
+                message = 'Failed 3 times to retrieve a list of all connection IDs. ' \
+                    'Giving up!'
+                raise RetryExhaustionException(message) from exception3
+
+    return nm_connection_set
 
 
 def setup_daemon_context(config, log_file_handle, program_uid, program_gid):
@@ -409,7 +500,7 @@ try:
     # Configuration has been read and directories setup. Now drop permissions forever.
     drop_permissions_forever(config, program_uid, program_gid)
 
-    verify_connection_id_consistency(config)
+    verify_connection_ids(config)
 
     daemon_context = setup_daemon_context(
         config, config_helper.get_log_file_handle(), program_uid, program_gid)

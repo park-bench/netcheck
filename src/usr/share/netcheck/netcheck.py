@@ -77,16 +77,6 @@ class NetCheck(object):
             self._calculate_available_connections_check_time(datetime.datetime.now())
         self.next_log_time = self._calculate_next_log_time(datetime.datetime.now())
 
-        # Verify each connection is known to NetworkManager.
-        nm_connection_set = self._get_all_connection_ids_with_retries()
-
-        known_connection_set = set(self.config['connection_ids'])
-        missing_connections = known_connection_set - nm_connection_set
-        if missing_connections:
-            raise UnknownConnectionException(
-                'Connection(s) "%s" is/are not known to NetworkManager.'
-                % '", "'.join(missing_connections))
-
         self.connection_contexts = {}
         for connection_id in self.config['connection_ids']:
             # TODO: Break netcheck.py's Logic Into Multilple Modules (issue 25)
@@ -160,46 +150,6 @@ class NetCheck(object):
                 traceback.format_exc())
 
         self._main_loop()
-
-    def _get_all_connection_ids_with_retries(self):
-        """Retrieves the list of all connection IDs known to NetworkManager. If an exception
-        is thrown, this method will retry the retrival operation several more times before
-        letting the exception bubble up to the caller. This retry logic exists in case
-        NetworkManager is retarting when netcheck is initialized.
-
-        Returns the list of all connection IDs known to NetworkManager.
-        """
-        # TODO: This retry logic should probably be removed when we move to systemd.
-        #   (issue 23)
-        nm_connection_set = None
-
-        try:
-            nm_connection_set = set(self.network_helper.get_all_connection_ids())
-        except Exception as exception:  #pylint: disable=broad-except
-            self.logger.error(
-                'Failed to retrieve a list of all connection IDs. Will retry in 10 seconds. '
-                '%s: %s', type(exception).__name__, str(exception))
-            self.logger.error(traceback.format_exc())
-            time.sleep(10)
-
-            try:
-                nm_connection_set = set(self.network_helper.get_all_connection_ids())
-            except Exception as exception2:  #pylint: disable=broad-except
-                self.logger.error(
-                    'Failed again to retrieve a list of all connection IDs. Will retry one '
-                    'last time in 30 seconds. %s: %s', type(exception2).__name__,
-                    str(exception2))
-                self.logger.error(traceback.format_exc())
-                time.sleep(30)
-
-                try:
-                    nm_connection_set = set(self.network_helper.get_all_connection_ids())
-                except Exception as exception3:  #pylint: disable=broad-except
-                    message = 'Failed 3 times to retrieve a list of all connection IDs. ' \
-                        'Giving up!'
-                    raise RetryExhaustionException(message) from exception3
-
-        return nm_connection_set
 
     def _initial_cycle_through_required_usage_connections(self, start_time):
         """Attempts to activate each required usage connection. This is done when the program
