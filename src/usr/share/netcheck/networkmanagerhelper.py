@@ -274,9 +274,10 @@ class NetworkManagerHelper(object):
             applied_connection = self._get_applied_connection(device)
             if applied_connection \
                     and applied_connection['connection']['id'] == connection_id:
-                # The connection is already activated.
-                # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_gateway_ip(device, applied_connection)
+                if self._wait_for_gateway_ip(device, applied_connection):
+                    # The connection is already activated.
+                    # I do hate multiple returns but this does seem the most Pythonic.
+                    return True
             elif excluded_connection_ids is None or applied_connection is None \
                     or applied_connection['connection']['id'] not in excluded_connection_ids:
                 for available_connection in device.AvailableConnections:
@@ -329,9 +330,10 @@ class NetworkManagerHelper(object):
             applied_connection = self._get_applied_connection(device)
             if applied_connection \
                     and applied_connection['connection']['id'] == connection_id:
-                # The connection is already activated.
-                # I do hate multiple returns but this does seem the most Pythonic.
-                return self._wait_for_gateway_ip(device, applied_connection)
+                if self._wait_for_gateway_ip(device, applied_connection):
+                    # The connection is already activated.
+                    # I do hate multiple returns but this does seem the most Pythonic.
+                    return True
             elif not applied_connection \
                     or applied_connection['connection']['id'] not in self.connection_ids:
                 for available_connection in device.AvailableConnections:

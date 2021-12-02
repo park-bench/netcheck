@@ -196,6 +196,205 @@ TODO: How do we determine which network is being used? Maybe setup a fake DNS on
 * Fails if we fail to get the connection IDs 3 times.
 * Daemon crashes of connection_id is not in network manager.
 * An exception doesn't kill the program once the main loop is entered.
+* In start, an error occurs getting the default gateway state.
+  * An error is logged.
+* No default routes exist.
+* There is a default route.
+* In start, an error occurs while updating the available connections.
+  * An error is logged.
+* When updating available connections, no devices exist.
+* When updating available connections, no devices have 'RequestScan' (no wifi devices).
+* When updating available connections, requestScan raises a DBusException
+* When updating available connections, requestScan doesn't raise a DBusException
+* In start, an error occurs while activating connections quickly.
+  * An error is logged.
+* When activating connections quickly, no devices exist.
+* When activating connections quickly, the device is not in an activated state.
+* When activating connections quickly, GetAppliedConnection raises an error.
+  * An error is logged.
+* When activating connections quickly, the applied connection is not in this list of connection IDs.
+* When activating connections quickly, the device has not available connections.
+* When activating connections quickly, available connection not in the connection ID list.
+* When activating connections quickly, available connection in the connection ID list.
+* When activating connections quickly, multiple WiFi connections can be activated on two devices.
+* When initially cycling through required usage connections, a connection is not a required usage connection.
+* When initially cycling through required usage connections, a connection is a required usage connection.
+  * The applied connection matches the connection being stolen.
+    * No active connection is found.
+      * Connection is considered available.
+    * Connection does not have a state attribute.
+      * Connection is considered available.
+    * Connection state is not activated or activating.
+      * Connection is considered available.
+    * Connection is activating.
+      * Treat as though activated.
+    * Connection is activated.
+      * Device is neither IPv4 nor IPv6.
+        * Timeout isn't met.
+          * Try again.
+            * Delay is observed.
+        * Timeout is met.
+          * Connection is considered available.
+      * Device is IPv4 and no IP is available.
+        * Timeout isn't met.
+          * Try again.
+        * Timeout is met.
+          * Connection is considered available.
+      * Device is IPv6 and no IP is available.
+        * Timeout isn't met.
+          * Try again.
+        * Timeout is met.
+          * Connection is considered available.
+      * Device is IPv4 and an IP is available.
+        * Connection is considered stolen.
+      * Device is IPv6 and an IP is available.
+        * Connection is considered stolen.
+  * The device that supports connection being stolen is in use.
+    * Other devices should be preferred over this device.
+  * The device supports that supports connection being stolen is not in use.
+    * Prefer this device over other devices.
+  * The available connection does not match the connection being stolen.
+  * Log a message if the connection is not available.
+  * Deactivated devices are marked as such.
+  * Activation is NOT successful.
+    * Logged.
+    * Marked as unactivated.
+  * Activation is successful.
+    * Logged.
+    * The connection interface cannot be found.
+      * Error is logged.
+    * Verify DNS query is bound to interface.
+    * The first DNS works.
+      * Connection is marked as activated.
+    * The first DNS query times out.
+    * The first DNS query entry is not found.
+    * The first DNS query nameserver is not found.
+    * The first DNS query some other exception occured.
+    * The second DNS works.
+      * Connection is marked as activated.
+      * Successful connection time set.
+    * The second DNS doesn't work.
+      * Connection is not marked as activated.
+      * Connection is deactivated.
+      * Unsuccessful connection time set.
+  * Exception is thrown stealing connection.
+    * Program doesn't crash.
+* Connections connect in priority order.
+* Connection is already activated.
+  * Device cannot be reused.
+* Connection not already activated.
+  * The excluded device is skipped in networkmanagerhelper.
+  * Device is stolen.
+    * Device marked as active
+* Exception is thrown stealing connection.
+  * Program doesn't crash.
+* Doesn't broadcast a gateway change because there is no gateway.
+* Doesn't broadcast a gateway change because there is no change.
+* TODO: Do broadcast test plan.
+* Logs the initial state of no connections.
+* Logs the initial state with connections.
+* Unexpected exception doesn't crash the program.
+* Not time for required usage check.
+  * Skips connection.
+* Time for required usage check.
+  * Connection is marked as active.
+    * Verifies the connection is active.
+      * Connection is not in an activated state.
+        * Proceed as though connection is not active.
+      * Connection is activated.
+        * DNS Loopup fails.
+          * Proceeds as though connection is not active.
+        * DNS Lookup succeeds.
+          * Logged as used.
+  * Connection is not active.
+    * Steals device and checks DNS.
+      * Succeeds.
+        * Logged as used.
+      * Fails
+        * Updates failed required usage time.
+* Delay for successful required usage check is observed.
+* Delay for failed required usage check is observed.
+* Periodic connection check:
+  * Connection is skipped because it is not active.
+  * Connection is skipped because it is not the right time.
+  * Connection is no longer active.
+    * Connection marked as not active.
+    * Log status change.
+  * Connection is still active.
+    * Log that connection is still active.
+  * An unexpectd exception occurs.
+    * It is logged and ignored.
+  * Calculates new time for connection check.
+* Fix connections and activate unused devices
+  * Activated connections pass through with no action (except their ID is recorded in current_connection_ids).
+  * Connection is not active according to NetworkManagerHelper.
+    * Set connection activated state to false.
+  * Connection state is not active.
+    * Try to activate using a free device:
+      * No devices avilable.
+        * Activated state is set to false.
+      * Connection is already applied (race condition)
+        * Connection has gateway IP.
+          * Treat as connected.
+        * Connection does not have gateway IP.
+          * Treat devices as available.
+      * Connection is not applied.
+        * Devices does not support connection.
+          * It is ignored.
+        * Devices supports connection.
+          * Treat device as available.
+      * Applied connection is not a supported connection ID.
+        * Treat the device as if a connection were not applied. (See above.)
+      * Connection is not found on any device.
+        * Activated state is set to false.
+      * Available devices are attempted randomly.
+      * List of available devices can be successfully exhausted.
+        * Activated state is set to false.
+      * Successful connection.
+        * Quit loop early.
+    * Activation successful
+      * DNS not successful.
+        * Activated state is set to false.
+      * DNS is successful.
+        * Activated state is set to true.
+        * Connection ID is recorded in current_connection_ids.
+    * Unexpected exception doesn't bubble.
+* Log connections
+  * Enought time has passed since last time all connections were logged.
+    * There are not any connections.
+      * Log no connections message.
+    * There are connections.
+      * Print all connections.
+      * Connections are comma delimited.
+    * Appropriate periodic status delay is calculated.
+  * Active connections have changed.
+    * There are no active connections.
+      * Log no connections message.
+    * There are just newly active connections.
+      * Log info the new active connections.
+    * There are just newly deactived connection.
+      * Log warning the newly deactived connections.
+    * There are both newly active and newly deactived connections.
+      * Log warning the newly active and deactived connections.
+* Not enough time passed since the last available connection check.
+  * Do nothing.
+* Enough time passed since the last available connection check.
+  * Device doesn't have 'RequestScan'.
+    * It is skipped.
+  * Device has 'RequestScan' but it isn't callable.
+    * It is skipped.
+  * RequestScan search for new WiFi devices.
+  * Exception in RequestScan is handled.
+  * Calculates next available connection time.
+* There is no current gateway state.
+  * Do nothing.
+* The gateway state didn't change.
+  * Do nothing.
+* The gateway state did change.
+  * Log information about the gateway state change.
+  * Broadcast the change.
+    * Verify GpgMailer received the notification.
+* Main loop sleep is observed.
 
 * Flushes the sendmail queue when a broadcast is sent.
 * Broadcast delay is recognized.
@@ -208,6 +407,10 @@ TODO: How do we determine which network is being used? Maybe setup a fake DNS on
 * Programs starts fine with default values (as much as possible) in a VM.
 * Termination Signal.
   * Logs info message and quits.
+
+* Reiterative decorator
+  * Is applied to all public methods.
+
 
 
 

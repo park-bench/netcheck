@@ -733,10 +733,9 @@ class NetCheck(object):
                         % '", "'.join(connections_activated)
 
                 if connections_deactivated:
-                    if connections_deactivated:
-                        connections_deactivated_string = \
-                            '\n  Newly deactivated connections: "%s"' \
-                            % '", "'.join(connections_deactivated)
+                    connections_deactivated_string = \
+                        '\n  Newly deactivated connections: "%s"' \
+                        % '", "'.join(connections_deactivated)
 
                     self.logger.warning('Connection change: %s%s',
                                         connections_activated_string,
