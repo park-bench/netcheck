@@ -1,5 +1,3 @@
-TODO: How do we determine which network is being used? Maybe setup a fake DNS on a fake network?
-
 * Can build following the instructions.
 * Test the init.d script:
   * Exit if daemon program is not installed.
@@ -395,38 +393,38 @@ TODO: How do we determine which network is being used? Maybe setup a fake DNS on
   * Broadcast the change.
     * Verify GpgMailer received the notification.
 * Main loop sleep is observed.
-
+* Reiterative
+  * Module name doesn't match.
+    * Continues to _retry_on_exception
+  * Module name matches but method name doesn't match.
+    * Continues to _retry_on_exception
+  * Module name matches and method name matches.
+    * Call the orignal method.
+  * Method call succeeds first time.
+    * Value is returned.
+  * Method call succeeds first subsequent times.
+    * Value is returned.
+  * DBusException is not recognized.
+    * Method call fails, exception is reraised.
+  * Service is unknown.
+    * Warning logged on first occurence.
+    * On retry, sleeps up to .1 seconds.
+    * Fails due to max retries.
+    * Fails due to max timeout.
+  * Unknown method.
+    * Retry if max attempts not reached.
+    * Fail on max attempts.
+  * Object vanished.
+    * Retry if max attempts not reached.
+    * Fail on max attempts.
 * Flushes the sendmail queue when a broadcast is sent.
 * Broadcast delay is recognized.
 * Main loop delay is recognized.
-* The program quits when all recipients have expired (when the program already started).
 * The stack trace is printed if an exception occurs before the main loop.
 * Test the keyboard exception (by starting the program outside of systemd).
-* On removal, the gpgmailer process is stopped.
-* On removal, the gpgmailer process is disabled.
 * Programs starts fine with default values (as much as possible) in a VM.
 * Termination Signal.
   * Logs info message and quits.
-
-* Reiterative decorator
-  * Is applied to all public methods.
-
-
-
-
-Test all of these cases before tagging a commit.
-
-* Configuration file is missing.
-    - Crash.
-* Remove each required option.
-    - Crash with decent message.
-* Test each option that will not accept blanks.
-    - Crash with decent message.
-* Verify numbers fields only accept numbers.
-    - Crash with decent message.
-* Verify integer fields don't accept floats.
-    - Crash with decent message.
-
 * Test backup network. Connection down. (Maybe use wireshark to see what gateway was used?)
   * ifconfig eth0 down
 * Test backup network. DNS down.
@@ -435,7 +433,7 @@ Test all of these cases before tagging a commit.
 * Wired network 1st dns fails. (Use router to block first DNS.)
 * Wired network 2st dns fails. (Use router to block both DNS. Should connect to wireless router.)
 * Wired network goes down and first wireless DNS is down. (Start with a wired connection, a valid wireless connection on Router with 1st DNS IPs blocked, a thrid Phone wireless network. Unplug wired. Program should fall back to Router wireless and logs should indicate first DNS failed.)
-* Wired network down and first wireless network both dns fails. (Start with a wired connection, a valid wireless connection on Router with both DNS IPs blocked, a thrid Phone wireless network. Unplug wired. Program should fall back to Phone wirless.)
+* Wired network down and first wireless network both dns fails. (Start with a wired connection, a valid wireless connection on Router with both DNS IPs blocked, a third Phone wireless network. Unplug wired. Program should fall back to Phone wirless.)
 * Wired network connects when it comes back up and a wireless connection exists. (Start the program with a wired connection and a valid wireless network. Unplug the wired connection. Program should fall back to wireless network. Plug wire back in. Program should connect to wired network.) 
 * Wired network connects from no available connection. (Have a fake list of wireless networks. Start the program. Plug in the wired connection.)
 * 1st Wireless network connects from no available connections. (Have a list of wireless networks where the first network is Router. The router should be down when the program starts. Turn on the router and watch the program connect.) 
