@@ -1,4 +1,4 @@
-# Copyright 2015-2020 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2022 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -226,13 +226,14 @@ class NetworkManagerHelper(object):
                 for connection in device.AvailableConnections:
                     available_connection_id = connection.GetSettings()['connection']['id']
                     if available_connection_id in connection_ids:
-                        connection_devices_dict.setdefault(connection, []).append(device)
+                        connection_devices_dict.setdefault(
+                            available_connection_id, (connection, []))[1].append(device)
 
         used_devices = []
-        for connection in connection_devices_dict:
+        for connection_id in connection_devices_dict:
 
             # Try to activate the connection with a random available device.
-            connection_devices = connection_devices_dict[connection]
+            connection, connection_devices = connection_devices_dict[connection_id]
             for used_device in used_devices:
                 if used_device in connection_devices:
                     connection_devices.remove(used_device)

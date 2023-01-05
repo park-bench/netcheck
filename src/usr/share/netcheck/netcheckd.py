@@ -22,6 +22,7 @@
 __author__ = 'Joel Luellwitz and Emily Frost'
 __version__ = '0.8'
 
+import glob
 import grp
 import logging
 from multiprocessing import Process, Queue
@@ -202,18 +203,13 @@ def warn_about_suspect_network_manager_configuration(config):
     """
 
     # See if NetworkManager polkit authentication is enabled.
-    polkit_auth_enabled = True
-    network_manager_config_pathname = '/etc/NetworkManager/NetworkManager.conf'
-    try:
-        with open(network_manager_config_pathname, 'r') as network_manager_config:
-            for line in network_manager_config:
-                lowercase_line = line.lower()
-                if 'auth-polkit' in lowercase_line and 'false' in lowercase_line:
-                    polkit_auth_enabled = False
-    except Exception as exception:  #pylint: disable=broad-except
-        logger.warning('Cannot access %s. %s: %s', network_manager_config_pathname,
-                       str(exception), traceback.format_exc())
-        # Yes, we are eating this exception. This is a non-fatal error.
+    polkit_auth_disabled = polkit_auth_disabled_in_file(
+        '/etc/NetworkManager/NetworkManager.conf')
+    if polkit_auth_disabled is False:
+        for pathname in glob.glob('/etc/NetworkManager/conf.d/*.conf'):
+            polkit_auth_disabled = polkit_auth_disabled_in_file(pathname)
+            if polkit_auth_disabled is True:
+                break
 
     # See if any user can communicate with NetworkManager via DBus.
     any_user_dbus_config = False
@@ -229,7 +225,7 @@ def warn_about_suspect_network_manager_configuration(config):
                        str(exception), traceback.format_exc())
         # Yes, we are eating this exception. This is a non-fatal error.
 
-    if not polkit_auth_enabled:
+    if polkit_auth_disabled:
         if config['run_as_root']:
             logger.warning(
                 'NetworkManager polkit authentication appears to be disabled. '
@@ -242,6 +238,30 @@ def warn_about_suspect_network_manager_configuration(config):
                     "NetworkManager's DBus configuration appears to allow communication "
                     "from any user. This is a potential security risk! Refer to the program "
                     "README.md for instuctions about how to correct this.")
+
+
+def polkit_auth_disabled_in_file(pathname):
+    """ Determines if polkit authentication is likely disabled in a NetworkManager
+    configuration file. Be careful about how this result is consumed, because the result is
+    not accurate in all scenarios.
+
+    pathname: The pathname of a NetworkManager configuration file.
+    Returns True if polkit authentication is likely disabled. False otherwise.
+    """
+    polkit_auth_disabled = False
+    try:
+        with open(pathname, 'r') as network_manager_config:
+            for line in network_manager_config:
+                lowercase_line = line.lower()
+                if lowercase_line[:1] != '#' and 'auth-polkit' in lowercase_line \
+                        and 'false' in lowercase_line:
+                    polkit_auth_disabled = True
+    except Exception as exception:  #pylint: disable=broad-except
+        logger.warning('Cannot access %s. %s: %s', pathname, str(exception),
+                       traceback.format_exc())
+        # Yes, we are eating this exception. This is a non-fatal error.
+
+    return polkit_auth_disabled
 
 
 def create_directory(system_path, program_dirs, uid, gid, mode):

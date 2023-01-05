@@ -790,7 +790,7 @@ class NetCheck(object):
             default_gateway_state['address'] = route_attributes['RTA_GATEWAY']
             output_interface_id = route_attributes['RTA_OIF']
             interface = next((dict(interface) for interface in self.ip_route.get_links(
-                ) if dict(interface)['index'] == output_interface_id), None)
+                ) if dict(interface)['index'] == output_interface_id))
             interface_attributes = dict(interface['attrs'])
             default_gateway_state['interface'] = interface_attributes['IFLA_IFNAME']
 
