@@ -505,7 +505,7 @@ try:
     if config['run_as_root']:
         # Only the log file needs to be created with non-root ownership.
         program_uid = os.getuid()
-        program_uid = os.getgid()
+        program_gid = os.getgid()
 
     # Non-root users cannot create files in /run, so create a directory that can be written
     #   to. Full access to user only.

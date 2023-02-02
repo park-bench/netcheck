@@ -277,7 +277,7 @@ class NetCheck(object):
         for connection_id in self.connection_contexts:
             connection_context = self.connection_contexts[connection_id]
             if connection_context['is_required_usage_connection']:
-                if self._is_time_for_required_usage_check(loop_time, connection_context):
+                if not self._is_time_for_required_usage_check(loop_time, connection_context):
                     self.logger.trace(
                         '_activate_required_usage_connections: Skipping required-usage '
                         'activation for connection "%s" because not enough time passed yet.',
@@ -319,12 +319,12 @@ class NetCheck(object):
         """
         do_required_usage_check = False
         if connection_context['failed_required_usage_activation_time']:
-            if loop_time < connection_context['failed_required_usage_activation_time']:
+            if loop_time >= connection_context['failed_required_usage_activation_time']:
                 do_required_usage_check = True
         else:
             delay_delta = datetime.timedelta(
                 seconds=connection_context['required_usage_activation_delay'])
-            if loop_time < connection_context['confirmed_activated_time'] + delay_delta:
+            if loop_time >= connection_context['confirmed_activated_time'] + delay_delta:
                 do_required_usage_check = True
 
         return do_required_usage_check
