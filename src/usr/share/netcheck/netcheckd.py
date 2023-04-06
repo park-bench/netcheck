@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-# Copyright 2015-2021 Joel Allen Luellwitz and Emily Frost
+# Copyright 2015-2023 Joel Allen Luellwitz and Emily Frost
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -31,6 +31,7 @@ import pwd
 import signal
 import stat
 import sys
+import time
 import traceback
 import configparser
 import daemon
