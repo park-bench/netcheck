@@ -503,6 +503,9 @@ try:
 
     warn_about_suspect_network_manager_configuration(config)
 
+    # The broadcast directory always needs group ownership of netcheck.
+    broadcast_gid = program_gid
+
     if config['run_as_root']:
         # Only the log file needs to be created with non-root ownership.
         program_uid = os.getuid()
@@ -516,7 +519,7 @@ try:
 
     broadcaster = broadcaster.Broadcaster(
         program_name='netcheck', broadcast_name='gateway-changed', uid=program_uid,
-        gid=program_gid)
+        gid=broadcast_gid)
 
     # Configuration has been read and directories setup. Now drop permissions forever.
     drop_permissions_forever(config, program_uid, program_gid)
