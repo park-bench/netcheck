@@ -12,7 +12,7 @@
     * Starts when not running.
     * restarts when running.
   * force-reload
-    * Same as restart.
+    * Same as restart except doesn't start from stop.
   * anything else prints usage
 * Following the instructions results in a working application.
 * On install, the netcheck group is created if it doesn't exist.
@@ -48,8 +48,8 @@
   * Permissions are correct on /var/log/netcheck/
     * Owner and group
     * Permission bits
-* log_level isn't one of trace, debug, info, warn, critical
-* log_level is one of trace, debug, info, warn, critical
+* log_level isn't one of trace, debug, info, warn, error, critical
+* log_level is one of trace, debug, info, warn, error, critical
 * Process eoid is netcheck after log directory creation.
 * Process egid is netcheck after log directory creation.
 * run_as_root is missing
@@ -116,7 +116,7 @@
 * periodic_status_delay is positive
 * configuration file is not owned by root, program crashes.
 * configuration file has group write permission, program crashes.
-* configuration file's other permissions are wrong, program crashes.
+* configuration file's 'other' permissions are wrong, program crashes.
   * x
   * r
   * w
@@ -124,8 +124,18 @@
 * /etc/NetworkManager/NetworkManager.conf has no lines
 * /etc/NetworkManager/NetworkManager.conf does not have auth-polkit
 * /etc/NetworkManager/NetworkManager.conf has auth-polkit and it equals true
-* /etc/NetworkManager/NetworkManager.conf has auth-poliit and it is uppercase FALSE.
-* /etc/NetworkManager/NetworkManager.conf has auth-poliit and it is lowercase false.
+* /etc/NetworkManager/NetworkManager.conf has auth-polkit and it is uppercase FALSE.
+* /etc/NetworkManager/NetworkManager.conf has auth-polkit and it is lowercase false.
+* /etc/NetworkManager/NetworkManager.conf has commented auth-polkit and it is lowercase false.
+* /etc/NetworkManager/conf.d/ is empty.
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf has no lines
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf does not have auth-polkit
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf has auth-polkit and it equals true
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf has auth-polkit and it is uppercase FALSE.
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf has auth-polkit and it is lowercase false.
+* /etc/NetworkManager/conf.d/netcheck-auth-polkit-off.conf has commented auth-polkit and it is lowercase false.
+* /etc/NetworkManager/conf.d/ has two files with conflicting data. False always wins.
+  * Reverse the file contents and test again.
 * /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf does not exist
 * /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf has no lines
 * /etc/dbus-1/system.d/org.freedesktop.NetworkManager.conf does not have <policy context="default">
@@ -160,17 +170,19 @@
 * When not running as root, once permissions are dropped, the egid cannot be changed.
 * When not running as root, once permissions are dropped, the euid cannot be changed.
 * The program has the correct groups after permissions are dropped.
-* Try setting a capability supported by prctl after permissions are dropped but before deamonize.
-* Try setting a capability not supported by prctl after permissions are dropped but before deamonize.
-* Try setting the uid after permissions are dropped but before deamonize.
-* Try setting the gid after permissions are dropped but before deamonize.
-* TODO: Try setting no_setuid_fixup back to false after everything is done.
-  * TODO: If that works, try setting it back to true.
+* Try setting a capability supported by prctl after permissions are dropped but before daemonize. (_prctl.set_caps([], [], [], [], [], []))
+* Try setting a capability not supported by prctl after permissions are dropped but before daemonize.
+* Try setting the uid after permissions are dropped but before daemonize.
+* Try setting the gid after permissions are dropped but before daemonize.
+* Try setting a capability supported by prctl after daemonize.
+* Try setting a capability not supported by prctl after daemonize.
+* Try setting the uid after daemonize.
+* Try setting the gid after daemonize.
+* Try setting no_setuid_fixup after permissions are dropped but before daemonize.
+* Try setting no_setuid_fixup after daemonize.
 * Fails if a required usage connection is not in the connection IDs list.
 * uid is 0 when running as root.
-* git is 0 when running as root.
-* uid is netcheck when running as netcheck.
-* git is netcheck when running as netcheck.
+* gid is 0 when running as root.
 * After daemonize, the current working directory is '/'.
 * The pid file contains the correct process number.
 * Before daemonize program's umask is set correctly.
@@ -179,11 +191,11 @@
 * After daemonize program's umask is set correctly.
   * Test file creation.
   * Test directory creation.
-* After deamonize, the program have a blank ouid.
-* Before deamonize, the program should have an suid, euid, and ruid of netcheck when running as netcheck.
-* After deamonize, the program should have an sgid, egid, and rgid of netcheck when running as netcheck.
-* Before deamonize, the program should have an suid, euid, and ruid of 0 when running as root.
-* After deamonize, the program should have an sgid, egid, and rgid of 0 when running as root.
+* After daemonize, the program have a blank ouid.
+* Before daemonize, the program should have an suid, euid, and ruid of netcheck when running as netcheck.
+* After daemonize, the program should have an sgid, egid, and rgid of netcheck when running as netcheck.
+* Before daemonize, the program should have an suid, euid, and ruid of 0 when running as root.
+* After daemonize, the program should have an sgid, egid, and rgid of 0 when running as root.
 * systemd considers the service stopped on expected termination.
 * systemd considers the service stopped on unexpected termination.
 * Retries if NetworkManager fails to import. (10 second delay)
@@ -211,7 +223,7 @@
 * When activating connections quickly, GetAppliedConnection raises an error.
   * An error is logged.
 * When activating connections quickly, the applied connection is not in this list of connection IDs.
-* When activating connections quickly, the device has not available connections.
+* When activating connections quickly, the device has no available connections.
 * When activating connections quickly, available connection not in the connection ID list.
 * When activating connections quickly, available connection in the connection ID list.
 * When activating connections quickly, multiple WiFi connections can be activated on two devices.
@@ -238,11 +250,11 @@
           * Try again.
         * Timeout is met.
           * Connection is considered available.
-      * Device is IPv6 and no IP is available.
-        * Timeout isn't met.
-          * Try again.
-        * Timeout is met.
-          * Connection is considered available.
+      Skipped - Device is IPv6 and no IP is available.
+        Skipped - Timeout isn't met.
+          Skipped - Try again.
+        Skipped - Timeout is met.
+          Skipped - Connection is considered available.
       * Device is IPv4 and an IP is available.
         * Connection is considered stolen.
       * Device is IPv6 and an IP is available.
@@ -288,7 +300,7 @@
   * Program doesn't crash.
 * Doesn't broadcast a gateway change because there is no gateway.
 * Doesn't broadcast a gateway change because there is no change.
-* TODO: Do broadcast test plan.
+* Verify broadcast coverge.
 * Logs the initial state of no connections.
 * Logs the initial state with connections.
 * Unexpected exception doesn't crash the program.
@@ -300,7 +312,7 @@
       * Connection is not in an activated state.
         * Proceed as though connection is not active.
       * Connection is activated.
-        * DNS Loopup fails.
+        * DNS Lookup fails.
           * Proceeds as though connection is not active.
         * DNS Lookup succeeds.
           * Logged as used.
@@ -396,10 +408,10 @@
 * Reiterative
   * Module name doesn't match.
     * Continues to _retry_on_exception
-  * Module name matches but method name doesn't match.
-    * Continues to _retry_on_exception
-  * Module name matches and method name matches.
-    * Call the orignal method.
+  Unreachable - Module name matches but method name doesn't match.
+    Unreachable - Continues to _retry_on_exception
+  Unreachable - Module name matches and method name matches.
+    Unreachable - Call the orignal method.
   * Method call succeeds first time.
     * Value is returned.
   * Method call succeeds first subsequent times.
@@ -409,8 +421,7 @@
   * Service is unknown.
     * Warning logged on first occurence.
     * On retry, sleeps up to .1 seconds.
-    * Fails due to max retries.
-    * Fails due to max timeout.
+    * Fails due to max retries and max timeout.
   * Unknown method.
     * Retry if max attempts not reached.
     * Fail on max attempts.
@@ -421,12 +432,10 @@
 * Broadcast delay is recognized.
 * Main loop delay is recognized.
 * The stack trace is printed if an exception occurs before the main loop.
-* Test the keyboard exception (by starting the program outside of systemd).
 * Programs starts fine with default values (as much as possible) in a VM.
 * Termination Signal.
   * Logs info message and quits.
-* Test backup network. Connection down. (Maybe use wireshark to see what gateway was used?)
-  * ifconfig eth0 down
+* Verify the correct interface is actually used for DNS lookups.
 * Test backup network. DNS down.
   * iptables -A OUTPUT -s 10.0.2.16 -d 8.8.8.8 -j REJECT
 * Wired network down. (Unplug wired. Should fall back to first wireless.)
@@ -446,18 +455,12 @@
 * Backup connection test when not already connected to backup connection.
 * Test when a connection is made but did not receive an IP address. (This might not be easily testable.)
 * Test when a connection is made but did not receive a gateway IP address. (This might not be easily testable.)
-* Try the following with both wireless and eithernet:
-  * When two adapters of the same type are present, test a connection with no specified interface nor mac address.
-    * The connection should use "the best" (one of) the two adapters.
-    * If the adapter is not available, crash on init.
+* Try the following with both wireless and ethernet:
   * When two adapters of the same type are present, test a connection with a specified interface but no mac address.
     * The connection should only use the specified interface.
-    * If the adapter is not available, crash on init.
   * When two adapters of the same type are present, test a connection with a mac address but no specified interface.
     * The connection should only use the specified mac address.
-    * If the adapter is not available, crash on init.
   * When two adapters of the same type are present, test a connection with a matching interface and mac address.
     * The connection should use the specified adpater.
-    * If the adapter is not available, crash on init.
   * When two adpaters of the same type are present, test a connection with a conflicting interface and mac address.
-    * Crash on init.
+* Verify 99-netcheck-unattended-upgrades works.
